@@ -48,7 +48,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     setState(() => _isSubmitting = true);
 
     try {
-      final user = await AppwriteService().account.get();
+      final user = await AppWriteService().account.get();
       String userId = user.$id;
       String name = user.name; // You can also let user enter name if needed
 

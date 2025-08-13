@@ -1,3 +1,4 @@
+import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -54,7 +55,7 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
   Future<void> fetchWithdrawalRequests() async {
     setState(() => loading = true);
     try {
-      final requests = await WithdrawService.fetchAllWithdrawals();
+      final requests = await WithdrawService.fetchAllWithdrawals(await AppWriteService().getJWT());
       setState(() {
         allRequests = requests;
       });
@@ -306,6 +307,7 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
     if (result != null && result.isNotEmpty) {
 
       final (success, message) = await WithdrawService.approveWithdrawal(
+          jwtToken: await AppWriteService().getJWT(),
           requestId: request.id!,
           utrNumber: result,
       );
@@ -352,6 +354,7 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
             onPressed: () async {
               if (formKey.currentState!.validate()) {
               final (success, message) = await WithdrawService.rejectWithdrawal(
+                  jwtToken: await AppWriteService().getJWT(),
                   requestId: request.id!,
                   reason: _reasonController.text.trim(),
                 );

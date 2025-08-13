@@ -1,3 +1,4 @@
+import 'package:admin_qr_manager/utils/CurrencyUtils.dart';
 import 'package:flutter/material.dart';
 import '../models/Transaction.dart';
 import 'package:intl/intl.dart';
@@ -20,7 +21,7 @@ class TransactionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _infoRow(Icons.currency_rupee, 'Amount', '₹${txn.amount / 100}'),
+            _infoRow(Icons.currency_rupee, 'Amount', CurrencyUtils.formatIndianCurrency(txn.amount / 100)),
             _infoRow(Icons.qr_code, 'QR Code ID', txn.qrCodeId),
             _infoRow(Icons.payment, 'Payment ID', txn.paymentId),
             _infoRow(Icons.receipt_long, 'RRN Number', txn.rrnNumber),
@@ -48,4 +49,5 @@ class TransactionCard extends StatelessWidget {
       ),
     );
   }
+
 }

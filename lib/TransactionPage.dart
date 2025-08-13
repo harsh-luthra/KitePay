@@ -48,7 +48,7 @@ class _TransactionPageState extends State<TransactionPage> {
 
   Future<void> loadInitialData() async {
     setState(() => loading = true);
-    _jwtToken = await AppwriteService().getJWT();
+    _jwtToken = await AppWriteService().getJWT();
     if (widget.filterUserId == null && widget.filterQrCodeId == null) {
       // Only load users/qrCodes if filters are not pre-set
       users = await AdminUserService.listUsers(_jwtToken!);
@@ -60,11 +60,11 @@ class _TransactionPageState extends State<TransactionPage> {
   }
 
   Future<void> loadTransactions() async {
-    transactions = await TransactionService.fetchTransactions(
-      userId: selectedUserId,
-      qrId: selectedQrCodeId,
-      jwtToken: _jwtToken!
-    );
+    // transactions = await TransactionService.fetchTransactions(
+    //   userId: selectedUserId,
+    //   qrId: selectedQrCodeId,
+    //   jwtToken: _jwtToken!
+    // );
     transactions = transactions.reversed.toList();
     setState(() {});
   }

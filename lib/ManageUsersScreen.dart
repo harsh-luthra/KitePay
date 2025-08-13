@@ -38,7 +38,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   Future<void> _fetchUsers() async {
     setState(() => _loading = true);
     try {
-      _users = await AdminUserService.listUsers(await AppwriteService().getJWT());
+      _users = await AdminUserService.listUsers(await AppWriteService().getJWT());
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('❌ Failed to fetch users: $e')),
@@ -130,7 +130,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
               );
 
               try {
-                final jwt = await AppwriteService().getJWT();
+                final jwt = await AppWriteService().getJWT();
                 await AdminUserService.createUser(email, password, name, jwt);
                 ScaffoldMessenger.of(parentContext).showSnackBar(
                   const SnackBar(content: Text('User added successfully!')),
@@ -198,7 +198,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                 );
 
                 try {
-                  final jwt = await AppwriteService().getJWT();
+                  final jwt = await AppWriteService().getJWT();
                   await AdminUserService.resetPassword(
                     userId,
                     passwordController.text.trim(),
@@ -338,7 +338,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     }
 
                     try {
-                      final jwt = await AppwriteService().getJWT();
+                      final jwt = await AppWriteService().getJWT();
                       print('labelsChanged $tempLabels');
                       await AdminUserService.editUser(
                         user.id,
@@ -395,7 +395,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       );
 
       try {
-        await AdminUserService.deleteUser(userId, await AppwriteService().getJWT());
+        await AdminUserService.deleteUser(userId, await AppWriteService().getJWT());
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('User $name, Email $email Deleted Successfully')),
         );
@@ -600,7 +600,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    final jwt = await AppwriteService().getJWT();
+    final jwt = await AppWriteService().getJWT();
     final success = await AdminUserService.updateUserStatus(
       userId: user.id,
       jwtToken: jwt,

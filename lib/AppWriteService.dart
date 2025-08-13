@@ -2,8 +2,8 @@ import 'package:appwrite/appwrite.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class AppwriteService {
-  static final AppwriteService _instance = AppwriteService._internal();
+class AppWriteService {
+  static final AppWriteService _instance = AppWriteService._internal();
 
   late final Client client;
   late final Account account;
@@ -17,11 +17,11 @@ class AppwriteService {
 // Define a key for your JWT in SharedPreferences
   static const String jwtKey = 'appwrite_jwt';
 
-  factory AppwriteService() {
+  factory AppWriteService() {
     return _instance;
   }
 
-  AppwriteService._internal() {
+  AppWriteService._internal() {
     client = Client()
         .setEndpoint(endpoint)
         .setProject(projectId)
@@ -49,17 +49,19 @@ class AppwriteService {
   /// If the JWT is expired or doesn't exist, it will create a new one and cache it.
   Future<String> getJWT() async {
     try {
+      // SharedPreferences.setMockInitialValues({});
+
       final prefs = await SharedPreferences.getInstance();
       final cachedJwt = prefs.getString(jwtKey);
 
       // Check if a JWT is cached and if it's still valid
       if (cachedJwt != null && !JwtDecoder.isExpired(cachedJwt)) {
-        print('Using cached JWT');
+        // print('Using cached JWT');
         return cachedJwt;
       }
 
       // If no JWT is cached or it's expired, create a new one
-      print('Generating new JWT');
+      // print('Generating new JWT');
       final jwtResponse = await account.createJWT();
       final newJwt = jwtResponse.jwt;
 

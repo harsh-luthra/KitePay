@@ -11,7 +11,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
 
-  final appwrite = AppwriteService();
+  final appwrite = AppWriteService();
 
   void initState(){
     super.initState();

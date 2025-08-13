@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:admin_qr_manager/QRService.dart';
+import 'package:admin_qr_manager/utils/CurrencyUtils.dart';
 import 'package:appwrite/models.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
@@ -44,7 +45,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
         _fetchQrCodes();
         _fetchUsers();
     }else{
-      print("User Mode");
+      // print("User Mode");
       _fetchOnlyUserQrCodes();
     }
   }
@@ -65,7 +66,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   Future<void> _fetchUsers() async {
     setState(() => _isProcessing = true);
     try {
-      users = await AdminUserService.listUsers(await AppwriteService().getJWT());
+      users = await AdminUserService.listUsers(await AppWriteService().getJWT());
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('❌ Failed to fetch users: $e')),
@@ -148,7 +149,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
   // Fetches QR codes from the server and updates the UI
   Future<void> _fetchQrCodes() async {
-    _jwtToken = await AppwriteService().getJWT();
+    _jwtToken = await AppWriteService().getJWT();
     if (_jwtToken == null) {
       // Don't fetch if not logged in
       return;
@@ -588,7 +589,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       key: _scaffoldMessengerKey,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('QR Code Management'),
+          title: Text(widget.userMode ? "My QR Codes" : 'Manage All QR Codes'),
           actions: [
             if(!widget.userMode)
             IconButton(onPressed: _jwtToken != null && !_isProcessing ? _showUploadQrDialog : null, icon: Icon(Icons.add)),
@@ -728,6 +729,71 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                       ),
                     ),
                   ),
+
+                  const SizedBox(height: 20),
+                  // Action buttons
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if(!widget.userMode)
+                        IconButton(
+                          icon: Icon(
+                            qrCode.isActive ? Icons.toggle_on : Icons.toggle_off,
+                            color: qrCode.isActive ? Colors.green : Colors.grey,
+                          ),
+                          tooltip: 'Toggle Status',
+                          onPressed: _isProcessing ? null : () => _toggleStatus(qrCode),
+                        ),
+                      if(!widget.userMode)
+                        IconButton(
+                          icon: Icon(
+                            qrCode.assignedUserId == null
+                                ? Icons.person_add_alt_1
+                                : Icons.person_outline,
+                            color: Colors.blueAccent,
+                          ),
+                          tooltip: qrCode.assignedUserId == null ? 'Assign User' : 'Change Assignment',
+                          onPressed: _isProcessing
+                              ? null
+                              : () => qrCode.assignedUserId == null
+                              ? _assignUser(qrCode.qrId, qrCode.fileId)
+                              : _showAssignOptions(qrCode),
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.article_outlined, color: Colors.deepPurple),
+                        tooltip: 'View Transactions',
+                        onPressed: _isProcessing
+                            ? null
+                            : () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) {
+                              if (widget.userMode) {
+                                return TransactionPageNew(
+                                  filterQrCodeId: qrCode.qrId,
+                                  userMode: true,
+                                  userModeUserid: widget.userModeUserid,
+                                );
+                              } else {
+                                return TransactionPageNew(
+                                  filterQrCodeId: qrCode.qrId,
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      if(!widget.userMode)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                          tooltip: 'Delete QR Code',
+                          onPressed:
+                          _isProcessing ? null : () => _deleteQrCode(qrCode.qrId),
+                        ),
+                    ],
+                  )
+
                 ],
               ),
             ),
@@ -736,7 +802,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             // Right: Info + Actions
             Expanded(
               child: SizedBox(
-                height: 150,
+                height: 200,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -744,6 +810,20 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                     // QR ID
                     Text(
                       'ID: ${qrCode.qrId}',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    // QR ID
+                    Text(
+                      'Total Transactions: ${CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions!)}',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+
+                    // QR ID
+                    Text(
+                      'Total Amount Received: ${CurrencyUtils.formatIndianCurrency(qrCode.totalPayInAmount! / 100)}',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
 
@@ -761,71 +841,71 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
                     const SizedBox(height: 10),
 
-                    Spacer(),
-                    // Action buttons
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        if(!widget.userMode)
-                        IconButton(
-                          icon: Icon(
-                            qrCode.isActive ? Icons.toggle_on : Icons.toggle_off,
-                            size: 34,
-                            color: qrCode.isActive ? Colors.green : Colors.grey,
-                          ),
-                          tooltip: 'Toggle Status',
-                          onPressed: _isProcessing ? null : () => _toggleStatus(qrCode),
-                        ),
-                        if(!widget.userMode)
-                        IconButton(
-                          icon: Icon(
-                            qrCode.assignedUserId == null
-                                ? Icons.person_add_alt_1
-                                : Icons.person_outline,
-                            size: 30,
-                            color: Colors.blueAccent,
-                          ),
-                          tooltip: qrCode.assignedUserId == null ? 'Assign User' : 'Change Assignment',
-                          onPressed: _isProcessing
-                              ? null
-                              : () => qrCode.assignedUserId == null
-                              ? _assignUser(qrCode.qrId, qrCode.fileId)
-                              : _showAssignOptions(qrCode),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.article_outlined, color: Colors.deepPurple),
-                          tooltip: 'View Transactions',
-                          onPressed: _isProcessing
-                              ? null
-                              : () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) {
-                                if (widget.userMode) {
-                                  return TransactionPageNew(
-                                    filterQrCodeId: qrCode.qrId,
-                                    userMode: true,
-                                    userModeUserid: widget.userModeUserid,
-                                  );
-                                } else {
-                                  return TransactionPageNew(
-                                    filterQrCodeId: qrCode.qrId,
-                                  );
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-                        if(!widget.userMode)
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                          tooltip: 'Delete QR Code',
-                          onPressed:
-                          _isProcessing ? null : () => _deleteQrCode(qrCode.qrId),
-                        ),
-                      ],
-                    )
+                    // Spacer(),
+                    // // Action buttons
+                    // Wrap(
+                    //   spacing: 8,
+                    //   runSpacing: 4,
+                    //   children: [
+                    //     if(!widget.userMode)
+                    //     IconButton(
+                    //       icon: Icon(
+                    //         qrCode.isActive ? Icons.toggle_on : Icons.toggle_off,
+                    //         size: 34,
+                    //         color: qrCode.isActive ? Colors.green : Colors.grey,
+                    //       ),
+                    //       tooltip: 'Toggle Status',
+                    //       onPressed: _isProcessing ? null : () => _toggleStatus(qrCode),
+                    //     ),
+                    //     if(!widget.userMode)
+                    //     IconButton(
+                    //       icon: Icon(
+                    //         qrCode.assignedUserId == null
+                    //             ? Icons.person_add_alt_1
+                    //             : Icons.person_outline,
+                    //         size: 30,
+                    //         color: Colors.blueAccent,
+                    //       ),
+                    //       tooltip: qrCode.assignedUserId == null ? 'Assign User' : 'Change Assignment',
+                    //       onPressed: _isProcessing
+                    //           ? null
+                    //           : () => qrCode.assignedUserId == null
+                    //           ? _assignUser(qrCode.qrId, qrCode.fileId)
+                    //           : _showAssignOptions(qrCode),
+                    //     ),
+                    //     IconButton(
+                    //       icon: const Icon(Icons.article_outlined, color: Colors.deepPurple),
+                    //       tooltip: 'View Transactions',
+                    //       onPressed: _isProcessing
+                    //           ? null
+                    //           : () => Navigator.push(
+                    //         context,
+                    //         MaterialPageRoute(
+                    //           builder: (_) {
+                    //             if (widget.userMode) {
+                    //               return TransactionPageNew(
+                    //                 filterQrCodeId: qrCode.qrId,
+                    //                 userMode: true,
+                    //                 userModeUserid: widget.userModeUserid,
+                    //               );
+                    //             } else {
+                    //               return TransactionPageNew(
+                    //                 filterQrCodeId: qrCode.qrId,
+                    //               );
+                    //             }
+                    //           },
+                    //         ),
+                    //       ),
+                    //     ),
+                    //     if(!widget.userMode)
+                    //     IconButton(
+                    //       icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                    //       tooltip: 'Delete QR Code',
+                    //       onPressed:
+                    //       _isProcessing ? null : () => _deleteQrCode(qrCode.qrId),
+                    //     ),
+                    //   ],
+                    // )
                   ],
                 ),
               ),
@@ -836,6 +916,5 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       ),
     );
   }
-
 
 }

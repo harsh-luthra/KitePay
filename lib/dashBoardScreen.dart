@@ -12,7 +12,7 @@ import 'TransactionPage.dart';
 import 'TransactionsPageOld.dart';
 import 'adminLoginPage.dart'; // Your login screen file
 
-final appwrite = AppwriteService();
+final appwrite = AppWriteService();
 
 class DashboardScreen extends StatelessWidget {
   // final List<String> userLabels;
@@ -52,11 +52,15 @@ class DashboardScreen extends StatelessWidget {
               (route) => false,
         );
       } on AppwriteException catch (e) {
+        print(e.message ?? 'Logout failed');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.message ?? 'Logout failed')),
         );
+      } catch (e){
+        print(e.toString() ?? 'Logout failed');
       }
     }
+
   }
 
   Future<bool> _confirmExit(BuildContext context) async {

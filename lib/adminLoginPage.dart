@@ -4,8 +4,9 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/models.dart' as models;
-
+// DashboardScreenNew
 import 'package:admin_qr_manager/AppWriteService.dart'; // adjust path as needed
+import 'DashboardScreenNew.dart';
 import 'dashBoardScreen.dart'; // screen to redirect after login
 
 class AdminLoginScreen extends StatefulWidget {
@@ -21,7 +22,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   String? errorMessage;
   bool isLoading = false;
 
-  final appwrite = AppwriteService();
+  final appwrite = AppWriteService();
 
   bool _obscurePassword = true; // Add this to your State
 
@@ -55,7 +56,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   void moveToDashBoard(models.User user){
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => DashboardScreen(user: user,)),
+        MaterialPageRoute(builder: (_) => DashboardScreenNew(user: user,)),
             (_) => false, // removes all previous routes
       );
     }
@@ -107,7 +108,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       errorMessage = null;
     });
 
-    final appwrite = AppwriteService();
+    final appwrite = AppWriteService();
 
     try {
       final session = await appwrite.account.createEmailPasswordSession(
@@ -215,7 +216,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text(
-                  'Welcome Back',
+                  'Welcome to KitePay',
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),

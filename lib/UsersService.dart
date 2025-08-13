@@ -2,14 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import 'AppConstants.dart';
 import 'models/AppUser.dart';
 
 class AdminUserService {
-  static const String baseUrl = 'http://46.202.164.198:3000/api'; // change to your server
+  static final String _baseUrl = AppConstants.baseApiUrl;
 
   static Future<List<AppUser>> listUsers(String jwtToken) async {
     try {
-      final url = Uri.parse('$baseUrl/admin/users');
+      final url = Uri.parse('$_baseUrl/admin/users');
       // print('📤 Sending GET request to: $url');
       // print('🔐 JWT Token: $jwtToken');
 
@@ -44,7 +45,7 @@ class AdminUserService {
 
   static Future<UserListResult> listUsersNew(String jwtToken) async {
     try {
-      final url = Uri.parse('$baseUrl/admin/users');
+      final url = Uri.parse('$_baseUrl/admin/users');
       final response = await http
           .get(
         url,
@@ -77,7 +78,7 @@ class AdminUserService {
 
   /// Create a user with email and password via Node.js backend
   static Future<void> createUser(String email, String password, String name, String jwtToken) async {
-    final url = Uri.parse('$baseUrl/admin/create-user');
+    final url = Uri.parse('$_baseUrl/admin/create-user');
 
     print('📤 Sending POST request to: $url');
     print('📧 Name: $name');
@@ -116,7 +117,7 @@ class AdminUserService {
 
   static Future<void> resetPassword(String userId, String newPassword, String jwt) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/admin/reset-password/$userId'),
+      Uri.parse('$_baseUrl/admin/reset-password/$userId'),
       headers: {
         'Authorization': 'Bearer $jwt',
         'Content-Type': 'application/json',
@@ -132,7 +133,7 @@ class AdminUserService {
 
   static Future<void> editUser(String userId, String jwtToken, {String? name, String? email, List<String>? labels }) async {
     final response = await http.put(
-      Uri.parse('$baseUrl/admin/edit-user/$userId'),
+      Uri.parse('$_baseUrl/admin/edit-user/$userId'),
       headers: {
         'Authorization': 'Bearer $jwtToken',
         'Content-Type': 'application/json',
@@ -155,7 +156,7 @@ class AdminUserService {
     required String jwtToken,
     required bool status,
   }) async {
-    final url = Uri.parse('$baseUrl/admin/update-user-status'); // Update with your server URL
+    final url = Uri.parse('$_baseUrl/admin/update-user-status'); // Update with your server URL
 
     try {
       final res = await http.post(
@@ -186,7 +187,7 @@ class AdminUserService {
   /// Delete user by userId with admin JWT
   static Future<void> deleteUser(String userId, String jwtToken) async {
     final response = await http.delete(
-      Uri.parse('$baseUrl/admin/delete-user/$userId'), // 👈 ensure this matches backend route
+      Uri.parse('$_baseUrl/admin/delete-user/$userId'), // 👈 ensure this matches backend route
       headers: {
         'Authorization': 'Bearer $jwtToken',
         'Content-Type': 'application/json',

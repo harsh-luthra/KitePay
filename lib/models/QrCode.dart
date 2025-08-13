@@ -5,6 +5,8 @@ class QrCode {
   final String? assignedUserId;
   final bool isActive;
   final String? createdAt;
+  final int? totalTransactions;
+  final int? totalPayInAmount;
 
   QrCode({
     required this.qrId,
@@ -13,6 +15,8 @@ class QrCode {
     this.assignedUserId,
     required this.isActive,
     this.createdAt,
+    this.totalTransactions,
+    this.totalPayInAmount,
   });
 
   factory QrCode.fromJson(Map<String, dynamic> json) {
@@ -23,6 +27,8 @@ class QrCode {
       assignedUserId: json['assignedUserId'] as String?,
       createdAt: json['createdAt'] as String?,
       isActive: json['isActive'] ?? true,
+      totalTransactions: json['totalTransactions'] as int? ?? 0,
+      totalPayInAmount: json['totalPayInAmount'] as int? ?? 0,
     );
   }
 }

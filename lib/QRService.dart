@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
+import 'AppConstants.dart';
 import 'models/AppUser.dart';
 import 'models/QrCode.dart';
 import 'package:appwrite/appwrite.dart';
@@ -12,12 +13,14 @@ late final Client _client;
 
 class QrCodeService {
   // Base URL for your Node.js backend
-  static const String _baseUrl = 'http://46.202.164.198:3000/api';
+  static final String _baseUrl = AppConstants.baseApiUrl;
 
   // Appwrite client and storage
   final Client _appwriteClient = Client()
       .setEndpoint('https://fra.cloud.appwrite.io/v1') // Your Appwrite Endpoint
       .setProject('688c98fd002bfe3cf596'); // Your project ID
+
+  final String bucketId = "688d2517002810ac532b";
 
   late final Storage _appwriteStorage;
 
@@ -77,8 +80,8 @@ class QrCodeService {
   // This now handles both file upload and database entry creation.
   Future<bool> uploadQrCode(PlatformFile file, String qrId, String jwtToken) async {
     try {
-      print('Attempting to upload file: ${file.name} to Appwrite...');
-      print('Using bucketId: 688d2517002810ac532b');
+      // print('Attempting to upload file: ${file.name} to Appwrite...');
+      // print('Using bucketId: $bucketId');
 
       if (file.bytes == null) {
         print('❌ Error: File bytes are null. Cannot proceed with upload.');
@@ -92,7 +95,7 @@ class QrCodeService {
       );
 
       final fileResult = await _appwriteStorage.createFile(
-        bucketId: '688d2517002810ac532b', // Your bucket ID
+        bucketId: bucketId, // Your bucket ID
         fileId: ID.unique(), // Let Appwrite generate a unique ID
         file: inputFile,
       );
@@ -107,7 +110,7 @@ class QrCodeService {
       }
 
       // Step 2: Construct the image URL
-      final imageUrl = 'https://fra.cloud.appwrite.io/v1/storage/buckets/688d2517002810ac532b/files/$fileId/view?project=688c98fd002bfe3cf596';
+      final imageUrl = 'https://fra.cloud.appwrite.io/v1/storage/buckets/$bucketId/files/$fileId/view?project=688c98fd002bfe3cf596';
 
       // Step 3: Send the QR entry details to the Node.js server
       return await _createQrEntryOnServer(
@@ -151,8 +154,7 @@ class QrCodeService {
       }
     } on TimeoutException {
       // 🔌 API took too long
-      throw Exception(
-          'Request timed out. Please check your connection or try again later.');
+      throw Exception('Request timed out. Please check your connection or try again later.');
     } catch (e) {
       print('Error fetching QR codes: $e');
       return []; // Return an empty list on error

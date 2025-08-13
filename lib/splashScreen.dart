@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:admin_qr_manager/AppWriteService.dart';
+import 'DashboardScreenNew.dart';
 import 'adminLoginPage.dart';
 import 'dashBoardScreen.dart';
 
-final appwrite = AppwriteService();
+final appwrite = AppWriteService();
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -65,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => DashboardScreen(user: user)),
+        MaterialPageRoute(builder: (_) => DashboardScreenNew(user: user)),
             (route) => false,
       );
 
