@@ -480,7 +480,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                             ...filteredQrCodes.map(
                               (qr) => DropdownMenuItem(
                                 value: qr.qrId,
-                                child: Text(qr.qrId ?? qr.assignedUserId ?? ''),
+                                child: Text('${qr.qrId} (${qr.totalTransactions})'),
                               ),
                             ),
                           ],
