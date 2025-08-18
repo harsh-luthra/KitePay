@@ -373,6 +373,43 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
     );
   }
 
+  bool shouldSkipIndependenceDayDialog() {
+    print("shouldSkipIndependenceDayDialog");
+    final now = DateTime.now();
+    // Check if today is 15 August
+    if (now.month == 8 && now.day == 15) {
+      // It's Independence Day → DO NOT skip the dialog
+      return false;
+    }
+    // Any other day → SKIP showing dialog
+    return true;
+  }
+
+  void showIndependenceDayDialog(BuildContext context) {
+    final now = DateTime.now();
+
+    // Check if today is 15 August
+    if (now.month == 8 && now.day == 15) {
+      // Show the dialog only on 15th August
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("Notice"),
+          content: const Text(
+              "On the occasion of 15th August (Independence Day), "
+                  "withdrawals will not be processed."
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("OK"),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ScaffoldMessenger(
@@ -385,9 +422,14 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
             IconButton(
               icon: const Icon(Icons.add),
               onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => WithdrawalFormPage()),
-                );
+                if(shouldSkipIndependenceDayDialog() == false){
+                  showIndependenceDayDialog(context);
+                }else{
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => WithdrawalFormPage()),
+                  );
+                }
+
               },
             ),
             if(!widget.userMode)

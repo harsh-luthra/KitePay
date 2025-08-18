@@ -154,7 +154,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   }
 
   // Build sidebar item widget
-  Widget _buildSidebarItem(_MenuItem item, bool isActive, bool collapsed) {
+  Widget _buildSidebarItem(_MenuItem item, bool isActive, bool collapsed, bool isDesktop) {
     final hovering = _hovering[item.id] ?? false;
     final bg = isActive
         ? Colors.blue.shade700
@@ -176,7 +176,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
-          onTap: () => _onSelectMenu(item, true),
+          onTap: () => _onSelectMenu(item, isDesktop),
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: 10, horizontal: collapsed ? 8 : 14),
             child: Row(
@@ -259,6 +259,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                       ],
                     ),
                   ),
+                  if(isDesktop)
                   IconButton(
                     tooltip: _sidebarCollapsed ? 'Expand' : 'Collapse',
                     onPressed: () => setState(() => _sidebarCollapsed = !_sidebarCollapsed),
@@ -281,7 +282,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
               child: Column(
                 children: items.map((mi) {
                   final isActive = _activeIndex == mi.id;
-                  return _buildSidebarItem(mi, isActive, collapsed);
+                  return _buildSidebarItem(mi, isActive, collapsed, isDesktop);
                 }).toList(),
               ),
             ),
@@ -324,9 +325,13 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       child: Row(
         children: [
           if (!isDesktop)
-            IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () => Scaffold.of(context).openDrawer(),
+            Builder(
+              builder: (ctx) {
+                return IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => Scaffold.of(ctx).openDrawer(),
+                );
+              }
             ),
           const SizedBox(width: 8),
           Text(
@@ -383,7 +388,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     final isDesktop = MediaQuery.of(context).size.width >= kDesktopBreakpoint;
 
     return Scaffold(
-      drawer: isDesktop ? null : Drawer(child: _buildSidebar(false, false)),
+      drawer: isDesktop ? null : Drawer(child: _buildSidebar(_sidebarCollapsed, false)),
       body: SafeArea(
         child: Row(
           children: [

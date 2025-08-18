@@ -1,0 +1,35 @@
+{
+  "collection": {
+    "name": "branch_totals",
+    "document": {
+      "branch_id": {
+        "type": "string",
+        "description": "Link to users table (role = branch)"
+      },
+      "total_payin_auto": {
+        "type": "decimal(12,2)",
+        "description": "Total amount received via automatic pay-ins"
+      },
+      "total_payin_manual": {
+        "type": "decimal(12,2)",
+        "description": "Total amount received via manual pay-ins"
+      },
+      "withdrawals_approved": {
+        "type": "decimal(12,2)",
+        "description": "Total withdrawals that were approved & paid"
+      },
+      "withdrawals_pending": {
+        "type": "decimal(12,2)",
+        "description": "Total withdrawals requested but not yet processed"
+      },
+      "withdrawals_rejected": {
+        "type": "decimal(12,2)",
+        "description": "Total withdrawals rejected"
+      },
+      "updated_at": {
+        "type": "timestamp",
+        "description": "Last time totals were recalculated"
+      }
+    }
+  }
+}

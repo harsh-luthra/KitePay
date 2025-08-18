@@ -1,0 +1,38 @@
+{
+  "id": "commission_wallets",
+  "name": "Commission Wallets",
+  "permissions": [],
+  "attributes": [
+    {
+      "key": "user_id",
+      "type": "string",
+      "required": true,
+      "default": ""
+    },
+    {
+      "key": "user_type",
+      "type": "enum",
+      "required": true,
+      "default": "merchant",
+      "enum": ["admin", "merchant"]
+    },
+    {
+      "key": "balance",
+      "type": "decimal",
+      "required": true,
+      "default": "0.00"
+    },
+    {
+      "key": "created_at",
+      "type": "datetime",
+      "required": true,
+      "default": "now"
+    },
+    {
+      "key": "updated_at",
+      "type": "datetime",
+      "required": true,
+      "default": "now"
+    }
+  ]
+}

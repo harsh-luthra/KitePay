@@ -1,0 +1,57 @@
+{
+  "id": "merchant_coin_transactions",
+  "name": "Merchant Coin Transactions",
+  "permissions": [],
+  "attributes": [
+    {
+      "key": "transaction_id",
+      "type": "string",
+      "required": true,
+      "default": "UUID"
+    },
+    {
+      "key": "merchant_id",
+      "type": "string",
+      "required": true
+    },
+    {
+      "key": "branch_id",
+      "type": "string",
+      "required": false
+    },
+    {
+      "key": "type",
+      "type": "enum",
+      "required": true,
+      "default": "credit",
+      "enum": ["credit", "debit"]
+    },
+    {
+      "key": "amount",
+      "type": "number",
+      "required": true
+    },
+    {
+      "key": "reason",
+      "type": "string",
+      "required": true
+    },
+    {
+      "key": "initiated_by",
+      "type": "string",
+      "required": true
+    },
+    {
+      "key": "created_at",
+      "type": "datetime",
+      "required": true,
+      "default": "now"
+    },
+    {
+      "key": "updated_at",
+      "type": "datetime",
+      "required": true,
+      "default": "now"
+    }
+  ]
+}

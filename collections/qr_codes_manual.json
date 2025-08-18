@@ -1,0 +1,57 @@
+{
+  "collection": {
+    "name": "qr_codes_manual",
+    "document": {
+      "fields": [
+        {
+          "key": "qr_id",
+          "type": "string",
+          "required": true,
+          "description": "Unique ID for QR"
+        },
+        {
+          "key": "file_id",
+          "type": "string",
+          "required": true,
+          "description": "Appwrite file ID"
+        },
+        {
+          "key": "image_url",
+          "type": "string",
+          "required": true,
+          "description": "Direct link to QR image"
+        },
+        {
+          "key": "owner_user_id",
+          "type": "string",
+          "required": true,
+          "description": "Appwrite user ID of owner"
+        },
+        {
+          "key": "is_active",
+          "type": "boolean",
+          "required": true,
+          "description": "Status of QR"
+        },
+        {
+          "key": "amount_credited",
+          "type": "number",
+          "required": true,
+          "description": "Total credited via this QR"
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "required": true,
+          "description": "Creation time"
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "required": true,
+          "description": "Last update time"
+        }
+      ]
+    }
+  }
+}

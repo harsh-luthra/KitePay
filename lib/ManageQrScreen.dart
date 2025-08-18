@@ -659,6 +659,189 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   }
 
   Widget buildQrCodeCard(QrCode qrCode, String formattedDate) {
+    final isMobile = MediaQuery.of(context).size.width < 600; // breakpoint
+
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: isMobile
+            ? Column( // 📱 Mobile layout
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildQrLeftSection(qrCode),   // QR + buttons
+            const SizedBox(height: 12),
+            _buildQrRightSection(qrCode, formattedDate), // Info
+          ],
+        )
+            : Row( // 💻 Desktop layout
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildQrLeftSection(qrCode),
+            const SizedBox(width: 16),
+            Expanded(child: _buildQrRightSection(qrCode, formattedDate)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Left section (QR image + status + actions)
+  Widget _buildQrLeftSection(QrCode qrCode) {
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (_) => Dialog(
+                child: InteractiveViewer( // allows pinch zoom
+                  child: qrCode.imageUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                    imageUrl: qrCode.imageUrl,
+                    fit: BoxFit.contain,
+                    placeholder: (context, url) => const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                    errorWidget: (context, url, error) =>
+                    const Icon(Icons.error, size: 100),
+                  )
+                      : const Icon(Icons.qr_code, size: 100),
+                ),
+              ),
+            );
+          },
+          child: SizedBox(
+            width: 100,
+            height: 100,
+            child: qrCode.imageUrl.isNotEmpty
+                ? CachedNetworkImage(
+              imageUrl: qrCode.imageUrl,
+              fit: BoxFit.cover,
+              placeholder: (c, _) => const Center(child: CircularProgressIndicator()),
+              errorWidget: (c, _, __) => const Icon(Icons.error),
+            )
+                : const Icon(Icons.qr_code, size: 80),
+          ),
+        ),
+        const SizedBox(height: 15),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: qrCode.isActive ? Colors.green.shade100 : Colors.red.shade100,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            qrCode.isActive ? 'ACTIVE' : 'INACTIVE',
+            style: TextStyle(
+              color: qrCode.isActive ? Colors.green.shade800 : Colors.red.shade800,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        _buildActionButtons(qrCode), // keep your Wrap of IconButtons
+      ],
+    );
+  }
+
+  /// Right section (Details)
+  Widget _buildQrRightSection(QrCode qrCode, String formattedDate) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('ID: ${qrCode.qrId}',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        Text(
+          'Transactions: ${CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions!)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          'Amount Received: ${CurrencyUtils.formatIndianCurrency(qrCode.totalPayInAmount! / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        if (!widget.userMode)
+          Text('Assigned to: ${displayUserNameText(qrCode.assignedUserId) ?? 'Unassigned'}',
+              style: const TextStyle(fontSize: 14)),
+        Text('Created: $formattedDate',
+            style: const TextStyle(fontSize: 13, color: Colors.grey)),
+      ],
+    );
+  }
+
+  Widget _buildActionButtons(QrCode qrCode) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8, // extra spacing between rows when wrapping
+      alignment: WrapAlignment.center,
+      children: [
+        if(!widget.userMode)
+          IconButton(
+            icon: Icon(
+              qrCode.isActive ? Icons.toggle_on : Icons.toggle_off,
+              color: qrCode.isActive ? Colors.green : Colors.grey,
+            ),
+            tooltip: 'Toggle Status',
+            onPressed: _isProcessing ? null : () => _toggleStatus(qrCode),
+          ),
+        if(!widget.userMode)
+          IconButton(
+            icon: Icon(
+              qrCode.assignedUserId == null
+                  ? Icons.person_add_alt_1
+                  : Icons.person_outline,
+              color: Colors.blueAccent,
+            ),
+            tooltip: qrCode.assignedUserId == null ? 'Assign User' : 'Change Assignment',
+            onPressed: _isProcessing
+                ? null
+                : () => qrCode.assignedUserId == null
+                ? _assignUser(qrCode.qrId, qrCode.fileId)
+                : _showAssignOptions(qrCode),
+          ),
+        IconButton(
+          icon: const Icon(Icons.article_outlined, color: Colors.deepPurple),
+          tooltip: 'View Transactions',
+          onPressed: _isProcessing
+              ? null
+              : () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) {
+                if (widget.userMode) {
+                  return TransactionPageNew(
+                    filterQrCodeId: qrCode.qrId,
+                    userMode: true,
+                    userModeUserid: widget.userModeUserid,
+                  );
+                } else {
+                  return TransactionPageNew(
+                    filterQrCodeId: qrCode.qrId,
+                  );
+                }
+              },
+            ),
+          ),
+        ),
+        if(!widget.userMode)
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            tooltip: 'Delete QR Code',
+            onPressed:
+            _isProcessing ? null : () => _deleteQrCode(qrCode.qrId),
+          ),
+      ],
+    );
+  }
+
+
+  Widget buildQrCodeCardOld(QrCode qrCode, String formattedDate) {
     return Card(
       elevation: 4,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -817,13 +1000,13 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
                     // QR ID
                     Text(
-                      'Total Transactions: ${CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions!)}',
+                      'Transactions: ${CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions!)}',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
 
                     // QR ID
                     Text(
-                      'Total Amount Received: ${CurrencyUtils.formatIndianCurrency(qrCode.totalPayInAmount! / 100)}',
+                      'Amount Received: ${CurrencyUtils.formatIndianCurrency(qrCode.totalPayInAmount! / 100)}',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
 
@@ -841,71 +1024,6 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
                     const SizedBox(height: 10),
 
-                    // Spacer(),
-                    // // Action buttons
-                    // Wrap(
-                    //   spacing: 8,
-                    //   runSpacing: 4,
-                    //   children: [
-                    //     if(!widget.userMode)
-                    //     IconButton(
-                    //       icon: Icon(
-                    //         qrCode.isActive ? Icons.toggle_on : Icons.toggle_off,
-                    //         size: 34,
-                    //         color: qrCode.isActive ? Colors.green : Colors.grey,
-                    //       ),
-                    //       tooltip: 'Toggle Status',
-                    //       onPressed: _isProcessing ? null : () => _toggleStatus(qrCode),
-                    //     ),
-                    //     if(!widget.userMode)
-                    //     IconButton(
-                    //       icon: Icon(
-                    //         qrCode.assignedUserId == null
-                    //             ? Icons.person_add_alt_1
-                    //             : Icons.person_outline,
-                    //         size: 30,
-                    //         color: Colors.blueAccent,
-                    //       ),
-                    //       tooltip: qrCode.assignedUserId == null ? 'Assign User' : 'Change Assignment',
-                    //       onPressed: _isProcessing
-                    //           ? null
-                    //           : () => qrCode.assignedUserId == null
-                    //           ? _assignUser(qrCode.qrId, qrCode.fileId)
-                    //           : _showAssignOptions(qrCode),
-                    //     ),
-                    //     IconButton(
-                    //       icon: const Icon(Icons.article_outlined, color: Colors.deepPurple),
-                    //       tooltip: 'View Transactions',
-                    //       onPressed: _isProcessing
-                    //           ? null
-                    //           : () => Navigator.push(
-                    //         context,
-                    //         MaterialPageRoute(
-                    //           builder: (_) {
-                    //             if (widget.userMode) {
-                    //               return TransactionPageNew(
-                    //                 filterQrCodeId: qrCode.qrId,
-                    //                 userMode: true,
-                    //                 userModeUserid: widget.userModeUserid,
-                    //               );
-                    //             } else {
-                    //               return TransactionPageNew(
-                    //                 filterQrCodeId: qrCode.qrId,
-                    //               );
-                    //             }
-                    //           },
-                    //         ),
-                    //       ),
-                    //     ),
-                    //     if(!widget.userMode)
-                    //     IconButton(
-                    //       icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                    //       tooltip: 'Delete QR Code',
-                    //       onPressed:
-                    //       _isProcessing ? null : () => _deleteQrCode(qrCode.qrId),
-                    //     ),
-                    //   ],
-                    // )
                   ],
                 ),
               ),

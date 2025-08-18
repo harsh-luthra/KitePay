@@ -1,0 +1,80 @@
+{
+  "id": "merchant_payout_transactions",
+  "name": "Merchant Payout Transactions",
+  "document": {
+    "fields": [
+      {
+        "key": "id",
+        "type": "string",
+        "required": true,
+        "default": "UUID"
+      },
+      {
+        "key": "merchant_id",
+        "type": "string",
+        "required": true
+      },
+      {
+        "key": "withdrawal_request_id",
+        "type": "string",
+        "required": true
+      },
+      {
+        "key": "qr_id",
+        "type": "string",
+        "required": true
+      },
+      {
+        "key": "type",
+        "type": "enum",
+        "required": true,
+        "default": "credit",
+        "options": ["credit", "debit"]
+      },
+      {
+        "key": "amount",
+        "type": "decimal",
+        "required": true
+      },
+      {
+        "key": "method",
+        "type": "enum",
+        "required": true,
+        "options": ["bank", "upi", "wallet"]
+      },
+      {
+        "key": "status",
+        "type": "enum",
+        "required": true,
+        "options": ["pending", "completed", "rejected"]
+      },
+      {
+        "key": "rejection_reason",
+        "type": "text",
+        "required": false
+      },
+      {
+        "key": "utr_number",
+        "type": "string",
+        "required": false
+      },
+      {
+        "key": "note",
+        "type": "text",
+        "required": false
+      },
+      {
+        "key": "created_at",
+        "type": "datetime",
+        "required": true,
+        "default": "now"
+      },
+      {
+        "key": "updated_at",
+        "type": "datetime",
+        "required": true,
+        "default": "now"
+      }
+    ]
+  }
+}

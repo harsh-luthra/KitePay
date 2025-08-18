@@ -1,0 +1,62 @@
+{
+  "id": "admin_coin_transactions",
+  "name": "Admin Coin Transactions",
+  "permissions": [
+    {
+      "role": "admin",
+      "read": true,
+      "write": true
+    },
+    {
+      "role": "merchant",
+      "read": false,
+      "write": false
+    }
+  ],
+  "attributes": [
+    {
+      "key": "transaction_id",
+      "type": "string",
+      "required": true,
+      "default": "UUID()"
+    },
+    {
+      "key": "merchant_id",
+      "type": "string",
+      "required": true
+    },
+    {
+      "key": "type",
+      "type": "enum",
+      "required": true,
+      "options": ["credit", "debit"]
+    },
+    {
+      "key": "amount",
+      "type": "number",
+      "required": true
+    },
+    {
+      "key": "reason",
+      "type": "string",
+      "required": true
+    },
+    {
+      "key": "initiated_by",
+      "type": "string",
+      "required": true
+    },
+    {
+      "key": "created_at",
+      "type": "datetime",
+      "required": true,
+      "default": "now"
+    },
+    {
+      "key": "updated_at",
+      "type": "datetime",
+      "required": true,
+      "default": "now"
+    }
+  ]
+}

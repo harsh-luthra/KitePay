@@ -1,0 +1,83 @@
+{
+  "collection": {
+    "name": "pay_ins_webhook",
+    "description": "Collection for storing pay-in webhook transactions.",
+    "document": {
+      "fields": [
+        {
+          "key": "transaction_id",
+          "type": "string",
+          "required": true,
+          "description": "Razorpay / payment gateway transaction ID."
+        },
+        {
+          "key": "amount",
+          "type": "decimal",
+          "required": true,
+          "description": "Total payment amount."
+        },
+        {
+          "key": "qr_code_id",
+          "type": "string",
+          "required": true,
+          "description": "FK → qr_codes.id (the QR used for the transaction)."
+        },
+        {
+          "key": "qr_owner_id",
+          "type": "string",
+          "required": true,
+          "description": "FK → users_meta.user_id (the branch or merchant who owns the QR)."
+        },
+        {
+          "key": "merchant_id",
+          "type": "string",
+          "required": true,
+          "description": "FK → users_meta.user_id (the merchant who manages that branch)."
+        },
+        {
+          "key": "branch_commission",
+          "type": "decimal",
+          "required": false,
+          "description": "Commission taken from branch (if any)."
+        },
+        {
+          "key": "merchant_commission",
+          "type": "decimal",
+          "required": false,
+          "description": "Commission taken from merchant (admin’s share from payin)."
+        },
+        {
+          "key": "net_amount_branch",
+          "type": "decimal",
+          "required": true,
+          "description": "Amount credited to branch wallet."
+        },
+        {
+          "key": "net_amount_merchant",
+          "type": "decimal",
+          "required": true,
+          "description": "Amount credited to merchant wallet (if any)."
+        },
+        {
+          "key": "status",
+          "type": "enum",
+          "required": true,
+          "description": "Transaction status.",
+          "options": ["pending", "completed", "failed"]
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "required": true,
+          "description": "When payment was created."
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "required": true,
+          "description": "When record was last updated."
+        }
+      ]
+    }
+  }
+}

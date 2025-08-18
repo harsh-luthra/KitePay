@@ -1,0 +1,101 @@
+{
+  "id": "branch_withdrawal_requests",
+  "name": "Branch Withdrawal Requests",
+  "permissions": {
+    "read": ["role:admin", "role:merchant"],
+    "write": ["role:merchant"],
+    "update": ["role:merchant"],
+    "delete": ["role:admin"]
+  },
+  "attributes": [
+    {
+      "key": "id",
+      "type": "string",
+      "required": true,
+      "default": "UUID()"
+    },
+    {
+      "key": "branch_id",
+      "type": "string",
+      "required": true
+    },
+    {
+      "key": "merchant_id",
+      "type": "string",
+      "required": true
+    },
+    {
+      "key": "qr_code_id",
+      "type": "string",
+      "required": true
+    },
+    {
+      "key": "amount",
+      "type": "decimal",
+      "required": true
+    },
+    {
+      "key": "mode",
+      "type": "enum",
+      "required": true,
+      "options": ["bank", "upi"]
+    },
+    {
+      "key": "status",
+      "type": "enum",
+      "required": true,
+      "options": ["pending", "approved", "rejected", "processed"]
+    },
+    {
+      "key": "created_at",
+      "type": "datetime",
+      "required": true,
+      "default": "now"
+    },
+    {
+      "key": "processed_at",
+      "type": "datetime",
+      "required": false
+    },
+    {
+      "key": "notes",
+      "type": "text",
+      "required": false
+    },
+    {
+      "key": "upi_id",
+      "type": "string",
+      "required": false
+    },
+    {
+      "key": "holder_name",
+      "type": "string",
+      "required": false
+    },
+    {
+      "key": "account_number",
+      "type": "string",
+      "required": false
+    },
+    {
+      "key": "ifsc_code",
+      "type": "string",
+      "required": false
+    },
+    {
+      "key": "bank_name",
+      "type": "string",
+      "required": false
+    },
+    {
+      "key": "utr_number",
+      "type": "string",
+      "required": false
+    },
+    {
+      "key": "rejection_reason",
+      "type": "text",
+      "required": false
+    }
+  ]
+}

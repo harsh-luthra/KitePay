@@ -1,0 +1,302 @@
+USERS_META
+
+| Field                 | Type     | Default (on creation)                                 |
+| --------------------- | -------- | ----------------------------------------------------- |
+| user_id              	| string   | (From Appwrite Auth)                                  |
+| role                  | enum     | Required in request                                   |
+| parent_id            	| string   | Null for merchant, merchant ID for branch             |
+| status                | enum     | `"active"`                                            |
+| commission_payin     	| float    | `0`                                                   |
+| commission_payout    	| float    | `0`                                                   |
+| txn_limit_count     	| int      | `0`                                                   |
+| txn_limit_amount    	| float    | `0`                                                   |
+| coin_wallet         	| float    | `0` (only relevant for merchant, still store for all) |
+| kyc_status          	| enum     | `"pending"`                                           |
+| kyc_reject_reason   	| string   | `""`                                                  |
+| aadhar_url           	| string   | `""`                                                  |
+| pan_url              	| string   | `""`                                                  |
+| subscription_status  	| enum     | `"inactive"`                                          |
+| subscription_id      	| string   | `""`                                                  |
+| subscription_start   	| datetime | `null`                                                |
+| subscription_expiry  	| datetime | `null`                                                |
+| upi_id               	| string   | `""`                                                  |
+| bank_name            	| string   | `""`                                                  |
+| bank_account_number 	| string   | `""`                                                  |
+| bank_ifsc            	| string   | `""`                                                  |
+| bank_holder_name    	| string   | `""`                                                  |
+| created_at           	| datetime | now                                                   |
+| updated_at           	| datetime | now                                                   |
+
+
+QR_CODES_WEBHOOK_AUTO
+
+| Field             | Type          | Purpose                       |
+| ----------------- | ------------- | ----------------------------- |
+| `qr_id`           | string (UUID) | Unique ID for QR              |
+| `file_id`         | string        | Appwrite file ID              |
+| `image_url`       | string        | Direct link to QR image       |
+| `owner_user_id`   | string        | Appwrite user ID of owner     |
+| `is_active`       | boolean       | Status of QR                  |
+| `amount_credited` | number        | Total credited via this QR    |
+| `created_at`      | datetime      | Creation time                 |
+| `updated_at`      | datetime      | Last update time              |
+
+
+QR_CODES_MANUAL
+
+| Field                | Type          | Purpose                       |
+| -------------------- | ------------- | ----------------------------- |
+| `qr_id`              | string (UUID) | Unique ID for QR              |
+| `file_id`            | string        | Appwrite file ID              |
+| `image_url`          | string        | Direct link to QR image       |
+| `owner_user_id`      | string        | Appwrite user ID of owner     |
+| `is_active`          | boolean       | Status of QR                  |
+| `amount_credited`    | number        | Total credited via this QR    |
+| `created_at`         | datetime      | Creation time                 |
+| `updated_at`         | datetime      | Last update time              |
+
+
+PAY_INS_Webhook
+
+| Field                 | Type                                 | Description                                                               |
+| --------------------- | ------------------------------------ | ------------------------------------------------------------------------- |
+| `id`                  | BIGINT PK                            | Auto-increment primary key.                                               |
+| `transaction_id`      | VARCHAR(50)                          | Razorpay / payment gateway transaction ID.                                |
+| `amount`              | DECIMAL(12,2)                        | Total payment amount.                                                     |
+| `qr_code_id`          | VARCHAR(36)                          | FK → `qr_codes.id` (the QR used for the transaction).                     |
+| `qr_owner_id`         | VARCHAR(36)                          | FK → `users_meta.user_id` (the branch or merchant who owns the QR).       |
+| `merchant_id`         | VARCHAR(36)                          | FK → `users_meta.user_id` (the merchant who manages that branch).         |
+| `branch_commission`   | DECIMAL(12,2)                        | Commission taken from branch (if any).                                    |
+| `merchant_commission` | DECIMAL(12,2)                        | Commission taken from merchant (admin’s share from payin).                |
+| `net_amount_branch`   | DECIMAL(12,2)                        | Amount credited to branch wallet.                                         |
+| `net_amount_merchant` | DECIMAL(12,2)                        | Amount credited to merchant wallet (if any).                              |
+| `status`              | ENUM('pending','completed','failed') | Transaction status.                                                       |
+| `created_at`          | DATETIME                             | When payment was created.                                                 |
+| `updated_at`          | DATETIME                             | When record was last updated.                                             |
+
+
+PAY_INS_Manual
+
+| Field                 | Type                                 | Description                                                     |
+| --------------------- | ------------------------------------ | --------------------------------------------------------------- |
+| `id`                  | BIGINT PK                            | Auto-increment primary key.                                     |
+| `reference_id`        | VARCHAR(50)                          | Manual reference ID (bank txn no, internal slip ID, etc.).      |
+| `amount`              | DECIMAL(12,2)                        | Total payment amount.                                           |
+| `qr_code_id`          | VARCHAR(36)                          | FK → `qr_codes.id` (the QR used for the transaction).           |
+| `qr_owner_id`         | VARCHAR(36)                          | FK → `users_meta.user_id` (branch or merchant who owns the QR). |
+| `merchant_id`         | VARCHAR(36)                          | FK → `users_meta.user_id` (merchant managing the branch).       |
+| `branch_commission`   | DECIMAL(12,2)                        | Commission taken from branch (if any).                          |
+| `merchant_commission` | DECIMAL(12,2)                        | Commission taken from merchant (admin’s share from payin).      |
+| `net_amount_branch`   | DECIMAL(12,2)                        | Amount credited to branch wallet.                               |
+| `net_amount_merchant` | DECIMAL(12,2)                        | Amount credited to merchant wallet (if any).                    |
+| `status`              | ENUM('pending','completed','failed') | Transaction status.                                             |
+| `created_by`          | VARCHAR(36)                          | FK → `users_meta.user_id` (who manually entered this record).   |
+| `notes`               | TEXT                                 | Optional notes about this pay-in.                               |
+| `created_at`          | DATETIME                             | When payment was recorded.                                      |
+| `updated_at`          | DATETIME                             | When record was last updated.                                   |
+
+
+ merchant_withdrawal_requests
+
+| Field              | Type                                              | Notes                                                |
+| ------------------ | ------------------------------------------------- | ---------------------------------------------------- |
+| `id`               | STRING/UUID                                       | Primary key.                                         |
+| `merchant_id`      | STRING                                            | FK → `users_meta.user_id` (role = merchant).         |
+| `qr_code_id`       | STRING                                            | FK → `qr_codes.id` — only **one QR per withdrawal**. |
+| `amount`           | DECIMAL(12,2)                                     | Requested amount.                                    |
+| `mode`             | ENUM('bank','upi','coin\_wallet')                 | Merchant can choose wallet option too.               |
+| `status`           | ENUM('pending','approved','rejected','processed') | Lifecycle of the request.                            |
+| `created_at`       | DATETIME                                          | Created timestamp.                                   |
+| `processed_at`     | DATETIME                                          | Approved/rejected timestamp.                         |
+| `notes`            | TEXT                                              | Internal notes for processing.                       |
+| `upi_id`           | STRING                                            | If mode = `upi`.                                     |
+| `holder_name`      | STRING                                            | Bank account holder name.                            |
+| `account_number`   | STRING                                            | If mode = `bank`.                                    |
+| `ifsc_code`        | STRING                                            | If mode = `bank`.                                    |
+| `bank_name`        | STRING                                            | If mode = `bank`.                                    |
+| `utr_number`       | STRING                                            | UTR/reference after payout.                          |
+| `rejection_reason` | TEXT                                              | Reason if rejected.                                  |
+
+
+branch_withdrawal_requests
+
+| Field              | Type                                              | Notes                                                        |
+| ------------------ | ------------------------------------------------- | ------------------------------------------------------------ |
+| `id`               | STRING/UUID                                       | Primary key.                                                 |
+| `branch_id`        | STRING                                            | FK → `users_meta.user_id` (role = branch).                   |
+| `merchant_id`      | STRING                                            | FK → `users_meta.user_id` (role = merchant who owns branch). |
+| `qr_code_id`       | STRING                                            | FK → `qr_codes.id` — only **one QR per withdrawal**.         |
+| `amount`           | DECIMAL(12,2)                                     | Requested amount.                                            |
+| `mode`             | ENUM('bank','upi')                                | Branch **cannot** request coin wallet payouts.               |
+| `status`           | ENUM('pending','approved','rejected','processed') | Lifecycle of the request.                                    |
+| `created_at`       | DATETIME                                          | Created timestamp.                                           |
+| `processed_at`     | DATETIME                                          | Approved/rejected timestamp.                                 |
+| `approved_by`      | STRING                                            | FK → `users_meta.user_id` (merchant or admin who approved).  |
+| `notes`            | TEXT                                              | Internal notes for processing.                               |
+| `upi_id`           | STRING                                            | If mode = `upi`.                                             |
+| `holder_name`      | STRING                                            | Bank account holder name.                                    |
+| `account_number`   | STRING                                            | If mode = `bank`.                                            |
+| `ifsc_code`        | STRING                                            | If mode = `bank`.                                            |
+| `bank_name`        | STRING                                            | If mode = `bank`.                                            |
+| `utr_number`       | STRING                                            | UTR/reference after payout.                                  |
+| `rejection_reason` | TEXT                                              | Reason if rejected.                                          |
+
+
+
+merchant_payout_transactions
+
+| Field                   | Type                                     | Description                                                                          |
+| ----------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------ |
+| `id`                    | INT (PK, AUTO\_INCREMENT)                | Unique transaction ID                                                                |
+| `merchant_id`           | STRING / UUID                            | Appwrite `userId` of the merchant                                                    |
+| `withdrawal_request_id` | STRING / UUID                            | Link to the withdrawal request record                                                |
+| `qr_id`                 | string (Appwrite QR code ID)             | The QR code linked to the withdrawal (only one QR allowed per request).               |
+| `type`                  | ENUM(`credit`, `debit`)                  | Credit = coins added to merchant wallet; Debit = coins deducted from merchant wallet |
+| `amount`                | DECIMAL(10,2)                            | Amount in coins/currency                                                             |
+| `method`                | ENUM(`bank`, `upi`, `wallet`)            | Transfer method chosen in withdrawal request                                         |
+| `status`                | ENUM(`pending`, `completed`, `rejected`) | Current status of this payout transaction                                            |
+| `rejection_reason`      | TEXT / NULL                              | Reason if payout was rejected                                                        |
+| `utr_number`            | STRING / NULL                            | UTR/transaction number for bank/UPI                                                  |
+| `note`                  | TEXT / NULL                              | Optional admin note for this transaction                                             |
+| `created_at`            | TIMESTAMP                                | Time when record was created                                                         |
+| `updated_at`            | TIMESTAMP                                | Time when record was last updated                                                    |
+
+
+branch_payout_transactions
+
+| Field             | Type                                  | Description                                 |
+| ----------------- | ------------------------------------- | ------------------------------------------- |
+| id                | string (UUID)                         | Unique transaction ID                       |
+| branch_id         | string                                | Appwrite user ID of the branch              |
+| merchant_id       | string                                | Merchant to whom branch belongs             |
+| qr_id             | string                                | The QR code used for the withdrawal         |
+| amount            | number                                | Transaction amount                          |
+| type              | enum(`credit`,`debit`)                | Credit → coins added, Debit → coins removed |
+| method            | enum(`bank`,`upi`)                    | Payout method                               |
+| status            | enum(`pending`,`approved`,`rejected`) | Transaction status                          |
+| utr_number        | STRING / NULL                         | UTR/transaction number for bank/UPI         |
+| rejection_reason  | string \| null                        | Reason if rejected                          |
+| created_by        | string                                | User ID of merchant or admin who processed  |
+| created_at        | timestamp                             | Creation timestamp                          |
+| updated_at        | timestamp                             | Last update timestamp                       |
+| notes             | string \| null                        | Optional comments                           |
+
+
+
+admin_coin_transactions
+
+| Field            | Type                    | Purpose                                                                                                     |
+| ---------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `transaction_id` | string (UUID)           | Unique transaction ID                                                                                       |
+| `merchant_id`    | string                  | Appwrite user ID of merchant                                                                                |
+| `type`           | enum(`credit`, `debit`) | Credit = coins issued to merchant wallet, Debit = coins removed (e.g., refund, penalty, conversion to cash) |
+| `amount`         | number                  | Number of coins                                                                                             |
+| `reason`         | string                  | Why transaction happened                                                                                    |
+| `initiated_by`   | string                  | Appwrite user ID of who initiated (admin)                                                                   |
+| `created_at`     | datetime                | Timestamp                                                                                                   |
+
+
+
+merchant_coin_transactions
+
+| Field            | Type                      | Purpose                                              |
+| ---------------- | ------------------------- | ---------------------------------------------------- |
+| `transaction_id` | string (UUID)             | Unique transaction ID                                |
+| `merchant_id`    | string                    | Appwrite user ID of merchant                         |
+| `branch_id`      | string/null               | Branch user ID (if transfer was to branch)           |
+| `type`           | enum(`credit`, `debit`)   | Credit = received from admin, Debit = sent to branch |
+| `amount`         | number                    | Number of coins                                      |
+| `reason`         | string                    | Purpose of transfer                                  |
+| `initiated_by`   | string                    | User ID who triggered (merchant or admin)            |
+| `created_at`     | datetime                  | Timestamp                                            |
+
+
+
+admin_totals
+
+| Field                  | Type   | Notes                         |
+| ---------------------- | ------ | ----------------------------- |
+| total\_payin\_auto     | number | sum for all merchants         |
+| total\_payin\_manual   | number | sum for all merchants         |
+| total\_coins\_credited | number | sum credited to all merchants |
+| total\_coins\_used     | number | sum debited from admin wallet |
+| total\_coins\_pending  | number | admin balance                 |
+
+
+
+merchant_totals
+
+| Field                  | Type   | Notes                      |
+| ---------------------- | ------ | -------------------------- |
+| merchant\_id           | string |                            |
+| total\_payin\_auto     | number | total from auto QR         |
+| total\_payin\_manual   | number | total from manual QR       |
+| total\_coins\_credited | number | by admin                   |
+| total\_coins\_used     | number | sent to branches / payouts |
+| total\_coins\_pending  | number | balance not yet used       |
+
+
+
+branch_totals
+
+| Column                        | Type          | Description                                       |
+| ------------------------------| ------------- | ------------------------------------------------- |
+| branch\_id                    | string/UUID   | Link to `users` table (role = branch)             |
+| total\ payin\_auto            | decimal(12,2) | Total amount received via **automatic** pay-ins   |
+| total\ payin\_manual          | decimal(12,2) | Total amount received via **manual** pay-ins      |
+| withdrawals\_approved         | decimal(12,2) | Total withdrawals that were approved & paid       |
+| withdrawals\_pending          | decimal(12,2) | Total withdrawals requested but not yet processed |
+| withdrawals\_rejected         | decimal(12,2) | Total withdrawals rejected                        |
+| updated\_at                   | timestamp     | Last time totals were recalculated                |
+
+
+
+commission_wallets
+
+| Field        | Type                       | Description                          |
+| ------------ | -------------------------- | ------------------------------------ |
+| id           | string (PK)                | Wallet ID                            |
+| user\_id     | string                     | Appwrite user ID (admin or merchant) |
+| user_type    | ENUM('admin','merchant')   | Who the commission belongs to        |
+| balance      | decimal(12,2)              | Current commission balance           |
+| created\_at  | datetime                   | Creation timestamp                   |
+| updated\_at  | datetime                   | Last update                          |
+
+
+
+commission_transactions
+
+
+| Field                   | Type                     | Notes                                                                             |
+| ----------------------- | ------------------------ | --------------------------------------------------------------------------------- |
+| `id`                    | UUID / Auto-ID           | Primary key                                                                       |
+| `user_id`               | String (Appwrite UID)    | The user who earned the commission                                                |
+| `user_type`             | ENUM('admin','merchant') | Who the commission belongs to                                                     |
+| `source_transaction_id` | String / UUID            | The original pay-in or payout transaction ID from which commission was calculated |
+| `transaction_type`      | ENUM('pay\_in','payout') | Whether commission is from pay-in or payout                                       |
+| `commission_amount`     | Decimal(12,2)            | Amount earned as commission                                                       |
+| `rate`                  | Decimal(5,2)             | Commission rate (%) applied                                                       |
+| `created_at`            | Timestamp                | When commission was created                                                       |
+| `updated_at`            | timestamp                | When updated                                                                      |
+| `notes`                 | Text                     | Any remarks (optional)                                                            |
+
+
+
+
+also need GST , APi fees, Platform fees wallets and transactions also
+subscription wallet also
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

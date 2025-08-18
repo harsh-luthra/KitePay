@@ -1,0 +1,65 @@
+{
+  "collection": {
+    "name": "commission_transactions_merchant",
+    "description": "Collection for tracking commission transactions for merchants.",
+    "document": {
+      "fields": [
+        {
+          "key": "id",
+          "type": "string",
+          "required": true,
+          "default": "UUID()"
+        },
+        {
+          "key": "user_id",
+          "type": "string",
+          "required": true
+        },
+        {
+          "key": "user_type",
+          "type": "enum",
+          "required": true,
+          "options": ["merchant"]
+        },
+        {
+          "key": "source_transaction_id",
+          "type": "string",
+          "required": true
+        },
+        {
+          "key": "transaction_type",
+          "type": "enum",
+          "required": true,
+          "options": ["pay_in", "payout"]
+        },
+        {
+          "key": "commission_amount",
+          "type": "decimal",
+          "required": true
+        },
+        {
+          "key": "rate",
+          "type": "decimal",
+          "required": true
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "required": true,
+          "default": "now"
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "required": true,
+          "default": "now"
+        },
+        {
+          "key": "notes",
+          "type": "text",
+          "required": false
+        }
+      ]
+    }
+  }
+}

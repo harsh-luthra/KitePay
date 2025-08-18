@@ -1,0 +1,105 @@
+{
+  "id": "merchant_withdrawal_requests",
+  "name": "Merchant Withdrawal Requests",
+  "permissions": [],
+  "attributes": [
+    {
+      "key": "id",
+      "type": "string",
+      "required": true,
+      "default": "UUID()"
+    },
+    {
+      "key": "merchant_id",
+      "type": "string",
+      "required": true,
+      "default": ""
+    },
+    {
+      "key": "qr_code_id",
+      "type": "string",
+      "required": true,
+      "default": ""
+    },
+    {
+      "key": "amount",
+      "type": "decimal",
+      "required": true,
+      "default": "0.00"
+    },
+    {
+      "key": "mode",
+      "type": "enum",
+      "required": true,
+      "default": "bank",
+      "options": ["bank", "upi", "coin_wallet"]
+    },
+    {
+      "key": "status",
+      "type": "enum",
+      "required": true,
+      "default": "pending",
+      "options": ["pending", "approved", "rejected", "processed"]
+    },
+    {
+      "key": "created_at",
+      "type": "datetime",
+      "required": true,
+      "default": "now"
+    },
+    {
+      "key": "processed_at",
+      "type": "datetime",
+      "required": false,
+      "default": null
+    },
+    {
+      "key": "notes",
+      "type": "text",
+      "required": false,
+      "default": ""
+    },
+    {
+      "key": "upi_id",
+      "type": "string",
+      "required": false,
+      "default": ""
+    },
+    {
+      "key": "holder_name",
+      "type": "string",
+      "required": false,
+      "default": ""
+    },
+    {
+      "key": "account_number",
+      "type": "string",
+      "required": false,
+      "default": ""
+    },
+    {
+      "key": "ifsc_code",
+      "type": "string",
+      "required": false,
+      "default": ""
+    },
+    {
+      "key": "bank_name",
+      "type": "string",
+      "required": false,
+      "default": ""
+    },
+    {
+      "key": "utr_number",
+      "type": "string",
+      "required": false,
+      "default": ""
+    },
+    {
+      "key": "rejection_reason",
+      "type": "text",
+      "required": false,
+      "default": ""
+    }
+  ]
+}

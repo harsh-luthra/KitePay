@@ -1,0 +1,16 @@
+{
+  "id": "string (UUID)",
+  "branch_id": "string",
+  "merchant_id": "string",
+  "qr_id": "string",
+  "amount": "number",
+  "type": "enum('credit', 'debit')",
+  "method": "enum('bank', 'upi')",
+  "status": "enum('pending', 'approved', 'rejected')",
+  "utr_number": "string",
+  "rejection_reason": "string | null",
+  "created_by": "string",
+  "created_at": "timestamp",
+  "updated_at": "timestamp",
+  "notes": "string | null"
+}

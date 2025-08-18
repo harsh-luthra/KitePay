@@ -1,0 +1,95 @@
+{
+  "collection": {
+    "name": "pay_ins_manual",
+    "description": "Collection for manual payment transactions.",
+    "document": {
+      "fields": [
+        {
+          "key": "reference_id",
+          "type": "string",
+          "required": true,
+          "default": ""
+        },
+        {
+          "key": "amount",
+          "type": "decimal(12,2)",
+          "required": true,
+          "default": 0.00
+        },
+        {
+          "key": "qr_code_id",
+          "type": "string",
+          "required": true,
+          "default": ""
+        },
+        {
+          "key": "qr_owner_id",
+          "type": "string",
+          "required": true,
+          "default": ""
+        },
+        {
+          "key": "merchant_id",
+          "type": "string",
+          "required": true,
+          "default": ""
+        },
+        {
+          "key": "branch_commission",
+          "type": "decimal(12,2)",
+          "required": false,
+          "default": 0.00
+        },
+        {
+          "key": "merchant_commission",
+          "type": "decimal(12,2)",
+          "required": false,
+          "default": 0.00
+        },
+        {
+          "key": "net_amount_branch",
+          "type": "decimal(12,2)",
+          "required": false,
+          "default": 0.00
+        },
+        {
+          "key": "net_amount_merchant",
+          "type": "decimal(12,2)",
+          "required": false,
+          "default": 0.00
+        },
+        {
+          "key": "status",
+          "type": "enum",
+          "required": true,
+          "default": "pending",
+          "options": ["pending", "completed", "failed"]
+        },
+        {
+          "key": "created_by",
+          "type": "string",
+          "required": true,
+          "default": ""
+        },
+        {
+          "key": "notes",
+          "type": "text",
+          "required": false,
+          "default": ""
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "required": true,
+          "default": "now"
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "required": true,
+          "default": "now"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "collection": {
+    "name": "admin_totals",
+    "description": "Collection for tracking total amounts related to admin transactions.",
+    "fields": [
+      {
+        "key": "total_payin_auto",
+        "type": "number",
+        "description": "Sum for all merchants from automatic pay-ins."
+      },
+      {
+        "key": "total_payin_manual",
+        "type": "number",
+        "description": "Sum for all merchants from manual pay-ins."
+      },
+      {
+        "key": "total_coins_credited",
+        "type": "number",
+        "description": "Total coins credited to all merchants."
+      },
+      {
+        "key": "total_coins_used",
+        "type": "number",
+        "description": "Total coins debited from admin wallet."
+      },
+      {
+        "key": "total_coins_pending",
+        "type": "number",
+        "description": "Admin balance not yet used."
+      }
+    ],
+    "permissions": {
+      "read": ["role:admin"],
+      "write": ["role:admin"]
+    },
+    "timestamps": true
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "collection": {
+    "name": "merchant_totals",
+    "description": "Collection to store total financial metrics for merchants.",
+    "document": {
+      "fields": [
+        {
+          "key": "merchant_id",
+          "type": "string",
+          "required": true,
+          "description": "Appwrite user ID of the merchant."
+        },
+        {
+          "key": "total_payin_auto",
+          "type": "number",
+          "required": true,
+          "description": "Total amount received via automatic pay-ins."
+        },
+        {
+          "key": "total_payin_manual",
+          "type": "number",
+          "required": true,
+          "description": "Total amount received via manual pay-ins."
+        },
+        {
+          "key": "total_coins_credited",
+          "type": "number",
+          "required": true,
+          "description": "Total coins credited to the merchant."
+        },
+        {
+          "key": "total_coins_used",
+          "type": "number",
+          "required": true,
+          "description": "Total coins used by the merchant."
+        },
+        {
+          "key": "total_coins_pending",
+          "type": "number",
+          "required": true,
+          "description": "Total coins pending for the merchant."
+        }
+      ],
+      "timestamps": {
+        "created_at": true,
+        "updated_at": true
+      }
+    }
+  }
+}

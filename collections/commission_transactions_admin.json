@@ -1,0 +1,45 @@
+{
+  "collection": {
+    "name": "commission_transactions_admin",
+    "document": {
+      "user_id": {
+        "type": "string",
+        "description": "The user who earned the commission"
+      },
+      "user_type": {
+        "type": "enum",
+        "values": ["admin", "merchant"],
+        "description": "Who the commission belongs to"
+      },
+      "source_transaction_id": {
+        "type": "string",
+        "description": "The original pay-in or payout transaction ID from which commission was calculated"
+      },
+      "transaction_type": {
+        "type": "enum",
+        "values": ["pay_in", "payout"],
+        "description": "Whether commission is from pay-in or payout"
+      },
+      "commission_amount": {
+        "type": "decimal(12,2)",
+        "description": "Amount earned as commission"
+      },
+      "rate": {
+        "type": "decimal(5,2)",
+        "description": "Commission rate (%) applied"
+      },
+      "created_at": {
+        "type": "timestamp",
+        "description": "When commission was created"
+      },
+      "updated_at": {
+        "type": "timestamp",
+        "description": "When updated"
+      },
+      "notes": {
+        "type": "text",
+        "description": "Any remarks (optional)"
+      }
+    }
+  }
+}

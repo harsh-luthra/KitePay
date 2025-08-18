@@ -15,6 +15,7 @@ class CurrencyUtils {
   static String formatIndianCurrencyWithoutSign(num amount) {
     final formatter = NumberFormat.currency(
       locale: 'en_IN',
+      symbol: '', // 👈 removes INR symbol
       decimalDigits: 0, // Change to 2 if you want paise
     );
     return formatter.format(amount);

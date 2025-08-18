@@ -1,0 +1,104 @@
+{
+  "collection": {
+    "name": "users_meta",
+    "description": "Collection for storing user metadata including roles and financial information.",
+    "document": {
+      "user_id": {
+        "type": "string",
+        "default": "(From Appwrite Auth)"
+      },
+      "role": {
+        "type": "enum",
+        "default": "Required in request"
+      },
+      "parent_id": {
+        "type": "string",
+        "default": "Null for merchant, merchant ID for branch"
+      },
+      "status": {
+        "type": "enum",
+        "default": "\"active\""
+      },
+      "commission_payin": {
+        "type": "float",
+        "default": "0"
+      },
+      "commission_payout": {
+        "type": "float",
+        "default": "0"
+      },
+      "txn_limit_count": {
+        "type": "int",
+        "default": "0"
+      },
+      "txn_limit_amount": {
+        "type": "float",
+        "default": "0"
+      },
+      "coin_wallet": {
+        "type": "float",
+        "default": "0"
+      },
+      "kyc_status": {
+        "type": "enum",
+        "default": "\"pending\""
+      },
+      "kyc_reject_reason": {
+        "type": "string",
+        "default": "\"\""
+      },
+      "aadhar_url": {
+        "type": "string",
+        "default": "\"\""
+      },
+      "pan_url": {
+        "type": "string",
+        "default": "\"\""
+      },
+      "subscription_status": {
+        "type": "enum",
+        "default": "\"inactive\""
+      },
+      "subscription_id": {
+        "type": "string",
+        "default": "\"\""
+      },
+      "subscription_start": {
+        "type": "datetime",
+        "default": "null"
+      },
+      "subscription_expiry": {
+        "type": "datetime",
+        "default": "null"
+      },
+      "upi_id": {
+        "type": "string",
+        "default": "\"\""
+      },
+      "bank_name": {
+        "type": "string",
+        "default": "\"\""
+      },
+      "bank_account_number": {
+        "type": "string",
+        "default": "\"\""
+      },
+      "bank_ifsc": {
+        "type": "string",
+        "default": "\"\""
+      },
+      "bank_holder_name": {
+        "type": "string",
+        "default": "\"\""
+      },
+      "created_at": {
+        "type": "datetime",
+        "default": "now"
+      },
+      "updated_at": {
+        "type": "datetime",
+        "default": "now"
+      }
+    }
+  }
+}

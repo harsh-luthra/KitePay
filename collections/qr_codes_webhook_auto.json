@@ -1,0 +1,54 @@
+{
+  "collection": {
+    "name": "qr_codes_webhook_auto",
+    "document": {
+      "fields": [
+        {
+          "key": "qr_id",
+          "type": "string",
+          "required": true,
+          "default": "UUID"
+        },
+        {
+          "key": "file_id",
+          "type": "string",
+          "required": true
+        },
+        {
+          "key": "image_url",
+          "type": "string",
+          "required": true
+        },
+        {
+          "key": "owner_user_id",
+          "type": "string",
+          "required": true
+        },
+        {
+          "key": "is_active",
+          "type": "boolean",
+          "required": true,
+          "default": true
+        },
+        {
+          "key": "amount_credited",
+          "type": "number",
+          "required": true,
+          "default": 0
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "required": true,
+          "default": "now"
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "required": true,
+          "default": "now"
+        }
+      ]
+    }
+  }
+}
