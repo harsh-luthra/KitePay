@@ -1,6 +1,7 @@
 class WithdrawalRequest {
   final String? id;
   final String userId;
+  final String? qrId;
   final String holderName;
   final int amount;
   final String mode; // 'upi' or 'bank'
@@ -18,6 +19,7 @@ class WithdrawalRequest {
   WithdrawalRequest({
     this.id,
     required this.userId,
+    this.qrId,
     required this.holderName,
     required this.amount,
     required this.mode,
@@ -35,6 +37,7 @@ class WithdrawalRequest {
   Map<String, dynamic> toJson() => {
     'id': id,
     'userId': userId,
+    'qrId': qrId,
     'holderName': holderName,
     'amount': amount,
     'mode': mode,
@@ -53,6 +56,7 @@ class WithdrawalRequest {
     return WithdrawalRequest(
       id: json['id'] ?? '',
       userId: json['userId'] ?? '',
+      qrId: json['qrId'] ?? '',
       holderName: json['holderName'] ?? '',
       amount: json['amount'] ?? '',
       mode: json['mode'] ?? '',
@@ -70,6 +74,7 @@ class WithdrawalRequest {
 
   @override
   String toString() {
-    return 'WithdrawalRequest{id: $id, userId: $userId, holderName: $holderName, amount: $amount, mode: $mode, upiId: $upiId, bankName: $bankName, accountNumber: $accountNumber, ifscCode: $ifscCode, status: $status, utr: $utrNumber, rejectionReason: $rejectionReason, createdAt: $createdAt}';
+    return 'WithdrawalRequest{id: $id, userId: $userId, qrId: $qrId, holderName: $holderName, amount: $amount, mode: $mode, upiId: $upiId, bankName: $bankName, accountNumber: $accountNumber, ifscCode: $ifscCode, status: $status, utrNumber: $utrNumber, rejectionReason: $rejectionReason, createdAt: $createdAt}';
   }
+
 }

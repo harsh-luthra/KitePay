@@ -43,6 +43,14 @@ class AppWriteService {
     }
   }
 
+  Future<String> getUserId() async {
+    if(await isLoggedIn()){
+      final user = await account.get();
+      return user.$id;
+    }else{
+      return "";
+    }
+  }
 
   // Get or create a JWT.
   /// It will first try to retrieve a cached JWT from SharedPreferences.

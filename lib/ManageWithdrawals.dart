@@ -2,8 +2,10 @@ import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'UsersService.dart';
 import 'WithdrawService.dart';
 import 'WithdrawalFormPage.dart';
+import 'models/AppUser.dart';
 import 'models/WithdrawalRequest.dart';
 
 class ManageWithdrawals extends StatefulWidget {
@@ -19,7 +21,7 @@ class ManageWithdrawals extends StatefulWidget {
 class _ManageWithdrawalsState extends State<ManageWithdrawals> {
   List<WithdrawalRequest> allRequests = [];
   String filter = 'all'; // all, pending, approved, rejected
-
+  List<AppUser> users = [];
   bool loading = false;
 
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -28,10 +30,24 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
   void initState() {
     super.initState();
     if(!widget.userMode){
+      _fetchUsers();
       fetchWithdrawalRequests();
     }else{
       fetchUserWithdrawalRequests();
     }
+  }
+
+  Future<void> _fetchUsers() async {
+    setState(() => loading = true);
+    try {
+      users = await AdminUserService.listUsers(await AppWriteService().getJWT());
+    } catch (e) {
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text('❌ Failed to fetch users: $e')),
+      );
+    }
+    if(!mounted) return;
+    setState(() => loading = false);
   }
 
   Future<void> fetchUserWithdrawalRequests() async {
@@ -68,6 +84,24 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
     setState(() {
       loading = false;
     });
+  }
+
+  AppUser? getUserById(String id) {
+    try {
+      return users.firstWhere((user) => user.id == id);
+    } catch (e) {
+      return null; // if not found
+    }
+  }
+
+  String? displayUserNameText(String? appUserId){
+    if(appUserId == null){
+      return "Unassigned";
+    }
+    AppUser? user = getUserById(appUserId);
+    String displayText = user != null
+        ? '${user.name} - ${user.email}' : 'Unknown user';
+    return displayText;
   }
 
   List<WithdrawalRequest> get filteredRequests {
@@ -152,7 +186,9 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
                         style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 2),
-                      _buildInfoRow("Name: ", r.holderName),
+                      _buildInfoRow("Name", r.holderName),
+                      _buildInfoRow('Requested By', displayUserNameText(r.userId) ?? 'Not Available'),
+                      _buildInfoRow('QR Id', r.qrId),
                       // Text(
                       //   'Name: ${r.holderName ?? "-"}',
                       //   style: TextStyle(color: Colors.grey[700]),
@@ -429,7 +465,6 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
                     MaterialPageRoute(builder: (_) => WithdrawalFormPage()),
                   );
                 }
-
               },
             ),
             if(!widget.userMode)

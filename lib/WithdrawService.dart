@@ -11,6 +11,7 @@ class WithdrawService {
   static Future<bool> submitWithdrawRequest(WithdrawalRequest request) async {
     final Map<String, dynamic> body = {
       'userId': request.userId,
+      'qrId' : request.qrId,
       'holderName': request.holderName,
       'mode': request.mode,
       'amount': request.amount,
