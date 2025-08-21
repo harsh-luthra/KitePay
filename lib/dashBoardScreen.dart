@@ -1,9 +1,14 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:admin_qr_manager/TransactionPageNew.dart';
 import 'package:admin_qr_manager/WithdrawalFormPage.dart';
 import 'package:appwrite/models.dart';
 import 'package:flutter/material.dart';
 import 'package:appwrite/appwrite.dart';
 import 'package:flutter/services.dart';
+import 'AppConfig.dart';
+import 'AppConstants.dart';
 import 'AppWriteService.dart';
 import 'ManageUsersScreen.dart';
 import 'ManageQrScreen.dart';
@@ -11,10 +16,11 @@ import 'ManageWithdrawals.dart';
 import 'TransactionPage.dart';
 import 'TransactionsPageOld.dart';
 import 'adminLoginPage.dart'; // Your login screen file
+import 'package:http/http.dart' as http;
 
 final appwrite = AppWriteService();
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   // final List<String> userLabels;
   final User user;
 
@@ -22,6 +28,44 @@ class DashboardScreen extends StatelessWidget {
     super.key,
     required this.user,
   });
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    // _ensureConfigLoaded();
+    loadConfig();
+  }
+
+  Future<void> _ensureConfigLoaded() async {
+    if (!AppConfig().isLoaded) {
+      await loadConfig();
+      AppConfig().isLoaded = true;
+    }
+  }
+
+  Future<void> loadConfig() async {
+    try{
+      final response = await http.get(Uri.parse('${AppConstants.baseApiUrl}/user/config')).timeout(Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success']) {
+          AppConfig().loadFromJson(data['config']);
+        }
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your internet connection.');
+    } catch (e) {
+      print('❌ Exception in Fetching App Config: $e');
+      throw Exception('Exception in Fetching App Config: $e');
+    }
+  }
 
   void _logout(BuildContext context) async {
     final confirm = await showDialog<bool>(
@@ -99,7 +143,7 @@ class DashboardScreen extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           // title: Text(userLabels.contains('admin') ?'Admin Dashboard' : 'Dashboard'),
-          title: Text('${user.name}\'s Dashboard'),
+          title: Text('${widget.user.name}\'s Dashboard'),
           actions: [
             IconButton(
               icon: const Icon(Icons.logout),
@@ -117,7 +161,7 @@ class DashboardScreen extends StatelessWidget {
                 runSpacing: 20,
                 alignment: WrapAlignment.center,
                 children: [
-                  if(user.labels.contains('user') || user.labels.contains('admin'))
+                  if(widget.user.labels.contains('user') || widget.user.labels.contains('admin'))
                   _buildDashboardButton(
                     context,
                     icon: Icons.person,
@@ -128,7 +172,7 @@ class DashboardScreen extends StatelessWidget {
                       );
                     },
                   ),
-                  if(user.labels.contains('qr') || user.labels.contains('admin'))
+                  if(widget.user.labels.contains('qr') || widget.user.labels.contains('admin'))
                     _buildDashboardButton(
                     context,
                     icon: Icons.qr_code,
@@ -146,12 +190,12 @@ class DashboardScreen extends StatelessWidget {
                     label: 'My QR Codes',
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => ManageQrScreen(userMode: true,userModeUserid: user.$id)),
+                        MaterialPageRoute(builder: (_) => ManageQrScreen(userMode: true,userModeUserid: widget.user.$id)),
                       );
                     },
                   ),
 
-                  if(user.labels.contains('transactions') || user.labels.contains('admin'))
+                  if(widget.user.labels.contains('transactions') || widget.user.labels.contains('admin'))
                     _buildDashboardButton(
                     context,
                     icon: Icons.receipt_long,
@@ -169,12 +213,12 @@ class DashboardScreen extends StatelessWidget {
                     label: 'View My Transactions',
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => TransactionPageNew(userMode: true,userModeUserid: user.$id,)),
+                        MaterialPageRoute(builder: (_) => TransactionPageNew(userMode: true,userModeUserid: widget.user.$id,)),
                       );
                     },
                   ),
 
-                  if(user.labels.contains('withdrawal') || user.labels.contains('admin'))
+                  if(widget.user.labels.contains('withdrawal') || widget.user.labels.contains('admin'))
                     _buildDashboardButton(
                     context,
                     icon: Icons.account_balance_wallet_outlined,
@@ -193,13 +237,13 @@ class DashboardScreen extends StatelessWidget {
                     label: 'My Withdrawals',
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => ManageWithdrawals(userMode: true, userModeUserid: user.$id,)),
+                        MaterialPageRoute(builder: (_) => ManageWithdrawals(userMode: true, userModeUserid: widget.user.$id,)),
                         // MaterialPageRoute(builder: (_) => WithdrawalFormPage()),
                       );
                     },
                   ),
 
-                  if(user.labels.contains('payout') || user.labels.contains('admin'))
+                  if(widget.user.labels.contains('payout') || widget.user.labels.contains('admin'))
                     _buildDashboardButton(
                     context,
                     icon: Icons.settings,
@@ -235,5 +279,4 @@ class DashboardScreen extends StatelessWidget {
       ),
     );
   }
-
 }

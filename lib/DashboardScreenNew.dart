@@ -1,5 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:appwrite/models.dart' show User;
+import 'AppConfig.dart';
+import 'AppConstants.dart';
 import 'AppWriteService.dart';
 import 'ManageUsersScreen.dart';
 import 'ManageQrScreen.dart';
@@ -7,6 +12,7 @@ import 'TransactionPageNew.dart';
 import 'ManageWithdrawals.dart';
 import 'WithdrawalFormPage.dart';
 import 'adminLoginPage.dart';
+import 'package:http/http.dart' as http;
 
 class DashboardScreenNew extends StatefulWidget {
   final User user;
@@ -35,7 +41,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   void initState() {
 
     super.initState();
-
+    loadConfig();
     if(widget.user.labels.contains("admin")){
       _activeIndex = 0;
     }else{
@@ -104,6 +110,23 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     // init hovering states
     for (var item in _allMenuItems) {
       _hovering[item.id] = false;
+    }
+  }
+
+  Future<void> loadConfig() async {
+    try{
+      final response = await http.get(Uri.parse('${AppConstants.baseApiUrl}/user/config')).timeout(Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success']) {
+          AppConfig().loadFromJson(data['config']);
+        }
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your internet connection.');
+    } catch (e) {
+      print('❌ Exception in Fetching App Config: $e');
+      throw Exception('Exception in Fetching App Config: $e');
     }
   }
 

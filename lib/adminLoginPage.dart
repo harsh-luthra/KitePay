@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -6,8 +7,11 @@ import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/models.dart' as models;
 // DashboardScreenNew
 import 'package:admin_qr_manager/AppWriteService.dart'; // adjust path as needed
+import 'AppConfig.dart';
+import 'AppConstants.dart';
 import 'DashboardScreenNew.dart';
 import 'dashBoardScreen.dart'; // screen to redirect after login
+import 'package:http/http.dart' as http;
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
@@ -26,13 +30,14 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
   bool _obscurePassword = true; // Add this to your State
 
-  void initState(){
+  void initState() {
     super.initState();
     print('Test');
     CheckIsLoggedIn();
   }
 
   Future<void> CheckIsLoggedIn() async {
+    // await loadConfig();
     bool isLoggedIn = await appwrite.isLoggedIn();
     if(isLoggedIn){
       print("Already logged In");
@@ -46,6 +51,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       }else{
         // print("User is Not Admin: "+user.labels.toString());
       }
+
+      // loadConfig();
 
       moveToDashBoard(user);
     }else{

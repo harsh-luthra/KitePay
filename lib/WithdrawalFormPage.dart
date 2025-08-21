@@ -3,6 +3,7 @@ import 'package:admin_qr_manager/models/WithdrawalRequest.dart';
 import 'package:admin_qr_manager/utils/CurrencyUtils.dart';
 import 'package:flutter/material.dart';
 
+import 'AppConfig.dart';
 import 'QRService.dart';
 import 'WithdrawService.dart';
 import 'models/QrCode.dart';
@@ -17,6 +18,9 @@ class WithdrawalFormPage extends StatefulWidget {
 class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
   final _formKey = GlobalKey<FormState>();
   String _mode = 'upi'; // 'upi' or 'bank'
+
+  final max_withdrawal_amount = AppConfig().maxWithdrawalAmount;
+  final min_withdrawal_amount = AppConfig().minWithdrawalAmount;
 
   // Common
   final _amountController = TextEditingController();
@@ -217,18 +221,18 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
           withdrawalRequest);
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _scaffoldMessengerKey.currentState?.showSnackBar(
           const SnackBar(content: Text('✅ Withdrawal request submitted')),
         );
         _formKey.currentState!.reset();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _scaffoldMessengerKey.currentState?.showSnackBar(
           const SnackBar(content: Text('❌ Failed to submit request')),
         );
       }
     } catch (e) {
       print('❌ Error submitting withdrawal: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
+      _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('Error: ${e.toString()}')),
       );
     } finally {
@@ -264,7 +268,9 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                       return 'Enter amount';
                     }
                     final num = int.tryParse(val.trim());
-                    if (num == null || num <= 0) return 'Enter valid amount';
+                    if (num == null || num <= 0) return 'Enter valid amount between $min_withdrawal_amount - $max_withdrawal_amount';
+                    if(num < min_withdrawal_amount) return 'Minimum Withdrawal Amount is: $min_withdrawal_amount';
+                    if(num > max_withdrawal_amount) return 'Maximum Withdrawal Amount is: $max_withdrawal_amount';
                     return null;
                   },
                 ),
