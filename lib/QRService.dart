@@ -256,5 +256,64 @@ class QrCodeService {
     }
   }
 
+  Future<bool> createUserQrCode(String userId) async {
+    if (userId.isEmpty) return false;
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/create-qr/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          // Add auth headers if needed
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        // print(response.body);
+        // If your backend returns the QR info directly
+        return true;
+      } else {
+        throw Exception(
+            'Failed to create QR code. Status: ${response.statusCode}');
+      }
+    } on TimeoutException {
+      throw Exception(
+          'Request timed out. Please check your connection or try again later.');
+    } catch (e) {
+      print('Error creating user QR code: $e');
+      return false;
+    }
+  }
+
+  Future<bool> createAdminQrCode(String userId, String jwtToken) async {
+    if (userId.isEmpty) return false;
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/create-admin-qr/$userId'),
+        headers: {
+          'Authorization': 'Bearer $jwtToken',
+          'Content-Type': 'application/json',
+          // Add auth headers if needed
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print(response.body);
+        // If your backend returns the QR info directly
+        return true;
+      } else {
+        throw Exception('Failed to create QR code. Status: ${response.statusCode}');
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your connection or try again later.');
+    } catch (e) {
+      print('Error creating user QR code: $e');
+      return false;
+    }
+  }
+
 
 }

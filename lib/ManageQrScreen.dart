@@ -36,6 +36,9 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
+  int userQrCount = 0;
+  int activeUserQrCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -175,6 +178,10 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     });
   }
 
+  int activeQrCount(List<QrCode> qrCodes) {
+    return qrCodes.where((qr) => qr.isActive == true).length;
+  }
+
   Future<void> _fetchOnlyUserQrCodes() async {
     if (widget.userModeUserid == null) {
       // In User Mode no UserId Passed
@@ -191,6 +198,10 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       final codes = await _qrCodeService.getUserQrCodes(widget.userModeUserid!);
       setState(() {
         _qrCodes = codes;
+        userQrCount = _qrCodes.length;
+        activeUserQrCount = activeQrCount(_qrCodes);
+        print('userQrCount: '+userQrCount.toString());
+        print('activeUserQrCount: '+activeUserQrCount.toString());
       });
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
@@ -358,6 +369,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
         _isProcessing = false;
       });
     }
+
   }
 
   // Dialog to assign a user to a QR code with a confirmation dialog and progress indicator
@@ -583,6 +595,85 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     );
   }
 
+  Future<void> _createAssignUserQR() async {
+    if(activeUserQrCount >= 6){
+
+      await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Qr Limit Reached'),
+            content: Text('You already Have 5 QR Codes Assigned and Active on your Account!'),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('OK'),
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+            ],
+          );
+        },
+      );
+
+      return;
+    }
+
+    if (_isProcessing) return;
+
+    final bool? shouldToggle = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Qr Generation'),
+          content: Text('Are you sure you want to Create & Assign New QR code for Yourself'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            TextButton(
+              child: const Text('Confirm'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldToggle == true) {
+      setState(() {
+        _isProcessing = true;
+      });
+      bool success = await _qrCodeService.createUserQrCode(widget.userModeUserid!);
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('New QR code Generated and Assigned')),
+        );
+        _fetchOnlyUserQrCodes();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to Generate QR code.')),
+        );
+      }
+      setState(() {
+        _isProcessing = false;
+      });
+    }
+
+    //
+    // bool success = await _qrCodeService.createUserQrCode(widget.userModeUserid!);
+    //
+    // if(_jwtToken != null){
+    //
+    // }else{
+    //
+    // }
+
+  }
+
+  Future<void> _createAssignAdminQR() async {
+    bool success = await _qrCodeService.createAdminQrCode(widget.userModeUserid!, _jwtToken!);
+  }
+
   @override
   Widget build(BuildContext context) {
     return ScaffoldMessenger(
@@ -592,7 +683,9 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
           title: Text(widget.userMode ? "My QR Codes" : 'Manage All QR Codes'),
           actions: [
             if(!widget.userMode)
-            IconButton(onPressed: _jwtToken != null && !_isProcessing ? _showUploadQrDialog : null, icon: Icon(Icons.add)),
+              IconButton(onPressed: _jwtToken != null && !_isProcessing ? _showUploadQrDialog : null, icon: Icon(Icons.add)),
+            if(widget.userMode)
+              IconButton(onPressed: !_isProcessing ? _createAssignUserQR : null, icon: Icon(Icons.add_box_rounded)),
             if(!widget.userMode)
               IconButton(
               icon: const Icon(Icons.refresh),
@@ -605,15 +698,9 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
               ),
           ],
         ),
-        body
-        // _jwtToken == null
-        //     ? const Center(
-        //   child: Text(
-        //     'Please "Login as Admin" to view and manage QR codes.',
-        //     style: TextStyle(fontSize: 16),
-        //   ),
-        // )
-            : _isLoading
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _isProcessing
             ? const Center(child: CircularProgressIndicator())
             : _qrCodes.isEmpty
             ? const Center(child: Text('No QR codes found.'))
@@ -627,27 +714,28 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                 String formattedDate = 'N/A';
                 if (createdAt != null) {
                   try {
-                    formattedDate = DateFormat.yMd().add_Hms().format(DateTime.parse(createdAt));
+                    formattedDate = DateFormat.yMd()
+                        .add_Hms()
+                        .format(DateTime.parse(createdAt));
                   } catch (e) {
                     print('Error parsing date: $e');
                   }
                 }
 
                 return buildQrCodeCard(qrCode, formattedDate);
-
               },
             ),
-            if (_isProcessing)
+            if (_isProcessing) ...[
               const Opacity(
                 opacity: 0.8,
-                child: ModalBarrier(dismissible: false, color: Colors.black),
+                child:
+                ModalBarrier(dismissible: false, color: Colors.black),
               ),
-            if (_isProcessing)
-              const Center(
-                child: CircularProgressIndicator(),
-              ),
+              const Center(child: CircularProgressIndicator()),
+            ]
           ],
         ),
+
         // floatingActionButton: FloatingActionButton(
         //   onPressed: _jwtToken != null && !_isProcessing ? _showUploadQrDialog : null,
         //   tooltip: 'Upload QR Code',
