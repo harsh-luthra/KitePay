@@ -28,7 +28,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     'payout',
   ];
 
-
   @override
   void initState() {
     super.initState();

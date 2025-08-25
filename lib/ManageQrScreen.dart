@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'AppWriteService.dart';
+import 'NewFeatureCornerButton.dart';
 import 'TransactionPage.dart';
 import 'TransactionPageNew.dart';
 import 'UsersService.dart';
@@ -685,7 +686,14 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             if(!widget.userMode)
               IconButton(onPressed: _jwtToken != null && !_isProcessing ? _showUploadQrDialog : null, icon: Icon(Icons.add)),
             if(widget.userMode)
-              IconButton(onPressed: !_isProcessing ? _createAssignUserQR : null, icon: Icon(Icons.add_box_rounded)),
+              NewFeatureCornerButton(onPressed: !_isProcessing ? _createAssignUserQR : null, icon: Icon(Icons.add_box_rounded), label: Text('Create QR Code'),),
+            // if(widget.userMode)
+            //   NewFeatureCornerButton(
+            //     onPressed: () {
+            //       // call your create-qr API here
+            //       _createAssignUserQR();
+            //     },
+            //   ),
             if(!widget.userMode)
               IconButton(
               icon: const Icon(Icons.refresh),
