@@ -255,8 +255,8 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
                 children: [
                   ElevatedButton.icon(
                     onPressed: () => _approveRequest(r),
-                    icon: Icon(Icons.check, size: 16),
-                    label: Text('Approve'),
+                    icon: Icon(Icons.check, size: 16, color: Colors.white,),
+                    label: Text('Approve', style: TextStyle(color: Colors.white),),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -264,8 +264,8 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
                   ),
                   ElevatedButton.icon(
                     onPressed: () => _showRejectDialog(context, r),
-                    icon: Icon(Icons.close, size: 16),
-                    label: Text('Reject'),
+                    icon: Icon(Icons.close, size: 16, color: Colors.white,),
+                    label: Text('Reject', style: TextStyle(color: Colors.white),),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
