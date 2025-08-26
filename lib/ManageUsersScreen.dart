@@ -20,12 +20,16 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   List<AppUser> _users = [];
   bool _loading = true;
 
+  // final List<String> availableLabels = [
+  //   'user',
+  //   'qr',
+  //   'transactions',
+  //   'withdrawal',
+  //   'payout',
+  // ];
+
   final List<String> availableLabels = [
-    'user',
-    'qr',
-    'transactions',
-    'withdrawal',
-    'payout',
+    'SelfQr'
   ];
 
   @override

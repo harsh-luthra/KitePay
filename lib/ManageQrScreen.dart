@@ -597,6 +597,28 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   }
 
   Future<void> _createAssignUserQR() async {
+    final user = await AppWriteService().account.get();
+    print(user.labels.toString());
+    if(!user.labels.contains('admin') && !user.labels.contains('SelfQr')){
+      await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Not Allowed'),
+            content: Text('You are not allowed to create QR codes.\nPlease contact the administrator for this facility'),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('OK'),
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+            ],
+          );
+        },
+      );
+
+      return;
+    }
+
     if(activeUserQrCount >= 6){
 
       await showDialog<bool>(
