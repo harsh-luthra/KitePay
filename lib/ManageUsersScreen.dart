@@ -303,7 +303,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                       spacing: 8.0,
                       runSpacing: 8.0,
                       children: availableLabels.map((label) {
-                        final normalizedLabel = label.trim().toLowerCase();
+                        final normalizedLabel = label.trim();
                         final isSelected = tempLabels.contains(normalizedLabel);
 
                         return FilterChip(

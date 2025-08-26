@@ -19,6 +19,7 @@ class AdminLoginScreen extends StatefulWidget {
 
   @override
   State<AdminLoginScreen> createState() => _AdminLoginScreenState();
+
 }
 
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
@@ -193,6 +194,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
 
     } catch (e) {
+      print(e);
       setState(() {
         errorMessage = 'An unexpected error occurred';
       });

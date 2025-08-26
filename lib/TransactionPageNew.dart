@@ -46,6 +46,9 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   String? selectedUserId;
   String? selectedQrCodeId;
 
+  DateTime? selectedFromDate;
+  DateTime? selectedToDate;
+
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
 
@@ -68,6 +71,10 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<String> getJwtTokenFromAppWriteService() async{
+    return await AppWriteService().getJWT();
   }
 
   Future<void> loadInitialData() async {
@@ -158,6 +165,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       final fetched = await TransactionService.fetchTransactions(
         userId: effectiveUserId,
         qrId: effectiveQrId,
+        from: selectedFromDate,
+        to: selectedToDate,
         cursor: nextCursor,
         jwtToken: _jwtToken!,
       );
@@ -205,6 +214,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       final fetched = await TransactionService.fetchUserTransactions(
         userId: widget.userModeUserid!,
         qrId: effectiveQrId,
+        from: selectedFromDate,
+        to: selectedToDate,
         cursor: nextCursor,
         jwtToken: _jwtToken!,
       );
@@ -260,6 +271,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         final fetched = await TransactionService.fetchUserTransactions(
           userId: effectiveUserId!,
           qrId: effectiveQrId,
+          from: selectedFromDate,
+          to: selectedToDate,
           cursor: null,
           jwtToken: _jwtToken!,
         );
@@ -271,6 +284,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           userId: effectiveUserId,
           qrId: effectiveQrId,
           cursor: null,
+          from: selectedFromDate,
+          to: selectedToDate,
           jwtToken: _jwtToken!,
         );
         transactions = fetched.transactions.toList();
@@ -341,6 +356,30 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   List<QrCode> get filteredQrCodes {
     if (selectedUserId == null) return qrCodes;
     return qrCodes.where((qr) => qr.assignedUserId == selectedUserId).toList();
+  }
+
+  Future<void> pickFromDate(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedFromDate ?? DateTime.now(),
+      firstDate: DateTime(2025),
+      lastDate: DateTime(DateTime.now().year),
+    );
+    if (picked != null) {
+      selectedFromDate = picked;
+    }
+  }
+
+  Future<void> pickToDate(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedToDate ?? DateTime.now(),
+      firstDate: DateTime(2025),
+      lastDate: DateTime(DateTime.now().year),
+    );
+    if (picked != null) {
+      selectedToDate = picked;
+    }
   }
 
   @override
@@ -427,30 +466,29 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                       loadingUsers
                           ? const CircularProgressIndicator()
                           : DropdownButtonFormField<String>(
-                            isExpanded: true,
-                            value: selectedUserId,
-                            hint: const Text('Select User'),
-                            items: [
-                              const DropdownMenuItem(
-                                value: null,
-                                child: Text('--------'),
-                              ),
-                              ...users.map(
-                                (user) => DropdownMenuItem(
-                                  value: user.id,
-                                  child: Text(user.name),
-                                ),
-                              ),
-                            ],
-                            onChanged: (value) {
-                              setState(() {
-                                selectedUserId = value;
-                                selectedQrCodeId = null;
-                              });
-                              // applyFilters();
-                              _refetchWithCurrentFilters();
-                            },
+                        isExpanded: true,
+                        value: selectedUserId,
+                        hint: const Text('Select User'),
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('--------'),
                           ),
+                          ...users.map(
+                                (user) => DropdownMenuItem(
+                              value: user.id,
+                              child: Text(user.name),
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            selectedUserId = value;
+                            selectedQrCodeId = null;
+                          });
+                          _refetchWithCurrentFilters();
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -469,35 +507,155 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                     loadingQr
                         ? const CircularProgressIndicator()
                         : DropdownButtonFormField<String>(
-                          isExpanded: true,
-                          value: selectedQrCodeId,
-                          hint: const Text('Select QR Code'),
-                          items: [
-                            const DropdownMenuItem(
-                              value: null,
-                              child: Text('--------'),
-                            ),
-                            ...filteredQrCodes.map(
-                              (qr) => DropdownMenuItem(
-                                value: qr.qrId,
-                                child: Text('${qr.qrId} (${qr.totalTransactions})'),
-                              ),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              selectedQrCodeId = value;
-                            });
-                            // applyFilters();
-                            // Server-side refetch for new filters
-                            _refetchWithCurrentFilters();
-                          },
+                      isExpanded: true,
+                      value: selectedQrCodeId,
+                      hint: const Text('Select QR Code'),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('--------'),
                         ),
+                        ...filteredQrCodes.map(
+                              (qr) => DropdownMenuItem(
+                            value: qr.qrId,
+                            child: Text('${qr.qrId} (${qr.totalTransactions})'),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          selectedQrCodeId = value;
+                        });
+                        _refetchWithCurrentFilters();
+                      },
+                    ),
                   ],
                 ),
               ),
             ],
           ),
+
+          // 📅 Date Filters
+          const SizedBox(height: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("From Date", style: TextStyle(fontWeight: FontWeight.bold)),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: selectedFromDate ?? DateTime.now(),
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime.now(),
+                                );
+                                if (picked != null) {
+                                  setState(() {
+                                    selectedFromDate = picked;
+                                  });
+                                  _refetchWithCurrentFilters();
+                                }
+                              },
+                              child: Text(
+                                selectedFromDate == null
+                                    ? "Pick Date"
+                                    : "${selectedFromDate!.toLocal()}".split(' ')[0],
+                              ),
+                            ),
+                          ),
+                          if (selectedFromDate != null)
+                            IconButton(
+                              icon: const Icon(Icons.clear, size: 20),
+                              onPressed: () {
+                                setState(() {
+                                  selectedFromDate = null;
+                                });
+                                _refetchWithCurrentFilters();
+                              },
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("To Date", style: TextStyle(fontWeight: FontWeight.bold)),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: selectedToDate ?? DateTime.now(),
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime.now(),
+                                );
+                                if (picked != null) {
+                                  setState(() {
+                                    selectedToDate = picked;
+                                  });
+                                  _refetchWithCurrentFilters();
+                                }
+                              },
+                              child: Text(
+                                selectedToDate == null
+                                    ? "Pick Date"
+                                    : "${selectedToDate!.toLocal()}".split(' ')[0],
+                              ),
+                            ),
+                          ),
+                          if (selectedToDate != null)
+                            IconButton(
+                              icon: const Icon(Icons.clear, size: 20),
+                              onPressed: () {
+                                setState(() {
+                                  selectedToDate = null;
+                                });
+                                _refetchWithCurrentFilters();
+                              },
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            // 🔹 Clear All Dates button
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                icon: const Icon(Icons.delete_sweep, size: 18),
+                label: const Text("Clear All Dates"),
+                onPressed: () {
+                  setState(() {
+                    selectedFromDate = null;
+                    selectedToDate = null;
+                  });
+                  _refetchWithCurrentFilters();
+                },
+              ),
+            ),
+          ],
+        ),
+
           if (selectedUserId != null && !userHasQrCodes)
             const Padding(
               padding: EdgeInsets.only(top: 10),
@@ -510,4 +668,113 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       ),
     );
   }
+
+  // Widget _buildFilters(bool userHasQrCodes) {
+  //   return Padding(
+  //     padding: const EdgeInsets.all(8.0),
+  //     child: Column(
+  //       children: [
+  //         Row(
+  //           crossAxisAlignment: CrossAxisAlignment.start,
+  //           children: [
+  //             if (!widget.userMode)
+  //               Expanded(
+  //                 child: Column(
+  //                   crossAxisAlignment: CrossAxisAlignment.start,
+  //                   children: [
+  //                     const Padding(
+  //                       padding: EdgeInsets.only(bottom: 4),
+  //                       child: Text(
+  //                         'Filter User',
+  //                         style: TextStyle(fontWeight: FontWeight.bold),
+  //                       ),
+  //                     ),
+  //                     loadingUsers
+  //                         ? const CircularProgressIndicator()
+  //                         : DropdownButtonFormField<String>(
+  //                           isExpanded: true,
+  //                           value: selectedUserId,
+  //                           hint: const Text('Select User'),
+  //                           items: [
+  //                             const DropdownMenuItem(
+  //                               value: null,
+  //                               child: Text('--------'),
+  //                             ),
+  //                             ...users.map(
+  //                               (user) => DropdownMenuItem(
+  //                                 value: user.id,
+  //                                 child: Text(user.name),
+  //                               ),
+  //                             ),
+  //                           ],
+  //                           onChanged: (value) {
+  //                             setState(() {
+  //                               selectedUserId = value;
+  //                               selectedQrCodeId = null;
+  //                             });
+  //                             // applyFilters();
+  //                             _refetchWithCurrentFilters();
+  //                           },
+  //                         ),
+  //                   ],
+  //                 ),
+  //               ),
+  //             const SizedBox(width: 8),
+  //             Expanded(
+  //               child: Column(
+  //                 crossAxisAlignment: CrossAxisAlignment.start,
+  //                 children: [
+  //                   const Padding(
+  //                     padding: EdgeInsets.only(bottom: 4),
+  //                     child: Text(
+  //                       'Filter QR Code',
+  //                       style: TextStyle(fontWeight: FontWeight.bold),
+  //                     ),
+  //                   ),
+  //                   loadingQr
+  //                       ? const CircularProgressIndicator()
+  //                       : DropdownButtonFormField<String>(
+  //                         isExpanded: true,
+  //                         value: selectedQrCodeId,
+  //                         hint: const Text('Select QR Code'),
+  //                         items: [
+  //                           const DropdownMenuItem(
+  //                             value: null,
+  //                             child: Text('--------'),
+  //                           ),
+  //                           ...filteredQrCodes.map(
+  //                             (qr) => DropdownMenuItem(
+  //                               value: qr.qrId,
+  //                               child: Text('${qr.qrId} (${qr.totalTransactions})'),
+  //                             ),
+  //                           ),
+  //                         ],
+  //                         onChanged: (value) {
+  //                           setState(() {
+  //                             selectedQrCodeId = value;
+  //                           });
+  //                           // applyFilters();
+  //                           // Server-side refetch for new filters
+  //                           _refetchWithCurrentFilters();
+  //                         },
+  //                       ),
+  //                 ],
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //         if (selectedUserId != null && !userHasQrCodes)
+  //           const Padding(
+  //             padding: EdgeInsets.only(top: 10),
+  //             child: Text(
+  //               'No QR codes assigned to this user.',
+  //               style: TextStyle(color: Colors.red),
+  //             ),
+  //           ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+
 }

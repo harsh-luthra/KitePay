@@ -13,6 +13,8 @@ class TransactionService {
     String? qrId,
     String? cursor,
     int limit = 25,
+    DateTime? from,
+    DateTime? to,
     required String jwtToken
   }) async {
     try {
@@ -24,8 +26,12 @@ class TransactionService {
       if (userId != null) queryParams['userId'] = userId;
       if (qrId != null) queryParams['qrId'] = qrId;
       if (cursor != null) queryParams['cursor'] = cursor;
+      if (from != null) queryParams['from'] = _formatDate(from);
+      if (to != null) queryParams['to'] = _formatDate(to);
 
       url += '?' + Uri(queryParameters: queryParams).query;
+
+      // print(url);
 
       final response = await http.get(
         Uri.parse(url),
@@ -39,8 +45,6 @@ class TransactionService {
         final responseData = json.decode(response.body);
         final List data = responseData['transactions'];
         final String? nextCursor = responseData['nextCursor'];
-
-        print('NextCursor : $nextCursor');
 
         return PaginatedTransactions(
           transactions: data.map((e) => Transaction.fromJson(e)).toList(),
@@ -62,6 +66,8 @@ class TransactionService {
   static Future<PaginatedTransactions> fetchUserTransactions({
     String? userId,
     String? qrId,
+    DateTime? from,
+    DateTime? to,
     String? cursor,
     int limit = 25,
     required String jwtToken
@@ -75,6 +81,8 @@ class TransactionService {
       if (userId != null) queryParams['userId'] = userId;
       if (qrId != null) queryParams['qrId'] = qrId;
       if (cursor != null) queryParams['cursor'] = cursor;
+      if (from != null) queryParams['from'] = _formatDate(from);
+      if (to != null) queryParams['to'] = _formatDate(to);
 
       url += '?${Uri(queryParameters: queryParams).query}';
 
@@ -106,6 +114,12 @@ class TransactionService {
       print('Error fetching user transactions: $e');
       return PaginatedTransactions(transactions: [], nextCursor: null);
     }
+  }
+
+  static String _formatDate(DateTime date) {
+    return "${date.year.toString().padLeft(4, '0')}-"
+        "${date.month.toString().padLeft(2, '0')}-"
+        "${date.day.toString().padLeft(2, '0')}";
   }
 
 }
