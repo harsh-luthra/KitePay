@@ -1,6 +1,6 @@
 import 'package:admin_qr_manager/AppWriteService.dart';
+import 'package:admin_qr_manager/MyMetaApi.dart';
 import 'package:flutter/material.dart';
-import 'TransactionPage.dart';
 import 'TransactionPageNew.dart';
 import 'UsersService.dart';
 import 'models/AppUser.dart';
@@ -20,6 +20,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   List<AppUser> _users = [];
   bool _loading = true;
 
+  late AppUser appUser;
+
   // final List<String> availableLabels = [
   //   'user',
   //   'qr',
@@ -29,13 +31,25 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   // ];
 
   final List<String> availableLabels = [
-    'SelfQr'
+    'SelfQr',
+    'users'
   ];
+
+  late AppUser userMeta;
 
   @override
   void initState() {
     super.initState();
+    loadUserMeta();
     _fetchUsers();
+  }
+
+  Future<void> loadUserMeta() async {
+    String jwtToken = await AppWriteService().getJWT();
+    userMeta = (await MyMetaApi.getMyMetaData(
+      jwtToken: jwtToken,
+      refresh: false, // set true to force re-fetch
+    ))!;
   }
 
   Future<void> _fetchUsers() async {
@@ -52,105 +66,118 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   }
 
   void _showAddUserDialog(BuildContext parentContext) {
-    final emailController = TextEditingController();
-    final passController = TextEditingController();
-    final nameController = TextEditingController();
+    final emailController = TextEditingController(text: "test@gmail.com");
+    final passController = TextEditingController(text: "Test@1234");
+    final nameController = TextEditingController(text: "Test");
+    String? selectedRole = userMeta.role == "subadmin" ? "user" : null; // store chosen role
 
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Add New User"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              obscureText: false,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                hintText: 'Min 3 characters',
-              ),
+      useRootNavigator: true,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text("Add New User"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  obscureText: false,
+                  decoration: const InputDecoration(
+                    labelText: 'Name',
+                    hintText: 'Min 3 characters',
+                  ),
+                ),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    hintText: 'e.g. user@example.com',
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                TextField(
+                  controller: passController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Password',
+                    hintText: 'Min 6 characters',
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // --- Role selection ---
+                const Text("Select Role",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                if(userMeta.role == "admin")
+                RadioListTile<String>(
+                  title: const Text("Sub-Admin"),
+                  value: "subadmin",
+                  groupValue: selectedRole,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedRole = value;
+                    });
+                  },
+                ),
+                RadioListTile<String>(
+                  title: const Text("User"),
+                  value: "user",
+                  groupValue: selectedRole,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedRole = value;
+                    });
+                  },
+                ),
+              ],
             ),
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                hintText: 'e.g. user@example.com',
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context, rootNavigator: true).pop(), // closes this dialog
+                child: const Text("Cancel"),
               ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            TextField(
-              controller: passController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Password',
-                hintText: 'Min 6 characters',
+              ElevatedButton(
+                onPressed: () async {
+                  // validate...
+                  Navigator.of(context, rootNavigator: true).pop(); // close form dialog
+
+                  // show loading on root navigator
+                  showDialog(
+                    context: parentContext,
+                    barrierDismissible: false,
+                    useRootNavigator: true,
+                    builder: (_) => const Center(child: CircularProgressIndicator()),
+                  );
+                  final navigator = Navigator.of(parentContext, rootNavigator: true);
+
+                  try {
+                    final jwt = await AppWriteService().getJWT();
+                    final ok  = await AdminUserService.createUser(
+                      emailController.text.trim(),
+                      passController.text.trim(),
+                      nameController.text.trim(),
+                      selectedRole!,
+                      jwt,
+                    );
+                    ScaffoldMessenger.of(parentContext).showSnackBar(
+                      SnackBar(content: Text(ok ? 'User added successfully!' : 'Failed to add user')),
+                    );
+                    if (ok) await _fetchUsers();
+                  } catch (e) {
+                    ScaffoldMessenger.of(parentContext).showSnackBar(
+                      SnackBar(content: Text('Failed to add user: $e')),
+                    );
+                  } finally {
+                    if (navigator.canPop()) navigator.pop(); // close loader exactly once
+                  }
+                },
+                child: const Text("Create"),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final name = nameController.text.trim();
-              final email = emailController.text.trim();
-              final password = passController.text.trim();
-
-              if (name.length < 3) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Name must be at least 3 characters.")),
-                );
-                return;
-              }
-
-              // Basic validation
-              final emailRegex = RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$");
-              if (!emailRegex.hasMatch(email)) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Enter a valid email address.")),
-                );
-                return;
-              }
-
-              if (password.length < 6) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Password must be at least 6 characters.")),
-                );
-                return;
-              }
-
-              Navigator.pop(context); // Close the dialog
-
-              // Show loading
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (_) => const Center(child: CircularProgressIndicator()),
-              );
-
-              try {
-                final jwt = await AppWriteService().getJWT();
-                await AdminUserService.createUser(email, password, name, jwt);
-                ScaffoldMessenger.of(parentContext).showSnackBar(
-                  const SnackBar(content: Text('User added successfully!')),
-                );
-                Navigator.pop(context); // Close loading
-                print("User added successfully!");
-                _fetchUsers(); // Refresh list
-              } catch (e) {
-                ScaffoldMessenger.of(parentContext).showSnackBar(
-                  SnackBar(content: Text('Failed to add user: $e')),
-                );
-                Navigator.pop(context); // Close loading
-              }
-            },
-            child: const Text("Create"),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -269,8 +296,10 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     ),
 
                     const SizedBox(height: 16),
+                    if(userMeta.role == "admin")
                     const Text('Labels:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Wrap(
+                    if(userMeta.role == "admin")
+                      Wrap(
                       spacing: 8.0,
                       runSpacing: 8.0,
                       children: availableLabels.map((label) {
@@ -414,6 +443,18 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
   }
 
+  String? getParentLabel(String role, String? parentId) {
+    if (role == 'admin') {
+      return null; // No parent label for admin
+    }
+
+    if (parentId == null || parentId.isEmpty) {
+      return 'Admin'; // No parentId means parent is admin
+    }
+
+    return 'Subadmin'; // Has parentId means parent is subadmin
+  }
+
   @override
   Widget build(BuildContext context) {
     return ScaffoldMessenger(
@@ -444,6 +485,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           itemCount: _users.length,
           itemBuilder: (context, index) {
             final user = _users[index];
+            // print(user.toString());
             return Card(
               margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -474,16 +516,42 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            user.email,
+                            user.email ?? '',
                             style: const TextStyle(fontSize: 14, color: Colors.black87),
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
+
+                    // Parent Role Label Logic
+                    if (user.role != 'admin')
+                      Row(
+                        children: [
+                          const Icon(Icons.account_tree, size: 16, color: Colors.grey),
+                          const SizedBox(width: 6),
+                          Text(
+                            "Parent: ${(user.parentId == null || user.parentId!.isEmpty)
+                                    ? 'Admin'
+                                    : 'Sub-Admin'}",
+                            style: const TextStyle(fontSize: 14, color: Colors.black54, fontStyle: FontStyle.italic),
+                          ),
+                        ],
+                      ),
+
+                    Row(
+                      children: [
+                        const Icon(Icons.account_circle_outlined, size: 16, color: Colors.grey),
+                        const SizedBox(width: 6),
+                        Text("Role : ${user.role}" , style: const TextStyle(fontSize: 14, color: Colors.black54, fontStyle: FontStyle.italic),
+                        ),
+                      ],
+                    ),
+
                     const SizedBox(height: 12),
 
                     // Labels
-                    if (user.labels.isNotEmpty)
+                    if (user.labels != null && user.labels.isNotEmpty)
                       Wrap(
                         spacing: 6,
                         children: user.labels
@@ -499,7 +567,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     const SizedBox(height: 12),
 
                     // Action Buttons
-                    Row(
+                    if (user.role != 'admin')
+                      Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         // Status switch
@@ -508,13 +577,14 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                             const Text("Status:"),
                             const SizedBox(width: 6),
                             Switch(
-                              value: user.status,
+                              value: user.status ?? false,
                               onChanged: (newStatus) => _confirmAndToggleUserStatus(context, user, newStatus),
                             ),
                           ],
                         ),
 
                         // Right side actions
+                        if (user.role != 'admin')
                         Row(
                           children: [
                             IconButton(

@@ -1,9 +1,10 @@
+import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:admin_qr_manager/AppWriteService.dart';
 import 'DashboardScreenNew.dart';
+import 'MyMetaApi.dart';
 import 'adminLoginPage.dart';
-import 'dashBoardScreen.dart';
 
 final appwrite = AppWriteService();
 
@@ -64,9 +65,15 @@ class _SplashScreenState extends State<SplashScreen> {
       // Logged in → go to dashboard
       if (!mounted) return;
 
+      String jwtToken = await AppWriteService().getJWT();
+      AppUser userMeta = (await MyMetaApi.getMyMetaData(
+        jwtToken: jwtToken,
+        refresh: false, // set true to force re-fetch
+      ))!;
+
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => DashboardScreenNew(user: user)),
+        MaterialPageRoute(builder: (_) => DashboardScreenNew(user: user , userMeta: userMeta,)),
             (route) => false,
       );
 

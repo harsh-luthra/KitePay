@@ -171,6 +171,7 @@ class QrCodeService {
 
       if (response.statusCode == 200) {
         List<dynamic> jsonList = jsonDecode(response.body);
+        print(response.body);
         return jsonList.map((json) => QrCode.fromJson(json)).toList();
       } else {
         throw Exception('Failed to load user QR codes from the server');
@@ -256,13 +257,14 @@ class QrCodeService {
     }
   }
 
-  Future<bool> createUserQrCode(String userId) async {
+  Future<bool> createUserQrCode(String userId, String jwtToken) async {
     if (userId.isEmpty) return false;
 
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/create-qr/$userId'),
         headers: {
+          'Authorization': 'Bearer $jwtToken',
           'Content-Type': 'application/json',
           // Add auth headers if needed
         },

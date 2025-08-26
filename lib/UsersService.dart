@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 
 import 'AppConstants.dart';
@@ -12,7 +13,7 @@ class AdminUserService {
     try {
       final url = Uri.parse('$_baseUrl/admin/users');
       // print('📤 Sending GET request to: $url');
-      // print('🔐 JWT Token: $jwtToken');
+      print('🔐 JWT Token: $jwtToken');
 
       final response = await http.get(
         url,
@@ -24,6 +25,7 @@ class AdminUserService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
+        print(response.body);
         final users = data.map((json) => AppUser.fromJson(json)).toList();
         return users;
       } else {
@@ -43,75 +45,81 @@ class AdminUserService {
     }
   }
 
-  static Future<UserListResult> listUsersNew(String jwtToken) async {
-    try {
-      final url = Uri.parse('$_baseUrl/admin/users');
-      final response = await http
-          .get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $jwtToken',
-          'Content-Type': 'application/json',
-        },
-      )
-          .timeout(const Duration(seconds: 5)); // ⏱️ Set timeout here
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        final users = data.map((json) => AppUser.fromJson(json)).toList();
-        return UserListResult(users: users);
-      } else {
-        final body = jsonDecode(response.body);
-        final error = body['error'] ?? 'Unknown error';
-        return UserListResult(users: [], error: error);
-      }
-    } on TimeoutException {
-      return UserListResult(
-        users: [],
-        error:
-        'Request timed out. Please check your connection or try again later.',
-      );
-    } catch (e) {
-      return UserListResult(users: [], error: 'Error fetching users: $e');
-    }
-  }
+  // static Future<UserListResult> listUsersNew(String jwtToken) async {
+  //   try {
+  //     final url = Uri.parse('$_baseUrl/admin/users');
+  //     final response = await http
+  //         .get(
+  //       url,
+  //       headers: {
+  //         'Authorization': 'Bearer $jwtToken',
+  //         'Content-Type': 'application/json',
+  //       },
+  //     )
+  //         .timeout(const Duration(seconds: 5)); // ⏱️ Set timeout here
+  //
+  //     if (response.statusCode == 200) {
+  //       final List<dynamic> data = jsonDecode(response.body);
+  //       final users = data.map((json) => AppUser.fromJson(json)).toList();
+  //       return UserListResult(users: users);
+  //     } else {
+  //       final body = jsonDecode(response.body);
+  //       final error = body['error'] ?? 'Unknown error';
+  //       return UserListResult(users: [], error: error);
+  //     }
+  //   } on TimeoutException {
+  //     return UserListResult(
+  //       users: [],
+  //       error:
+  //       'Request timed out. Please check your connection or try again later.',
+  //     );
+  //   } catch (e) {
+  //     return UserListResult(users: [], error: 'Error fetching users: $e');
+  //   }
+  // }
 
   /// Create a user with email and password via Node.js backend
-  static Future<void> createUser(String email, String password, String name, String jwtToken) async {
+  static Future<bool> createUser(
+      String email,
+      String password,
+      String name,
+      String role,
+      String jwtToken,
+      ) async {
     final url = Uri.parse('$_baseUrl/admin/create-user');
 
-    print('📤 Sending POST request to: $url');
-    print('📧 Name: $name');
-    print('📧 Email: $email');
-    print('🔐 JWT Token: $jwtToken');
-
     try {
-      final response = await http.post(
+      final resp = await http.post(
         url,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $jwtToken',
         },
-        body: jsonEncode({'name': name, 'email': email, 'password': password}),
+        body: jsonEncode({
+          'name': name,
+          'email': email,
+          'password': password,
+          'role': role,
+        }),
       );
 
-      print('📥 Response status: ${response.statusCode}');
-      print('📥 Response body: ${response.body}');
+      // Success path
+      if (resp.statusCode == 201) return true;
 
-      if (response.statusCode != 201) {
-        final body = jsonDecode(response.body);
-        final error = body['error'] ?? 'Failed to create user';
-        throw Exception(error);
+      // Optional: log server error message if present
+      try {
+        final body = jsonDecode(resp.body);
+        debugPrint('Create user failed: ${body['error'] ?? body}');
+      } catch (_) {
+        debugPrint('Create user failed: ${resp.statusCode} ${resp.body}');
       }
-
-      print('✅ User created successfully.');
+      return false;
     } on TimeoutException {
-      // 🔌 API took too long
-      throw Exception(
-          'Request timed out. Please check your connection or try again later.');
+      debugPrint('Create user timed out');
+      return false;
     } catch (e) {
-      print('🔥 Exception while creating user: $e');
-      rethrow;
+      debugPrint('Create user exception: $e');
+      return false;
     }
   }
 
@@ -197,6 +205,33 @@ class AdminUserService {
     if (response.statusCode != 200) {
       print('❌ Delete failed: ${response.body}');
       throw Exception(jsonDecode(response.body)['error'] ?? 'Failed to delete user');
+    }
+  }
+
+  static Future<bool> getMyMetaData({
+    required String jwtToken,
+  }) async {
+    final url = Uri.parse('$_baseUrl/admin/getMyMetaData'); // Update with your server URL
+
+    try {
+      final res = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $jwtToken',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return data['success'] == true;
+      } else {
+        print('❌ Server error: ${res.statusCode} ${res.body}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Exception: $e');
+      return false;
     }
   }
 

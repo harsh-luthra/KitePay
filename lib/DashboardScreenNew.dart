@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:flutter/material.dart';
 import 'package:appwrite/models.dart' show User;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'AppConfig.dart';
 import 'AppConstants.dart';
 import 'AppWriteService.dart';
 import 'ManageUsersScreen.dart';
 import 'ManageQrScreen.dart';
+import 'MyMetaApi.dart';
 import 'TransactionPageNew.dart';
 import 'ManageWithdrawals.dart';
 import 'WithdrawalFormPage.dart';
@@ -16,8 +19,9 @@ import 'package:http/http.dart' as http;
 
 class DashboardScreenNew extends StatefulWidget {
   final User user;
+  final AppUser userMeta;
 
-  const DashboardScreenNew({super.key, required this.user});
+  const DashboardScreenNew({super.key, required this.user, required this.userMeta});
 
   @override
   State<DashboardScreenNew> createState() => _DashboardScreenNewState();
@@ -37,12 +41,31 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   // Menu definition: label, icon, and builder to return corresponding screen
   late final List<_MenuItem> _allMenuItems;
 
+  late AppUser userMetaGlobal;
+
+  // @override
+  //   // void initState() {
+  //   //   super.initState();
+  //   //
+  //   //   // Do not await in initState. Schedule after first build.
+  //   //   WidgetsBinding.instance.addPostFrameCallback((_) {
+  //   //     _initialize();
+  //   //   });
+  //   //
+  //   //   // Provide a minimal initial menu or leave empty until loaded
+  //   //   _allMenuItems = [];
+  //   // }
+
   @override
   void initState() {
 
     super.initState();
+
+    // loadUserMeta();
     loadConfig();
     if(widget.user.labels.contains("admin")){
+      _activeIndex = 0;
+    }else if( widget.userMeta.role.contains("subadmin") && widget.userMeta.labels.contains("users") ){
       _activeIndex = 0;
     }else{
       _activeIndex = 2;
@@ -53,7 +76,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         id: 0,
         label: 'Manage Users',
         icon: Icons.person,
-        visibleFor: (labels) => labels.contains('user') || labels.contains('admin'),
+        visibleFor: (labels) => labels.contains('admin') || (widget.userMeta.role.contains("subadmin") && widget.userMeta.labels.contains("users")),
         builder: (_) => const ManageUsersScreen(),
       ),
       _MenuItem(
@@ -61,14 +84,14 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         label: 'Manage All QR Codes',
         icon: Icons.qr_code,
         visibleFor: (labels) => labels.contains('qr') || labels.contains('admin'),
-        builder: (_) => ManageQrScreen(),
+        builder: (_) => ManageQrScreen(userMeta: widget.userMeta,),
       ),
       _MenuItem(
         id: 2,
         label: 'My QR Codes',
         icon: Icons.qr_code_scanner,
         visibleFor: (_) => true,
-        builder: (user) => ManageQrScreen(userMode: true, userModeUserid: user.$id),
+        builder: (user) => ManageQrScreen(userMode: true, userModeUserid: user.$id, userMeta: widget.userMeta,),
       ),
       _MenuItem(
         id: 3,
@@ -113,6 +136,14 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     }
   }
 
+  Future<void> loadUserMeta() async {
+    String jwtToken = await AppWriteService().getJWT();
+    userMetaGlobal = (await MyMetaApi.getMyMetaData(
+      jwtToken: jwtToken,
+      refresh: false, // set true to force re-fetch
+    ))!;
+  }
+
   Future<void> loadConfig() async {
     try{
       final response = await http.get(Uri.parse('${AppConstants.baseApiUrl}/user/config')).timeout(Duration(seconds: 5));
@@ -146,8 +177,8 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     if (confirm == true) {
       try {
         await _appWriteService.account.deleteSession(sessionId: 'current');
+        final prefs = await SharedPreferences.getInstance(); await prefs.clear();
         if (!mounted) return;
-
         // Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
         Navigator.pushAndRemoveUntil(
           context,

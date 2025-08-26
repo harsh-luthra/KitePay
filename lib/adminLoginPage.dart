@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:appwrite/appwrite.dart';
@@ -10,7 +11,7 @@ import 'package:admin_qr_manager/AppWriteService.dart'; // adjust path as needed
 import 'AppConfig.dart';
 import 'AppConstants.dart';
 import 'DashboardScreenNew.dart';
-import 'dashBoardScreen.dart'; // screen to redirect after login
+import 'MyMetaApi.dart';
 import 'package:http/http.dart' as http;
 
 class AdminLoginScreen extends StatefulWidget {
@@ -47,23 +48,32 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       // print("Email: "+user.labels.toString());
 
       if(user.labels.contains('admin')){
-        // print("Admin logged in");
+        print("Admin logged in");
       }else{
         // print("User is Not Admin: "+user.labels.toString());
       }
 
+     String jwtToken = await AppWriteService().getJWT();
+
+      final userMeta = await MyMetaApi.getMyMetaData(
+        jwtToken: jwtToken,
+        refresh: true, // set true to force re-fetch
+      );
+
+      print(userMeta.toString());
+
       // loadConfig();
 
-      moveToDashBoard(user);
+      moveToDashBoard(user, userMeta!);
     }else{
       print("Not logged In");
     }
   }
 
-  void moveToDashBoard(models.User user){
+  void moveToDashBoard(models.User user, AppUser userMeta){
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => DashboardScreenNew(user: user,)),
+        MaterialPageRoute(builder: (_) => DashboardScreenNew(user: user,userMeta: userMeta)),
             (_) => false, // removes all previous routes
       );
     }
@@ -125,7 +135,16 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
       final user = await appwrite.account.get();
 
-      moveToDashBoard(user);
+      String jwtToken = await AppWriteService().getJWT();
+
+      final userMeta = await MyMetaApi.getMyMetaData(
+        jwtToken: jwtToken,
+        refresh: true, // set true to force re-fetch
+      );
+
+      print(userMeta.toString());
+
+      moveToDashBoard(user, userMeta!);
 
     } on AppwriteException catch (e) {
       print(e.message);

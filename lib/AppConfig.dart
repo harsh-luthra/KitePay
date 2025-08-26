@@ -14,8 +14,8 @@ class AppConfig {
     maxWithdrawalAmount = json['max_withdrawal_amount'] ?? 0;
     minWithdrawalAmount = json['min_withdrawal_amount'] ?? 0;
     transactionFeePercent = (json['transaction_fee_percent'] ?? 0).toDouble();
-    print("max_withdrawal_amount: $maxWithdrawalAmount");
-    print("min_withdrawal_amount: $minWithdrawalAmount");
-    print("transaction_fee_percent: $transactionFeePercent");
+    // print("max_withdrawal_amount: $maxWithdrawalAmount");
+    // print("min_withdrawal_amount: $minWithdrawalAmount");
+    // print("transaction_fee_percent: $transactionFeePercent");
   }
 }

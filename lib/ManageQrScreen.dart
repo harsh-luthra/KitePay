@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'AppWriteService.dart';
+import 'MyMetaApi.dart';
 import 'NewFeatureCornerButton.dart';
 import 'TransactionPage.dart';
 import 'TransactionPageNew.dart';
@@ -19,8 +20,14 @@ import 'models/QrCode.dart';
 class ManageQrScreen extends StatefulWidget {
   final String? userModeUserid;
   final bool userMode;
+  final AppUser userMeta; // keep nullable if not always provided
 
-  const ManageQrScreen({super.key, this.userMode = false, this.userModeUserid});
+  const ManageQrScreen({
+    super.key,
+    this.userMode = false,
+    this.userModeUserid,
+    required this.userMeta, // pass when userMode==true if you need it
+  });
 
   @override
   State<ManageQrScreen> createState() => _ManageQrScreenState();
@@ -39,27 +46,33 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
   int userQrCount = 0;
   int activeUserQrCount = 0;
+  // late AppUser userMeta;
 
   @override
   void initState() {
     super.initState();
     // Simulate a login to get a token, for a real app this would be a user action
     // _loginAsAdmin();
+    // loadUserMeta();
     if(!widget.userMode){
         _fetchQrCodes();
         _fetchUsers();
     }else{
       // print("User Mode");
+      if(widget.userMeta.role.contains("subadmin")){
+        _fetchUsers();
+      }
       _fetchOnlyUserQrCodes();
     }
   }
 
-  // Navigator.push(
-  // context,
-  // MaterialPageRoute(
-  // builder: (_) => const TransactionPage(filterQrCodeId: 'qr_code_id_here'),
-  // ),
-  // );
+  // Future<void> loadUserMeta() async {
+  //   String jwtToken = await AppWriteService().getJWT();
+  //   userMeta = (await MyMetaApi.getMyMetaData(
+  //     jwtToken: jwtToken,
+  //     refresh: false, // set true to force re-fetch
+  //   ))!;
+  // }
 
   @override
   void dispose() {
@@ -146,7 +159,13 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(success ? 'User assigned!' : 'Failed to assign user.')),
       );
-      if (success) _fetchQrCodes();
+      if(success){
+        if(widget.userMeta.role == "subadmin"){
+          _fetchOnlyUserQrCodes();
+        }else{
+          _fetchQrCodes();
+        }
+      }
       setState(() => _isProcessing = false);
     }
   }
@@ -189,12 +208,14 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       return;
     }
 
+    _jwtToken = await AppWriteService().getJWT();
+
     if(mounted) {
       setState(() {
       _isLoading = true;
     });
     }
-
+    // createdByUserId
     try{
       final codes = await _qrCodeService.getUserQrCodes(widget.userModeUserid!);
       setState(() {
@@ -360,7 +381,11 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('QR Code status changed to $newStatus')),
         );
-        _fetchQrCodes();
+        if(widget.userMeta.role == "subadmin"){
+          _fetchOnlyUserQrCodes();
+        }else{
+          _fetchQrCodes();
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to change QR code status.')),
@@ -549,7 +574,11 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User unlinked successfully!')),
         );
-        _fetchQrCodes();
+        if(widget.userMeta.role == "subadmin"){
+          _fetchOnlyUserQrCodes();
+        }else{
+          _fetchQrCodes();
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to unlink user.')),
@@ -597,9 +626,8 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   }
 
   Future<void> _createAssignUserQR() async {
-    final user = await AppWriteService().account.get();
-    print(user.labels.toString());
-    if(!user.labels.contains('admin') && !user.labels.contains('SelfQr')){
+    print(widget.userMeta.labels.toString());
+    if(!widget.userMeta.labels.contains('admin') && !widget.userMeta.labels.contains('SelfQr')){
       await showDialog<bool>(
         context: context,
         builder: (BuildContext context) {
@@ -666,7 +694,8 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       setState(() {
         _isProcessing = true;
       });
-      bool success = await _qrCodeService.createUserQrCode(widget.userModeUserid!);
+      _jwtToken = await AppWriteService().getJWT();
+      bool success = await _qrCodeService.createUserQrCode(widget.userModeUserid!,_jwtToken!);
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('New QR code Generated and Assigned')),
@@ -707,7 +736,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
           actions: [
             if(!widget.userMode)
               IconButton(onPressed: _jwtToken != null && !_isProcessing ? _showUploadQrDialog : null, icon: Icon(Icons.add)),
-            if(widget.userMode)
+            if(widget.userMode && widget.userMeta.role != "user")
               NewFeatureCornerButton(onPressed: !_isProcessing ? _createAssignUserQR : null, icon: Icon(Icons.add_box_rounded), label: Text('Create QR Code'),),
             // if(widget.userMode)
             //   NewFeatureCornerButton(
@@ -869,29 +898,47 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
   /// Right section (Details)
   Widget _buildQrRightSection(QrCode qrCode, String formattedDate) {
+    final String? assignedId = qrCode.assignedUserId; // nullable
+    final bool isSelf = assignedId != null && assignedId == widget.userMeta.id;
+
+    final String? assignedDisplay = assignedId == null
+        ? 'Unassigned'
+        : (isSelf ? 'Self' : displayUserNameText(assignedId));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('ID: ${qrCode.qrId}',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
         Text(
-          'Transactions: ${CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions!)}',
+          'ID: ${qrCode.qrId}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         Text(
-          'Amount Received: ${CurrencyUtils.formatIndianCurrency(qrCode.totalPayInAmount! / 100)}',
+          'Assigned To: $assignedDisplay',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Transactions: ${CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions ?? 0)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          'Amount Received: ${CurrencyUtils.formatIndianCurrency((qrCode.totalPayInAmount ?? 0) / 100)}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 6),
         if (!widget.userMode)
-          Text('Assigned to: ${displayUserNameText(qrCode.assignedUserId) ?? 'Unassigned'}',
-              style: const TextStyle(fontSize: 14)),
-        Text('Created: $formattedDate',
-            style: const TextStyle(fontSize: 13, color: Colors.grey)),
+          Text(
+            'Assigned to: ${displayUserNameText(assignedId) ?? (assignedId ?? 'Unassigned')}',
+            style: const TextStyle(fontSize: 14),
+          ),
+        Text(
+          'Created: $formattedDate',
+          style: const TextStyle(fontSize: 13, color: Colors.grey),
+        ),
       ],
     );
   }
+
 
   Widget _buildActionButtons(QrCode qrCode) {
     return Wrap(
@@ -899,7 +946,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       runSpacing: 8, // extra spacing between rows when wrapping
       alignment: WrapAlignment.center,
       children: [
-        if(!widget.userMode)
+        if(!widget.userMode || (widget.userMeta.role.contains("subadmin") && widget.userMeta.labels.contains("users")) )
           IconButton(
             icon: Icon(
               qrCode.isActive ? Icons.toggle_on : Icons.toggle_off,
@@ -908,7 +955,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             tooltip: 'Toggle Status',
             onPressed: _isProcessing ? null : () => _toggleStatus(qrCode),
           ),
-        if(!widget.userMode)
+        if(!widget.userMode || (widget.userMeta.role.contains("subadmin") && widget.userMeta.labels.contains("users")) )
           IconButton(
             icon: Icon(
               qrCode.assignedUserId == null
