@@ -352,12 +352,41 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     final bool newStatus = !qrCode.isActive;
     final String statusText = newStatus ? 'activate' : 'deactivate';
 
+    if (widget.userMeta.role == 'subadmin' && newStatus == true) {
+      if (!context.mounted) return;
+
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Action not allowed'),
+          content: const Text(
+            'Sub-admins can only deactivate QR codes.\n'
+                'Contact an admin with the QR code ID to get it re-activated.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+
+      return; // early exit: do not proceed
+    }
+
+    String contentForDialog = "Are you sure you want to $statusText this QR code?";
+
+    if (widget.userMeta.role == 'subadmin' && newStatus == false){
+      contentForDialog = "Are you sure you want to deactivate this QR code? It cannot be re-activated by sub-admins. Only an admin can activate deactivated QR codes.”";
+    }
+
     final bool? shouldToggle = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Confirm Status Change'),
-          content: Text('Are you sure you want to $statusText this QR code?'),
+          content: Text(contentForDialog),
           actions: <Widget>[
             TextButton(
               child: const Text('Cancel'),

@@ -13,7 +13,7 @@ class AdminUserService {
     try {
       final url = Uri.parse('$_baseUrl/admin/users');
       // print('📤 Sending GET request to: $url');
-      print('🔐 JWT Token: $jwtToken');
+      // print('🔐 JWT Token: $jwtToken');
 
       final response = await http.get(
         url,
@@ -25,7 +25,7 @@ class AdminUserService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        print(response.body);
+        // print(response.body);
         final users = data.map((json) => AppUser.fromJson(json)).toList();
         return users;
       } else {
@@ -51,10 +51,10 @@ class AdminUserService {
       final url = (search != null && search.isNotEmpty)
           ? Uri.parse('$baseUrl?search=${Uri.encodeQueryComponent(search)}')
           : Uri.parse(baseUrl);
-
-      print('🔐 JWT Token: $jwtToken');
-      print('🔍 Searching for: $search');
-      print('📤 Sending GET request to: $url');
+      //
+      // print('🔐 JWT Token: $jwtToken');
+      // print('🔍 Searching for: $search');
+      // print('📤 Sending GET request to: $url');
 
       final response = await http.get(
         url,
@@ -66,7 +66,7 @@ class AdminUserService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        print(response.body);
+        // print(response.body);
         return data.map((json) => AppUser.fromJson(json)).toList();
       } else {
         final body = jsonDecode(response.body);
@@ -157,6 +157,48 @@ class AdminUserService {
       return false;
     }
   }
+
+  static Future<bool> assignUserToSubadmin({
+    required String subadminId,
+    required String userId,
+    required String jwtToken,
+    bool unassign = false, // when true, clears parentId on server
+  }) async {
+    final url = Uri.parse('$_baseUrl/admin/assign-user/$subadminId');
+
+    try {
+      final resp = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwtToken',
+        },
+        body: jsonEncode({
+          'userId': userId,
+          'unassign': unassign, // optional; omit or false to assign
+        }),
+      );
+
+      // Success: backend returns 200 OK on update
+      if (resp.statusCode == 200) return true;
+
+      // Log server message if present
+      try {
+        final body = jsonDecode(resp.body);
+        debugPrint('Assign user failed: ${body['message'] ?? body['error'] ?? body}');
+      } catch (_) {
+        debugPrint('Assign user failed: ${resp.statusCode} ${resp.body}');
+      }
+      return false;
+    } on TimeoutException {
+      debugPrint('Assign user timed out');
+      return false;
+    } catch (e) {
+      debugPrint('Assign user exception: $e');
+      return false;
+    }
+  }
+
 
   static Future<void> resetPassword(String userId, String newPassword, String jwt) async {
     final response = await http.post(

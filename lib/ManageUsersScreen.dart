@@ -53,15 +53,16 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   }
 
   Future<void> assignUserToSubAdmin(BuildContext context, String userId) async {
+    final pageContext = context;
     String jwtToken = await AppWriteService().getJWT();
     showDialog(
-      context: context,
+      context: pageContext,
       builder: (context) {
         String localSearchTerm = '';
         Timer? debounce;
 
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (dialogCtx, setState) {
             return AlertDialog(
               title: Text("Select Sub-admin"),
               content: Container(
@@ -110,8 +111,45 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                 title: Text(subadmin.name),
                                 subtitle: Text(subadmin.email),
                                 onTap: () async {
-                                  print("User: $userId assigned to ${subadmin.id}");
-                                  Navigator.pop(context);
+                                  // Close the selection dialog using dialog context
+                                  Navigator.of(dialogCtx).pop();
+                                  // Show a progress dialog using page context
+                                  showDialog(
+                                    context: pageContext,
+                                    barrierDismissible: false,
+                                    builder: (_) => const Center(child: CircularProgressIndicator()),
+                                  );
+                                  try {
+                                    await AdminUserService.assignUserToSubadmin(
+                                      subadminId: subadmin.id,
+                                      userId: userId,
+                                      jwtToken: jwtToken,
+                                    );
+                                    // Dismiss loading dialog
+                                    if (pageContext.mounted) {
+                                      Navigator.of(pageContext).pop();
+                                    }
+                                    // Now show snackbar using page context (has ScaffoldMessenger)
+                                    if (pageContext.mounted) {
+                                      ScaffoldMessenger.of(pageContext).showSnackBar(
+                                        SnackBar(content: Text("User: $userId assigned to ${subadmin.id}")),
+                                      );
+                                    }
+                                    // Refresh list (ensure owning State is still mounted)
+                                    if (pageContext.mounted) {
+                                      _fetchUsers(); // make sure this is safe to call
+                                    }
+                                  } catch (e) {
+                                    // Dismiss loading dialog
+                                    if (pageContext.mounted) {
+                                      Navigator.of(pageContext).pop();
+                                    }
+                                    if (pageContext.mounted) {
+                                      ScaffoldMessenger.of(pageContext).showSnackBar(
+                                        SnackBar(content: Text('Failed to assign user: $e')),
+                                      );
+                                    }
+                                  }
                                 },
                               );
                             },
@@ -136,6 +174,62 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         );
       },
     );
+  }
+
+  Future<void> unAssignUser(BuildContext context, String userId, String subadminId) async {
+    final pageContext = context;
+
+    final confirm = await showDialog<bool>(
+      context: pageContext,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Un-assign User'),
+        content: const Text('Are you sure you want to un-assign this user from the sub-admin?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Yes, un-assign'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    final jwtToken = await AppWriteService().getJWT();
+
+    // Show loader
+    await showDialog(
+      context: pageContext,
+      barrierDismissible: false,
+      useRootNavigator: true, // safer with nested navigators
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await AdminUserService.assignUserToSubadmin(
+        unassign: true,
+        subadminId: subadminId,
+        userId: userId,
+        jwtToken: jwtToken,
+      );
+      if (pageContext.mounted) {
+        Navigator.of(pageContext, rootNavigator: true).pop(); // dismiss loader
+        ScaffoldMessenger.of(pageContext).showSnackBar(
+          SnackBar(content: Text('User: $userId Unassigned Successfully')),
+        );
+        _fetchUsers(); // make sure owner is still mounted if it triggers setState
+      }
+    } catch (e) {
+      if (pageContext.mounted) {
+        Navigator.of(pageContext, rootNavigator: true).pop(); // dismiss loader
+        ScaffoldMessenger.of(pageContext).showSnackBar(
+          SnackBar(content: Text('Failed to unassign user: $e')),
+        );
+      }
+    }
   }
 
   Future<void> loadUserMeta() async {
@@ -465,7 +559,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
                     try {
                       final jwt = await AppWriteService().getJWT();
-                      print('labelsChanged $tempLabels');
+                      // print('labelsChanged $tempLabels');
                       await AdminUserService.editUser(
                         user.id,
                         jwt,
@@ -592,7 +686,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     // Name and Email
                     Row(
                       children: [
-                        const Icon(Icons.person, color: Colors.blue),
+                        userRoleIcon(role: user.role, parentId: user.parentId),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -690,8 +784,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                             if(user.role == 'user' && user.parentId != null)
                               IconButton(
                                 icon: const Icon(Icons.account_circle, color: Colors.blue),
-                                tooltip: "Reassign to Sub-Admin",
-                                onPressed: () => _showEditDialog(user, user.name, user.email, context),
+                                tooltip: "Un-Assign User",
+                                onPressed: () => unAssignUser(context, user.id, user.parentId!),
                               ),
                             IconButton(
                               icon: const Icon(Icons.edit, color: Colors.blue),
@@ -750,6 +844,37 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         ),
       ),
     );
+  }
+
+  Widget userRoleIcon({
+    required String role,
+    String? parentId,
+  }) {
+    final r = role.toUpperCase();
+    if (r == 'ADMIN') {
+      return const Icon(Icons.shield, color: Colors.red);
+    }
+    if (r == 'SUBADMIN') {
+      return const Icon(Icons.manage_accounts, color: Colors.orange);
+    }
+    // USER (or anything else)
+    final isAssigned = parentId != null && parentId.isNotEmpty;
+    return Icon(
+      isAssigned ? Icons.person_add : Icons.person_outline,
+      color: isAssigned ? Colors.green : Colors.blueGrey,
+    );
+  }
+
+  Widget roleIcon(String role) {
+    switch (role.toUpperCase()) {
+      case 'ADMIN':
+        return const Icon(Icons.shield, color: Colors.red);
+      case 'SUBADMIN':
+        return const Icon(Icons.manage_accounts, color: Colors.orange);
+      case 'USER':
+      default:
+        return const Icon(Icons.person, color: Colors.blue);
+    }
   }
 
   void _confirmAndToggleUserStatus(BuildContext context, AppUser user, bool newStatus) async {
