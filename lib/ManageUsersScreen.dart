@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:admin_qr_manager/MyMetaApi.dart';
+import 'package:appwrite/models.dart';
 import 'package:flutter/material.dart';
 import 'TransactionPageNew.dart';
 import 'UsersService.dart';
@@ -42,6 +45,97 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     super.initState();
     loadUserMeta();
     _fetchUsers();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  Future<void> assignUserToSubAdmin(BuildContext context, String userId) async {
+    String jwtToken = await AppWriteService().getJWT();
+    showDialog(
+      context: context,
+      builder: (context) {
+        String localSearchTerm = '';
+        Timer? debounce;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text("Select Sub-admin"),
+              content: Container(
+                width: 300,
+                height: 350,
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: InputDecoration(
+                        labelText: 'Search by name or email',
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                      onChanged: (value) {
+                        if (debounce?.isActive ?? false) debounce!.cancel();
+                        debounce = Timer(const Duration(milliseconds: 500), () {
+                          setState(() {
+                            localSearchTerm = value;
+                          });
+                        });
+                      },
+                    ),
+                    SizedBox(height: 10),
+                    Expanded(
+                      child: FutureBuilder<List<AppUser>>(
+                        future: AdminUserService.listSubadmins(jwtToken, search: localSearchTerm),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return Center(child: CircularProgressIndicator());
+                          }
+                          if (snapshot.hasError) {
+                            return Text("Error: ${snapshot.error}");
+                          }
+                          final subadmins = snapshot.data ?? [];
+                          if (subadmins.isEmpty) {
+                            return Center(child: Text('No sub-admins found'));
+                          }
+                          return ListView.builder(
+                            itemCount: subadmins.length,
+                            itemBuilder: (context, index) {
+                              final subadmin = subadmins[index];
+                              return ListTile(
+                                leading: Text(
+                                  (index + 1).toString(),
+                                  style: TextStyle(fontSize: 25),
+                                ),
+                                title: Text(subadmin.name),
+                                subtitle: Text(subadmin.email),
+                                onTap: () async {
+                                  print("User: $userId assigned to ${subadmin.id}");
+                                  Navigator.pop(context);
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    debounce?.cancel();
+                    Navigator.pop(context);
+                  },
+                  child: Text("Cancel"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> loadUserMeta() async {
@@ -587,6 +681,18 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         if (user.role != 'admin')
                         Row(
                           children: [
+                            if(user.role == 'user' && user.parentId == null)
+                            IconButton(
+                              icon: const Icon(Icons.no_accounts_outlined, color: Colors.blue),
+                              tooltip: "Assign User to Sub-Admin",
+                              onPressed: () => assignUserToSubAdmin(context,user.id),
+                            ),
+                            if(user.role == 'user' && user.parentId != null)
+                              IconButton(
+                                icon: const Icon(Icons.account_circle, color: Colors.blue),
+                                tooltip: "Reassign to Sub-Admin",
+                                onPressed: () => _showEditDialog(user, user.name, user.email, context),
+                              ),
                             IconButton(
                               icon: const Icon(Icons.edit, color: Colors.blue),
                               tooltip: "Edit User",

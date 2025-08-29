@@ -45,6 +45,41 @@ class AdminUserService {
     }
   }
 
+  static Future<List<AppUser>> listSubadmins(String jwtToken, {String? search}) async {
+    try {
+      final baseUrl = '$_baseUrl/admin/subadmins';
+      final url = (search != null && search.isNotEmpty)
+          ? Uri.parse('$baseUrl?search=${Uri.encodeQueryComponent(search)}')
+          : Uri.parse(baseUrl);
+
+      print('🔐 JWT Token: $jwtToken');
+      print('🔍 Searching for: $search');
+      print('📤 Sending GET request to: $url');
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $jwtToken',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        print(response.body);
+        return data.map((json) => AppUser.fromJson(json)).toList();
+      } else {
+        final body = jsonDecode(response.body);
+        final error = body['error'] ?? 'Unknown error';
+        throw Exception(error);
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your connection or try again later.');
+    } catch (e) {
+      throw Exception('Error fetching users: $e');
+    }
+  }
+
   // static Future<UserListResult> listUsersNew(String jwtToken) async {
   //   try {
   //     final url = Uri.parse('$_baseUrl/admin/users');
