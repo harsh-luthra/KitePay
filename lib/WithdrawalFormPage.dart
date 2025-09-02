@@ -181,6 +181,35 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     );
   }
 
+  Future<void> showResultDialog(
+      BuildContext context, {
+        required String title,
+        required String message,
+        required bool success,
+      }) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // force OK
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, success); // close dialog
+                if (success) {
+                  Navigator.pop(context, success); // also close page
+                }
+              },
+              child: const Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   void _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
@@ -217,28 +246,36 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
       );
 
       // Send request via service
-      final success = await WithdrawService.submitWithdrawRequest(
-          withdrawalRequest);
+        final success = await WithdrawService.submitWithdrawRequest(
+            withdrawalRequest);
 
-      if (success) {
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text('✅ Withdrawal request submitted')),
+        if (success) {
+          _formKey.currentState!.reset();
+          await showResultDialog(
+            context,
+            title: "✅ Success",
+            message: "Withdrawal request submitted successfully.",
+            success: true,
+          );
+        } else {
+          await showResultDialog(
+            context,
+            title: "❌ Failed",
+            message: "Failed to submit withdrawal request.",
+            success: false,
+          );
+        }
+      } catch (e) {
+        await showResultDialog(
+          context,
+          title: "❌ Error",
+          message: "Error submitting withdrawal: ${e.toString()}",
+          success: false,
         );
-        _formKey.currentState!.reset();
-      } else {
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text('❌ Failed to submit request')),
-        );
+      } finally {
+        setState(() => _isSubmitting = false);
       }
-    } catch (e) {
-      print('❌ Error submitting withdrawal: $e');
-      _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
-    } finally {
-      setState(() => _isSubmitting = false);
     }
-  }
 
   @override
   Widget build(BuildContext context) {

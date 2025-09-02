@@ -1,3 +1,4 @@
+import 'package:admin_qr_manager/AppConfig.dart';
 import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -29,6 +30,10 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
   @override
   void initState() {
     super.initState();
+    fetchWithdrawalData();
+  }
+
+  void fetchWithdrawalData(){
     if(!widget.userMode){
       _fetchUsers();
       fetchWithdrawalRequests();
@@ -446,6 +451,39 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
     }
   }
 
+  bool hasReachedMaxPending(List<WithdrawalRequest> requests, int maxPending) {
+    int pendingCount = 0;
+    for (final r in requests) {
+      if (r.status == 'pending') {
+        pendingCount++;
+        if (pendingCount >= maxPending) {
+          return true; // already at or above the max
+        }
+      }
+    }
+    return false;
+  }
+
+  Future<void> showMaxPendingDialog(BuildContext context, int maxPending) async {
+    return showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Request Limit Reached"),
+          content: Text(
+            "You already have the maximum number of pending requests allowed ($maxPending).",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ScaffoldMessenger(
@@ -461,9 +499,18 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
                 if(shouldSkipIndependenceDayDialog() == false){
                   showIndependenceDayDialog(context);
                 }else{
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => WithdrawalFormPage()),
-                  );
+                  if (!hasReachedMaxPending(allRequests, AppConfig().maxWithdrawalrequests)) {
+                    Navigator.of(context).push<bool>(
+                      MaterialPageRoute(builder: (_) => WithdrawalFormPage()),
+                    ).then((result) {
+                      if (result == true) {
+                        // ✅ Success callback
+                        fetchWithdrawalData(); // for example, reload the list
+                      }
+                    });
+                  } else {
+                    showMaxPendingDialog(context, AppConfig().maxWithdrawalrequests);
+                  }
                 }
               },
             ),
