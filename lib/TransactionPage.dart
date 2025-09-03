@@ -51,7 +51,8 @@ class _TransactionPageState extends State<TransactionPage> {
     _jwtToken = await AppWriteService().getJWT();
     if (widget.filterUserId == null && widget.filterQrCodeId == null) {
       // Only load users/qrCodes if filters are not pre-set
-      users = await AdminUserService.listUsers(_jwtToken!);
+      final fetched = await AdminUserService.listUsers(jwtToken: await AppWriteService().getJWT());
+      users = fetched.appUsers;
       qrCodes = await _qrCodeService.getQrCodes(_jwtToken);
     }
 

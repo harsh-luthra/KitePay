@@ -9,33 +9,41 @@ class WithdrawService {
   static final String _baseUrl = AppConstants.baseApiUrl;
 
   static Future<bool> submitWithdrawRequest(WithdrawalRequest request) async {
-    final Map<String, dynamic> body = {
-      'userId': request.userId,
-      'qrId' : request.qrId,
-      'holderName': request.holderName,
-      'mode': request.mode,
-      'amount': request.amount,
-    };
+    try {
+      final Map<String, dynamic> body = {
+        'userId': request.userId,
+        'qrId': request.qrId,
+        'holderName': request.holderName,
+        'mode': request.mode,
+        'amount': request.amount,
+      };
 
-    if (request.mode == 'upi') {
-      body['upiId'] = request.upiId;
-    } else if (request.mode == 'bank') {
-      body['bankName'] = request.bankName;
-      body['accountNumber'] = request.accountNumber;
-      body['ifscCode'] = request.ifscCode;
-    }
+      if (request.mode == 'upi') {
+        body['upiId'] = request.upiId;
+      } else if (request.mode == 'bank') {
+        body['bankName'] = request.bankName;
+        body['accountNumber'] = request.accountNumber;
+        body['ifscCode'] = request.ifscCode;
+      }
 
-    final response = await http.post(
-      Uri.parse('$_baseUrl/user/withdraw'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(body),
-    ).timeout(Duration(seconds: 10));
+      final response = await http.post(
+        Uri.parse('$_baseUrl/user/withdraw'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      ).timeout(Duration(seconds: 10));
 
-    if (response.statusCode == 200) {
-      return true;
-    } else {
-      print('❌ Withdrawal request failed: ${response.body}');
-      return false;
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        print('❌ Withdrawal request failed: ${response.body}');
+        throw Exception('${response.body}');
+        return false;
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your internet connection.');
+    } catch (e) {
+      print('❌ Withdrawal request failed: $e');
+      throw Exception('❌ Withdrawal request failed: $e');
     }
   }
 

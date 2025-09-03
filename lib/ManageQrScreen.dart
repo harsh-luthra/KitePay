@@ -83,7 +83,8 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   Future<void> _fetchUsers() async {
     setState(() => _isProcessing = true);
     try {
-      users = await AdminUserService.listUsers(await AppWriteService().getJWT());
+      final fetched = await AdminUserService.listUsers(jwtToken: await AppWriteService().getJWT());
+      users = fetched.appUsers;
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('❌ Failed to fetch users: $e')),

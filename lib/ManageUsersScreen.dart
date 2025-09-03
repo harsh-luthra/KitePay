@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:admin_qr_manager/MyMetaApi.dart';
-import 'package:appwrite/models.dart';
+import 'package:admin_qr_manager/widget/TransactionCardShimmer.dart';
 import 'package:flutter/material.dart';
 import 'TransactionPageNew.dart';
 import 'UsersService.dart';
@@ -18,10 +18,11 @@ class ManageUsersScreen extends StatefulWidget {
 class _ManageUsersScreenState extends State<ManageUsersScreen> {
   // final AdminUserService _userService = AdminUserService();
 
-  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
 
   List<AppUser> _users = [];
-  bool _loading = true;
+  bool loading = true;
 
   late AppUser appUser;
 
@@ -33,23 +34,36 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   //   'payout',
   // ];
 
-  final List<String> availableLabels = [
-    'SelfQr',
-    'users'
-  ];
+  final List<String> availableLabels = ['SelfQr', 'users'];
 
   late AppUser userMeta;
+
+  // PAGINATION
+  String? nextCursor;
+  bool hasMore = true;
+  bool loadingMore = false;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll); // PAGINATION listener
     loadUserMeta();
-    _fetchUsers();
+    _fetchUsers(firstLoad: true);
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  // PAGINATION scroll listener
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      _fetchUsers();
+    }
   }
 
   Future<void> assignUserToSubAdmin(BuildContext context, String userId) async {
@@ -87,9 +101,13 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     SizedBox(height: 10),
                     Expanded(
                       child: FutureBuilder<List<AppUser>>(
-                        future: AdminUserService.listSubadmins(jwtToken, search: localSearchTerm),
+                        future: AdminUserService.listSubadmins(
+                          jwtToken,
+                          search: localSearchTerm,
+                        ),
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
                             return Center(child: CircularProgressIndicator());
                           }
                           if (snapshot.hasError) {
@@ -117,7 +135,10 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                   showDialog(
                                     context: pageContext,
                                     barrierDismissible: false,
-                                    builder: (_) => const Center(child: CircularProgressIndicator()),
+                                    builder:
+                                        (_) => const Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
                                   );
                                   try {
                                     await AdminUserService.assignUserToSubadmin(
@@ -131,8 +152,14 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                     }
                                     // Now show snackbar using page context (has ScaffoldMessenger)
                                     if (pageContext.mounted) {
-                                      ScaffoldMessenger.of(pageContext).showSnackBar(
-                                        SnackBar(content: Text("User: $userId assigned to ${subadmin.id}")),
+                                      ScaffoldMessenger.of(
+                                        pageContext,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            "User: $userId assigned to ${subadmin.id}",
+                                          ),
+                                        ),
                                       );
                                     }
                                     // Refresh list (ensure owning State is still mounted)
@@ -145,8 +172,14 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                       Navigator.of(pageContext).pop();
                                     }
                                     if (pageContext.mounted) {
-                                      ScaffoldMessenger.of(pageContext).showSnackBar(
-                                        SnackBar(content: Text('Failed to assign user: $e')),
+                                      ScaffoldMessenger.of(
+                                        pageContext,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Failed to assign user: $e',
+                                          ),
+                                        ),
                                       );
                                     }
                                   }
@@ -176,25 +209,32 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     );
   }
 
-  Future<void> unAssignUser(BuildContext context, String userId, String subadminId) async {
+  Future<void> unAssignUser(
+    BuildContext context,
+    String userId,
+    String subadminId,
+  ) async {
     final pageContext = context;
 
     final confirm = await showDialog<bool>(
       context: pageContext,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Un-assign User'),
-        content: const Text('Are you sure you want to un-assign this user from the sub-admin?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Un-assign User'),
+            content: const Text(
+              'Are you sure you want to un-assign this user from the sub-admin?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Yes, un-assign'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Yes, un-assign'),
-          ),
-        ],
-      ),
     );
     if (confirm != true) return;
 
@@ -225,148 +265,211 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     } catch (e) {
       if (pageContext.mounted) {
         Navigator.of(pageContext, rootNavigator: true).pop(); // dismiss loader
-        ScaffoldMessenger.of(pageContext).showSnackBar(
-          SnackBar(content: Text('Failed to unassign user: $e')),
-        );
+        ScaffoldMessenger.of(
+          pageContext,
+        ).showSnackBar(SnackBar(content: Text('Failed to unassign user: $e')));
       }
     }
   }
 
   Future<void> loadUserMeta() async {
     String jwtToken = await AppWriteService().getJWT();
-    userMeta = (await MyMetaApi.getMyMetaData(
-      jwtToken: jwtToken,
-      refresh: false, // set true to force re-fetch
-    ))!;
+    userMeta =
+        (await MyMetaApi.getMyMetaData(
+          jwtToken: jwtToken,
+          refresh: false, // set true to force re-fetch
+        ))!;
   }
 
-  Future<void> _fetchUsers() async {
-    setState(() => _loading = true);
+  Future<void> _fetchUsers({bool firstLoad = false}) async {
+    if (loadingMore && !firstLoad) return;
+    if (!hasMore && !firstLoad) return;
+
+    if (firstLoad) {
+      _users.clear();
+      nextCursor = null;
+      hasMore = true;
+      setState(() => loading = true);
+    } else {
+      setState(() => loadingMore = true);
+    }
+
     try {
-      _users = await AdminUserService.listUsers(await AppWriteService().getJWT());
+      final fetched = await AdminUserService.listUsers(
+        cursor: nextCursor,
+        jwtToken: await AppWriteService().getJWT(),
+      );
+
+      if (firstLoad) {
+        _users = fetched.appUsers.toList();
+      } else {
+        final existingIds = _users.map((e) => e.id).toSet();
+        final newUsers = fetched.appUsers.where((e) => !existingIds.contains(e.id));
+
+        if (newUsers.isEmpty) {
+          // No new data, so stop further loading to prevent infinite loader
+          hasMore = false;
+        } else {
+          _users.addAll(newUsers);
+        }
+      }
+
+      nextCursor = fetched.nextCursor;
+      if (fetched.nextCursor == null) {
+        hasMore = false;
+      }
+
+      print("$nextCursor    $hasMore");
+
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('❌ Failed to fetch users: $e')),
       );
     }
+
     if (!mounted) return;
-    setState(() => _loading = false);
+    setState(() {
+      loading = false;
+      loadingMore = false;
+    });
   }
 
   void _showAddUserDialog(BuildContext parentContext) {
     final emailController = TextEditingController(text: "test@gmail.com");
     final passController = TextEditingController(text: "Test@1234");
     final nameController = TextEditingController(text: "Test");
-    String? selectedRole = userMeta.role == "subadmin" ? "user" : null; // store chosen role
+    String? selectedRole =
+        userMeta.role == "subadmin" ? "user" : null; // store chosen role
 
     showDialog(
       context: context,
       useRootNavigator: true,
-      builder: (_) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: const Text("Add New User"),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  obscureText: false,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    hintText: 'Min 3 characters',
-                  ),
-                ),
-                TextField(
-                  controller: emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    hintText: 'e.g. user@example.com',
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                TextField(
-                  controller: passController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    hintText: 'Min 6 characters',
-                  ),
-                ),
-                const SizedBox(height: 16),
+      builder:
+          (_) => StatefulBuilder(
+            builder: (context, setState) {
+              return AlertDialog(
+                title: const Text("Add New User"),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      obscureText: false,
+                      decoration: const InputDecoration(
+                        labelText: 'Name',
+                        hintText: 'Min 3 characters',
+                      ),
+                    ),
+                    TextField(
+                      controller: emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        hintText: 'e.g. user@example.com',
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    TextField(
+                      controller: passController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Password',
+                        hintText: 'Min 6 characters',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
-                // --- Role selection ---
-                const Text("Select Role",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                if(userMeta.role == "admin")
-                RadioListTile<String>(
-                  title: const Text("Sub-Admin"),
-                  value: "subadmin",
-                  groupValue: selectedRole,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedRole = value;
-                    });
-                  },
+                    // --- Role selection ---
+                    const Text(
+                      "Select Role",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    if (userMeta.role == "admin")
+                      RadioListTile<String>(
+                        title: const Text("Sub-Admin"),
+                        value: "subadmin",
+                        groupValue: selectedRole,
+                        onChanged: (value) {
+                          setState(() {
+                            selectedRole = value;
+                          });
+                        },
+                      ),
+                    RadioListTile<String>(
+                      title: const Text("User"),
+                      value: "user",
+                      groupValue: selectedRole,
+                      onChanged: (value) {
+                        setState(() {
+                          selectedRole = value;
+                        });
+                      },
+                    ),
+                  ],
                 ),
-                RadioListTile<String>(
-                  title: const Text("User"),
-                  value: "user",
-                  groupValue: selectedRole,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedRole = value;
-                    });
-                  },
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context, rootNavigator: true).pop(), // closes this dialog
-                child: const Text("Cancel"),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  // validate...
-                  Navigator.of(context, rootNavigator: true).pop(); // close form dialog
+                actions: [
+                  TextButton(
+                    onPressed:
+                        () => Navigator.of(context, rootNavigator: true).pop(),
+                    // closes this dialog
+                    child: const Text("Cancel"),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      // validate...
+                      Navigator.of(
+                        context,
+                        rootNavigator: true,
+                      ).pop(); // close form dialog
 
-                  // show loading on root navigator
-                  showDialog(
-                    context: parentContext,
-                    barrierDismissible: false,
-                    useRootNavigator: true,
-                    builder: (_) => const Center(child: CircularProgressIndicator()),
-                  );
-                  final navigator = Navigator.of(parentContext, rootNavigator: true);
+                      // show loading on root navigator
+                      showDialog(
+                        context: parentContext,
+                        barrierDismissible: false,
+                        useRootNavigator: true,
+                        builder:
+                            (_) => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                      );
+                      final navigator = Navigator.of(
+                        parentContext,
+                        rootNavigator: true,
+                      );
 
-                  try {
-                    final jwt = await AppWriteService().getJWT();
-                    final ok  = await AdminUserService.createUser(
-                      emailController.text.trim(),
-                      passController.text.trim(),
-                      nameController.text.trim(),
-                      selectedRole!,
-                      jwt,
-                    );
-                    ScaffoldMessenger.of(parentContext).showSnackBar(
-                      SnackBar(content: Text(ok ? 'User added successfully!' : 'Failed to add user')),
-                    );
-                    if (ok) await _fetchUsers();
-                  } catch (e) {
-                    ScaffoldMessenger.of(parentContext).showSnackBar(
-                      SnackBar(content: Text('Failed to add user: $e')),
-                    );
-                  } finally {
-                    if (navigator.canPop()) navigator.pop(); // close loader exactly once
-                  }
-                },
-                child: const Text("Create"),
-              ),
-            ],
-          );
-        },
-      ),
+                      try {
+                        final jwt = await AppWriteService().getJWT();
+                        final ok = await AdminUserService.createUser(
+                          emailController.text.trim(),
+                          passController.text.trim(),
+                          nameController.text.trim(),
+                          selectedRole!,
+                          jwt,
+                        );
+                        ScaffoldMessenger.of(parentContext).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              ok
+                                  ? 'User added successfully!'
+                                  : 'Failed to add user',
+                            ),
+                          ),
+                        );
+                        if (ok) await _fetchUsers();
+                      } catch (e) {
+                        ScaffoldMessenger.of(parentContext).showSnackBar(
+                          SnackBar(content: Text('Failed to add user: $e')),
+                        );
+                      } finally {
+                        if (navigator.canPop())
+                          navigator.pop(); // close loader exactly once
+                      }
+                    },
+                    child: const Text("Create"),
+                  ),
+                ],
+              );
+            },
+          ),
     );
   }
 
@@ -412,7 +515,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                 showDialog(
                   context: context,
                   barrierDismissible: false,
-                  builder: (_) => const Center(child: CircularProgressIndicator()),
+                  builder:
+                      (_) => const Center(child: CircularProgressIndicator()),
                 );
 
                 try {
@@ -422,13 +526,17 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     passwordController.text.trim(),
                     jwt,
                   );
-                  if (context.mounted) Navigator.of(context).pop(); // Close loading
+                  if (context.mounted)
+                    Navigator.of(context).pop(); // Close loading
 
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Password reset successfully')),
+                    const SnackBar(
+                      content: Text('Password reset successfully'),
+                    ),
                   );
                 } catch (e) {
-                  if (context.mounted) Navigator.of(context).pop(); // Close loading
+                  if (context.mounted)
+                    Navigator.of(context).pop(); // Close loading
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Failed to reset password: $e')),
@@ -442,7 +550,12 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     );
   }
 
-  void _showEditDialog(AppUser user, String currentName, String currentEmail, BuildContext parentContext) {
+  void _showEditDialog(
+    AppUser user,
+    String currentName,
+    String currentEmail,
+    BuildContext parentContext,
+  ) {
     final nameController = TextEditingController(text: currentName);
     final emailController = TextEditingController(text: currentEmail);
     final tempLabels = List<String>.from(user.labels); // Clone user labels
@@ -476,7 +589,10 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                       controller: emailController,
                       decoration: const InputDecoration(labelText: 'Email'),
                       validator: (value) {
-                        if (value == null || !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value)) {
+                        if (value == null ||
+                            !RegExp(
+                              r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                            ).hasMatch(value)) {
                           return 'Enter a valid email';
                         }
                         return null;
@@ -484,37 +600,45 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     ),
 
                     const SizedBox(height: 16),
-                    if(userMeta.role == "admin")
-                    const Text('Labels:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    if(userMeta.role == "admin")
+                    if (userMeta.role == "admin")
+                      const Text(
+                        'Labels:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    if (userMeta.role == "admin")
                       Wrap(
-                      spacing: 8.0,
-                      runSpacing: 8.0,
-                      children: availableLabels.map((label) {
-                        final normalizedLabel = label.trim();
-                        final isSelected = tempLabels.contains(normalizedLabel);
+                        spacing: 8.0,
+                        runSpacing: 8.0,
+                        children:
+                            availableLabels.map((label) {
+                              final normalizedLabel = label.trim();
+                              final isSelected = tempLabels.contains(
+                                normalizedLabel,
+                              );
 
-                        return FilterChip(
-                          label: Text(label),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                if (!tempLabels.contains(normalizedLabel)) {
-                                  tempLabels.add(normalizedLabel);
-                                  // print('✅ Added: $normalizedLabel');
-                                }
-                              } else {
-                                tempLabels.remove(normalizedLabel);
-                                // print('🗑️ Removed: $normalizedLabel');
-                              }
-                            });
-                          },
-                          selectedColor: Colors.blue.shade200,
-                          checkmarkColor: Colors.white,
-                        );
-                      }).toList(),
-                    ),
+                              return FilterChip(
+                                label: Text(label),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      if (!tempLabels.contains(
+                                        normalizedLabel,
+                                      )) {
+                                        tempLabels.add(normalizedLabel);
+                                        // print('✅ Added: $normalizedLabel');
+                                      }
+                                    } else {
+                                      tempLabels.remove(normalizedLabel);
+                                      // print('🗑️ Removed: $normalizedLabel');
+                                    }
+                                  });
+                                },
+                                selectedColor: Colors.blue.shade200,
+                                checkmarkColor: Colors.white,
+                              );
+                            }).toList(),
+                      ),
                   ],
                 ),
               ),
@@ -532,7 +656,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
                     final nameChanged = newName != currentName;
                     final emailChanged = newEmail != currentEmail;
-                    final labelsChanged = !Set.from(tempLabels).containsAll(user.labels) ||
+                    final labelsChanged =
+                        !Set.from(tempLabels).containsAll(user.labels) ||
                         !Set.from(user.labels).containsAll(tempLabels);
 
                     if (!nameChanged && !emailChanged && !labelsChanged) {
@@ -552,7 +677,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         barrierDismissible: false,
                         builder: (ctx) {
                           dialogContext = ctx;
-                          return const Center(child: CircularProgressIndicator());
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
                         },
                       );
                     }
@@ -568,11 +695,13 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         labels: labelsChanged ? tempLabels : null,
                       );
 
-                      if (dialogContext != null) Navigator.of(dialogContext!).pop();
+                      if (dialogContext != null)
+                        Navigator.of(dialogContext!).pop();
 
                       _fetchUsers();
                     } catch (e) {
-                      if (dialogContext != null) Navigator.of(dialogContext!).pop();
+                      if (dialogContext != null)
+                        Navigator.of(dialogContext!).pop();
                       if (parentContext.mounted) {
                         ScaffoldMessenger.of(parentContext).showSnackBar(
                           SnackBar(content: Text('Failed to update user: $e')),
@@ -581,27 +710,33 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     }
                   },
                   child: const Text('Save'),
-                )
+                ),
               ],
             );
           },
         );
       },
     );
-
   }
 
   Future<void> _deleteUser(String userId, String name, String email) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Confirm Delete"),
-        content: const Text("Are you sure you want to delete this user?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text("Delete")),
-        ],
-      ),
+      builder:
+          (_) => AlertDialog(
+            title: const Text("Confirm Delete"),
+            content: const Text("Are you sure you want to delete this user?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text("Delete"),
+              ),
+            ],
+          ),
     );
 
     if (confirm ?? false) {
@@ -609,26 +744,28 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
       try {
-        await AdminUserService.deleteUser(userId, await AppWriteService().getJWT());
+        await AdminUserService.deleteUser(
+          userId,
+          await AppWriteService().getJWT(),
+        );
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('User $name, Email $email Deleted Successfully')),
+          SnackBar(
+            content: Text('User $name, Email $email Deleted Successfully'),
+          ),
         );
         Navigator.of(context).pop(); // Dismiss the loading dialog
         _fetchUsers(); // Refresh user list
       } catch (e) {
         Navigator.of(context).pop(); // Dismiss loading dialog on error too
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete user: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to delete user: $e')));
       }
     }
-
   }
 
   String? getParentLabel(String role, String? parentId) {
@@ -650,180 +787,285 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text("Manage Users"),
-          actions: !_loading
-              ? [
-            IconButton(
-              icon: const Icon(Icons.add),
-              tooltip: "Add User",
-              onPressed: () => _showAddUserDialog(context),
-            ),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: "Refresh",
-              onPressed: _fetchUsers,
-            ),
-          ]
-              : [],
+          actions:
+              !loading
+                  ? [
+                    IconButton(
+                      icon: const Icon(Icons.add),
+                      tooltip: "Add User",
+                      onPressed: () => _showAddUserDialog(context),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh),
+                      tooltip: "Refresh",
+                      onPressed: () {_fetchUsers(firstLoad: true);},
+                    ),
+                  ]
+                  : [],
         ),
-        body: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _users.isEmpty
-            ? const Center(child: Text("No users found"))
-            : ListView.builder(
-          itemCount: _users.length,
-          itemBuilder: (context, index) {
-            final user = _users[index];
-            // print(user.toString());
-            return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Name and Email
-                    Row(
-                      children: [
-                        userRoleIcon(role: user.role, parentId: user.parentId),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            user.name ?? 'Unnamed',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                          ),
+        body:
+            loading
+                ? const Center(child: CircularProgressIndicator())
+                : _users.isEmpty
+                ? const Center(child: Text("No users found"))
+                : ListView.builder(
+                  controller: _scrollController, // PAGINATION
+                  // itemCount: _users.length + (loadingMore ? 1 : 0),
+                  itemCount: _users.length + (loadingMore && hasMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index < _users.length) {
+                      final user = _users[index];
+                      // print(user.toString());
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
                         ),
-                        _buildStatusBadge(user.status),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.email, size: 16, color: Colors.grey),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            user.email ?? '',
-                            style: const TextStyle(fontSize: 14, color: Colors.black87),
-                          ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Parent Role Label Logic
-                    if (user.role != 'admin')
-                      Row(
-                        children: [
-                          const Icon(Icons.account_tree, size: 16, color: Colors.grey),
-                          const SizedBox(width: 6),
-                          Text(
-                            "Parent: ${(user.parentId == null || user.parentId!.isEmpty)
-                                    ? 'Admin'
-                                    : 'Sub-Admin'}",
-                            style: const TextStyle(fontSize: 14, color: Colors.black54, fontStyle: FontStyle.italic),
-                          ),
-                        ],
-                      ),
-
-                    Row(
-                      children: [
-                        const Icon(Icons.account_circle_outlined, size: 16, color: Colors.grey),
-                        const SizedBox(width: 6),
-                        Text("Role : ${user.role}" , style: const TextStyle(fontSize: 14, color: Colors.black54, fontStyle: FontStyle.italic),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Labels
-                    if (user.labels != null && user.labels.isNotEmpty)
-                      Wrap(
-                        spacing: 6,
-                        children: user.labels
-                            .map((label) => Chip(
-                          label: Text(label),
-                          backgroundColor: Colors.blue.shade50,
-                          labelStyle: const TextStyle(color: Colors.blue),
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                        ))
-                            .toList(),
-                      ),
-
-                    const SizedBox(height: 12),
-
-                    // Action Buttons
-                    if (user.role != 'admin')
-                      Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Status switch
-                        Row(
-                          children: [
-                            const Text("Status:"),
-                            const SizedBox(width: 6),
-                            Switch(
-                              value: user.status ?? false,
-                              onChanged: (newStatus) => _confirmAndToggleUserStatus(context, user, newStatus),
-                            ),
-                          ],
-                        ),
-
-                        // Right side actions
-                        if (user.role != 'admin')
-                        Row(
-                          children: [
-                            if(user.role == 'user' && user.parentId == null)
-                            IconButton(
-                              icon: const Icon(Icons.no_accounts_outlined, color: Colors.blue),
-                              tooltip: "Assign User to Sub-Admin",
-                              onPressed: () => assignUserToSubAdmin(context,user.id),
-                            ),
-                            if(user.role == 'user' && user.parentId != null)
-                              IconButton(
-                                icon: const Icon(Icons.account_circle, color: Colors.blue),
-                                tooltip: "Un-Assign User",
-                                onPressed: () => unAssignUser(context, user.id, user.parentId!),
-                              ),
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              tooltip: "Edit User",
-                              onPressed: () => _showEditDialog(user, user.name, user.email, context),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.lock_reset, color: Colors.orange),
-                              tooltip: "Reset Password",
-                              onPressed: () => _showResetPasswordDialog(context, user.id),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              tooltip: "Delete User",
-                              onPressed: () => _deleteUser(user.id, user.name, user.email),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.receipt_long, color: Colors.teal),
-                              tooltip: "View Transactions",
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => TransactionPageNew(filterUserId: user.id),
+                        elevation: 2,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Name and Email
+                              Row(
+                                children: [
+                                  userRoleIcon(
+                                    role: user.role,
+                                    parentId: user.parentId,
                                   ),
-                                );
-                              },
-                            ),
-                          ],
-                        )
-                      ],
-                    ),
-                  ],
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      user.name ?? 'Unnamed',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  _buildStatusBadge(user.status),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.email,
+                                    size: 16,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      user.email ?? '',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+
+                              // Parent Role Label Logic
+                              if (user.role != 'admin')
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.account_tree,
+                                      size: 16,
+                                      color: Colors.grey,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      "Parent: ${(user.parentId == null || user.parentId!.isEmpty) ? 'Admin' : 'Sub-Admin'}",
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.black54,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.account_circle_outlined,
+                                    size: 16,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    "Role : ${user.role}",
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.black54,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Labels
+                              if (user.labels != null && user.labels.isNotEmpty)
+                                Wrap(
+                                  spacing: 6,
+                                  children:
+                                  user.labels
+                                      .map(
+                                        (label) => Chip(
+                                      label: Text(label),
+                                      backgroundColor:
+                                      Colors.blue.shade50,
+                                      labelStyle: const TextStyle(
+                                        color: Colors.blue,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                    ),
+                                  )
+                                      .toList(),
+                                ),
+
+                              const SizedBox(height: 12),
+
+                              // Action Buttons
+                              if (user.role != 'admin')
+                                Row(
+                                  mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    // Status switch
+                                    Row(
+                                      children: [
+                                        const Text("Status:"),
+                                        const SizedBox(width: 6),
+                                        Switch(
+                                          value: user.status ?? false,
+                                          onChanged:
+                                              (newStatus) =>
+                                              _confirmAndToggleUserStatus(
+                                                context,
+                                                user,
+                                                newStatus,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    // Right side actions
+                                    if (user.role != 'admin')
+                                      Row(
+                                        children: [
+                                          if (user.role == 'user' &&
+                                              user.parentId == null)
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.no_accounts_outlined,
+                                                color: Colors.blue,
+                                              ),
+                                              tooltip: "Assign User to Sub-Admin",
+                                              onPressed:
+                                                  () => assignUserToSubAdmin(
+                                                context,
+                                                user.id,
+                                              ),
+                                            ),
+                                          if (user.role == 'user' &&
+                                              user.parentId != null)
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.account_circle,
+                                                color: Colors.blue,
+                                              ),
+                                              tooltip: "Un-Assign User",
+                                              onPressed:
+                                                  () => unAssignUser(
+                                                context,
+                                                user.id,
+                                                user.parentId!,
+                                              ),
+                                            ),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.edit,
+                                              color: Colors.blue,
+                                            ),
+                                            tooltip: "Edit User",
+                                            onPressed:
+                                                () => _showEditDialog(
+                                              user,
+                                              user.name,
+                                              user.email,
+                                              context,
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.lock_reset,
+                                              color: Colors.orange,
+                                            ),
+                                            tooltip: "Reset Password",
+                                            onPressed:
+                                                () => _showResetPasswordDialog(
+                                              context,
+                                              user.id,
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.delete,
+                                              color: Colors.red,
+                                            ),
+                                            tooltip: "Delete User",
+                                            onPressed:
+                                                () => _deleteUser(
+                                              user.id,
+                                              user.name,
+                                              user.email,
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.receipt_long,
+                                              color: Colors.teal,
+                                            ),
+                                            tooltip: "View Transactions",
+                                            onPressed: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder:
+                                                      (_) => TransactionPageNew(
+                                                    filterUserId: user.id,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }else{
+                      // Loader at bottom
+                      return const TransactionCardShimmer();
+                    }
+                  },
                 ),
-              ),
-            );
-          },
-        ),
       ),
     );
   }
@@ -846,10 +1088,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     );
   }
 
-  Widget userRoleIcon({
-    required String role,
-    String? parentId,
-  }) {
+  Widget userRoleIcon({required String role, String? parentId}) {
     final r = role.toUpperCase();
     if (r == 'ADMIN') {
       return const Icon(Icons.shield, color: Colors.red);
@@ -877,23 +1116,30 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     }
   }
 
-  void _confirmAndToggleUserStatus(BuildContext context, AppUser user, bool newStatus) async {
+  void _confirmAndToggleUserStatus(
+    BuildContext context,
+    AppUser user,
+    bool newStatus,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(newStatus ? 'Enable User' : 'Disable User'),
-        content: Text('Are you sure you want to ${newStatus ? 'enable' : 'disable'} this user?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(newStatus ? 'Enable User' : 'Disable User'),
+            content: Text(
+              'Are you sure you want to ${newStatus ? 'enable' : 'disable'} this user?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Yes'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Yes'),
-          ),
-        ],
-      ),
     );
 
     if (confirm != true) return;
@@ -917,10 +1163,13 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       setState(() {
         user.status = newStatus;
       });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User status updated.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('User status updated.')));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('❌ Failed to update user status')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('❌ Failed to update user status')),
+      );
     }
   }
-
 }

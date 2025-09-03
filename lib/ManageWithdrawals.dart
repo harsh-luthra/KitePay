@@ -45,7 +45,9 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
   Future<void> _fetchUsers() async {
     setState(() => loading = true);
     try {
-      users = await AdminUserService.listUsers(await AppWriteService().getJWT());
+      // users = await AdminUserService.listUsers(jwtToken: await AppWriteService().getJWT());
+      final fetched = await AdminUserService.listUsers(jwtToken: await AppWriteService().getJWT());
+      users = fetched.appUsers;
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('❌ Failed to fetch users: $e')),
@@ -499,7 +501,7 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
                 if(shouldSkipIndependenceDayDialog() == false){
                   showIndependenceDayDialog(context);
                 }else{
-                  if (!hasReachedMaxPending(allRequests, AppConfig().maxWithdrawalrequests)) {
+                  if (!hasReachedMaxPending(allRequests, AppConfig().maxWithdrawalRequests)) {
                     Navigator.of(context).push<bool>(
                       MaterialPageRoute(builder: (_) => WithdrawalFormPage()),
                     ).then((result) {
@@ -509,7 +511,7 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
                       }
                     });
                   } else {
-                    showMaxPendingDialog(context, AppConfig().maxWithdrawalrequests);
+                    showMaxPendingDialog(context, AppConfig().maxWithdrawalRequests);
                   }
                 }
               },

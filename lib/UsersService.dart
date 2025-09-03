@@ -9,14 +9,22 @@ import 'models/AppUser.dart';
 class AdminUserService {
   static final String _baseUrl = AppConstants.baseApiUrl;
 
-  static Future<List<AppUser>> listUsers(String jwtToken) async {
+  static Future<PaginatedAppUsers> listUsers({String? cursor,
+    int limit = 25, required String jwtToken}) async {
     try {
-      final url = Uri.parse('$_baseUrl/admin/users');
+      String url = '$_baseUrl/admin/users';
+      Map<String, String> queryParams = {
+        'limit': limit.toString(),
+      };
       // print('📤 Sending GET request to: $url');
       // print('🔐 JWT Token: $jwtToken');
 
+      if (cursor != null) queryParams['cursor'] = cursor;
+
+      url += '?' + Uri(queryParameters: queryParams).query;
+
       final response = await http.get(
-        url,
+        Uri.parse(url),
         headers: {
           'Authorization': 'Bearer $jwtToken',
           'Content-Type': 'application/json',
@@ -24,10 +32,20 @@ class AdminUserService {
       ).timeout(const Duration(seconds: 5)); // ⏱️ Set timeout here
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+        // final List<dynamic> data = jsonDecode(response.body);
+        final responseData = json.decode(response.body);
+        final List data = responseData['transactions'];
+        final String? nextCursor = responseData['nextCursor'];
         // print(response.body);
-        final users = data.map((json) => AppUser.fromJson(json)).toList();
-        return users;
+
+        return PaginatedAppUsers(
+          appUsers : data.map((e) => AppUser.fromJson(e)).toList(),
+          nextCursor: nextCursor,
+        );
+
+        // final users = data.map((json) => AppUser.fromJson(json)).toList();
+        // return users;
+
       } else {
         final body = jsonDecode(response.body);
         final error = body['error'] ?? 'Unknown error';
@@ -314,9 +332,15 @@ class AdminUserService {
 
 }
 
-class UserListResult {
-  final List<AppUser> users;
-  final String? error;
-
-  UserListResult({required this.users, this.error});
+class PaginatedAppUsers {
+  final List<AppUser> appUsers;
+  final String? nextCursor;
+  PaginatedAppUsers({required this.appUsers, required this.nextCursor});
 }
+
+//
+// class UserListResult {
+//   final List<AppUser> users;
+//   final String? error;
+//   UserListResult({required this.users, this.error});
+// }

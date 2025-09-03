@@ -44,10 +44,10 @@ class _TransactionsPageOldState extends State<TransactionsPageOld> {
   Future<void> fetchDropdownData() async {
     _jwtToken = await AppWriteService().getJWT();
     // Replace with your actual API logic
-    final fetchedUsers = await AdminUserService.listUsers(await AppWriteService().getJWT());
+    final fetched = await AdminUserService.listUsers(jwtToken: await AppWriteService().getJWT());
     final fetchedQRCodes = await _qrCodeService.getQrCodes(_jwtToken);
     setState(() {
-      users = fetchedUsers;
+      users = fetched.appUsers;
       qrCodes = fetchedQRCodes;
     });
   }

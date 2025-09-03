@@ -101,8 +101,9 @@ class _TransactionPageNewBkupState extends State<TransactionPageNewBkup> {
     if(mounted) setState(() {loadingUsers = true;});
 
     try {
-        users = await AdminUserService.listUsers(await AppWriteService().getJWT());
-      } catch (e) {
+      final fetched = await AdminUserService.listUsers(jwtToken: await AppWriteService().getJWT());
+      users = fetched.appUsers;
+    } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(content: Text('❌ Failed to fetch users: $e')),
       );

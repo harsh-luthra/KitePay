@@ -11,11 +11,13 @@ class TransactionService {
   static Future<PaginatedTransactions> fetchTransactions({
     String? userId,
     String? qrId,
-    String? cursor,
-    int limit = 25,
     DateTime? from,
     DateTime? to,
-    required String jwtToken
+    String? cursor,
+    int limit = 25,
+    String? searchField,
+    String? searchValue,
+    required String jwtToken,
   }) async {
     try {
       String url = '$_baseUrl/admin/transactions';
@@ -28,6 +30,12 @@ class TransactionService {
       if (cursor != null) queryParams['cursor'] = cursor;
       if (from != null) queryParams['from'] = _formatDate(from);
       if (to != null) queryParams['to'] = _formatDate(to);
+
+      // Add search query params if specified
+      if (searchField != null && searchValue != null) {
+        queryParams['searchField'] = searchField;
+        queryParams['searchValue'] = searchValue;
+      }
 
       url += '?' + Uri(queryParameters: queryParams).query;
 
@@ -70,7 +78,9 @@ class TransactionService {
     DateTime? to,
     String? cursor,
     int limit = 25,
-    required String jwtToken
+    String? searchField,
+    String? searchValue,
+    required String jwtToken,
   }) async {
     try {
       String url = '$_baseUrl/admin/user/transactions';
@@ -83,6 +93,12 @@ class TransactionService {
       if (cursor != null) queryParams['cursor'] = cursor;
       if (from != null) queryParams['from'] = _formatDate(from);
       if (to != null) queryParams['to'] = _formatDate(to);
+
+      // Add search query params if specified
+      if (searchField != null && searchValue != null) {
+        queryParams['searchField'] = searchField;
+        queryParams['searchValue'] = searchValue;
+      }
 
       url += '?${Uri(queryParameters: queryParams).query}';
 

@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:admin_qr_manager/widget/TransactionCard.dart';
 import 'package:admin_qr_manager/widget/TransactionCardShimmer.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 import 'AppWriteService.dart';
 import 'QRService.dart';
 import 'TransactionService.dart';
@@ -33,7 +35,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   final QrCodeService _qrCodeService = QrCodeService();
   String? _jwtToken;
 
-  List<Transaction> allTransactions = [];
+  // List<Transaction> allTransactions = [];
   List<Transaction> transactions = [];
 
   bool loading = false;
@@ -58,9 +60,16 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   bool loadingMore = false;
   final ScrollController _scrollController = ScrollController();
 
+  late final TextEditingController _searchController;
+  Timer? _debounce;
+
+  String? selectedSearchField;
+  String searchText = '';
+
   @override
   void initState() {
     super.initState();
+    _searchController = TextEditingController(text: searchText);
     selectedUserId = widget.filterUserId;
     selectedQrCodeId = widget.filterQrCodeId;
     _scrollController.addListener(_onScroll); // PAGINATION listener
@@ -69,6 +78,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
   @override
   void dispose() {
+    _searchController.dispose();
+    _debounce?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -80,8 +91,9 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   Future<void> loadInitialData() async {
     setState(() {
       loading = true;
+      _searchController.clear();
       transactions.clear();
-      allTransactions.clear();
+      // allTransactions.clear();
       nextCursor = null; // reset for new load
       hasMore = true;
     });
@@ -125,9 +137,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     if (mounted) setState(() => loadingUsers = true);
 
     try {
-      users = await AdminUserService.listUsers(
-        await AppWriteService().getJWT(),
-      );
+      final fetched = await AdminUserService.listUsers(jwtToken: await AppWriteService().getJWT());
+      users = fetched.appUsers;
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('❌ Failed to fetch users: $e')),
@@ -168,6 +179,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         from: selectedFromDate,
         to: selectedToDate,
         cursor: nextCursor,
+        searchField: selectedSearchField,
+        searchValue: searchText.isEmpty ? null : searchText,
         jwtToken: _jwtToken!,
       );
 
@@ -217,6 +230,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         from: selectedFromDate,
         to: selectedToDate,
         cursor: nextCursor,
+        searchField: selectedSearchField,
+        searchValue: searchText.isEmpty ? null : searchText,
         jwtToken: _jwtToken!,
       );
 
@@ -274,6 +289,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           from: selectedFromDate,
           to: selectedToDate,
           cursor: null,
+          searchField: selectedSearchField,
+          searchValue: searchText.isEmpty ? null : searchText,
           jwtToken: _jwtToken!,
         );
         transactions = fetched.transactions.toList();
@@ -286,6 +303,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           cursor: null,
           from: selectedFromDate,
           to: selectedToDate,
+          searchField: selectedSearchField,
+          searchValue: searchText.isEmpty ? null : searchText,
           jwtToken: _jwtToken!,
         );
         transactions = fetched.transactions.toList();
@@ -392,7 +411,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         appBar: AppBar(
           title: Text(widget.userMode ? 'Transactions' : 'All Transactions'),
           actions: [
-            if (widget.filterUserId == null && widget.filterQrCodeId == null)
+            // if (widget.filterUserId == null && widget.filterQrCodeId == null)
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed:
@@ -403,43 +422,116 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
               ),
           ],
         ),
-        body:
-            loading
-                ? ListView.builder(
-                  itemCount: 8, // show a few shimmer placeholders
+          body: Column(
+            children: [
+              // Always show search and filters when no fixed filter applied
+              if (widget.filterUserId == null && widget.filterQrCodeId == null) ...[
+                _buildSearchArea(), // <-- Always visible
+                _buildFilters(userHasQrCodes),
+              ],
+              const SizedBox(height: 8),
+
+              // Now show loader or list below
+              Expanded(
+                child: loading
+                    ? ListView.builder(
+                  itemCount: 8, // shimmer placeholders
                   itemBuilder: (_, __) => const TransactionCardShimmer(),
                 )
-                : Column(
-                  children: [
-                    if (widget.filterUserId == null &&
-                        widget.filterQrCodeId == null)
-                      _buildFilters(userHasQrCodes),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child:
-                          transactions.isEmpty
-                              ? const Center(
-                                child: Text('No transactions found.'),
-                              )
-                              : ListView.builder(
-                                controller: _scrollController, // PAGINATION
-                                itemCount:
-                                    transactions.length + (loadingMore ? 1 : 0),
-                                itemBuilder: (context, index) {
-                                  if (index < transactions.length) {
-                                    return TransactionCard(
-                                      txn: transactions[index],
-                                    );
-                                  } else {
-                                    // Loader at bottom
-                                    return const TransactionCardShimmer();
-                                  }
-                                },
-                              ),
-                    ),
-                  ],
+                    : (transactions.isEmpty
+                    ? const Center(child: Text('No transactions found.'))
+                    : ListView.builder(
+                  controller: _scrollController,
+                  itemCount: transactions.length + (loadingMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index < transactions.length) {
+                      return TransactionCard(txn: transactions[index]);
+                    }
+                    return const TransactionCardShimmer();
+                  },
+                )
                 ),
+              ),
+            ],
+          ),
       ),
+    );
+  }
+
+  Widget _buildSearchArea() {
+    const searchFields = [
+      'qrCodeId',
+      'paymentId',
+      'rrnNumber',
+      'vpa',
+      'amount',
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Search', style: TextStyle(fontWeight: FontWeight.bold)),
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: DropdownButtonFormField<String>(
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Field',
+                ),
+                value: selectedSearchField,
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('Select field')),
+                  ...searchFields.map((field) => DropdownMenuItem(
+                    value: field,
+                    child: Text(field),
+                  )),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    selectedSearchField = value;
+                    // Clear input if needed
+                    if ((value == 'amount' || value == 'rrnNumber') && searchText.isNotEmpty) {
+                      searchText = '';
+                      _searchController.clear();
+                    }
+                  });
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 3,
+              child: TextField(
+                controller: _searchController,
+                keyboardType: (selectedSearchField == 'amount' || selectedSearchField == 'rrnNumber')
+                    ? const TextInputType.numberWithOptions(decimal: false)
+                    : TextInputType.text,
+                inputFormatters: (selectedSearchField == 'amount' || selectedSearchField == 'rrnNumber')
+                    ? [FilteringTextInputFormatter.digitsOnly]
+                    : null,
+                decoration: const InputDecoration(
+                  labelText: 'Search text',
+                ),
+                onChanged: (value) {
+                  searchText = value;
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            ElevatedButton(
+              onPressed: () {
+                // On button tap, execute search
+                FocusScope.of(context).unfocus(); // close keyboard
+                _refetchWithCurrentFilters();
+              },
+              child: const Text("Search"),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+      ],
     );
   }
 

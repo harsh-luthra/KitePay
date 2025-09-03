@@ -61,7 +61,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         refresh: true, // set true to force re-fetch
       );
 
-      print(userMeta.toString());
+      // print(userMeta.toString());
 
       // loadConfig();
 
@@ -143,7 +143,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         refresh: true, // set true to force re-fetch
       );
 
-      print(userMeta.toString());
+      // print(userMeta.toString());
 
       moveToDashBoard(user, userMeta!);
 
