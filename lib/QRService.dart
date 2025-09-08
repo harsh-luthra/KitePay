@@ -171,7 +171,7 @@ class QrCodeService {
 
       if (response.statusCode == 200) {
         List<dynamic> jsonList = jsonDecode(response.body);
-        print(response.body);
+        // print(response.body);
         return jsonList.map((json) => QrCode.fromJson(json)).toList();
       } else {
         throw Exception('Failed to load user QR codes from the server');

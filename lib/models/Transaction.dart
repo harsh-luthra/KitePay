@@ -32,5 +32,10 @@ class Transaction {
     );
   }
 
+  @override
+  String toString() {
+    return 'Transaction{id: $id, payload: $payload, qrCodeId: $qrCodeId, paymentId: $paymentId, rrnNumber: $rrnNumber, vpa: $vpa, createdAt: $createdAt, amount: $amount}';
+  }
+
   String get amountInRupees => '₹ ${(amount / 100).toStringAsFixed(2)}';
 }

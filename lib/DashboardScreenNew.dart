@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:admin_qr_manager/ManualTransactionForm.dart';
 import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:flutter/material.dart';
 import 'package:appwrite/models.dart' show User;
@@ -95,34 +96,41 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       ),
       _MenuItem(
         id: 3,
+        label: 'Manual Transaction',
+        icon: Icons.add_box_outlined,
+        visibleFor: (labels) => labels.contains('admin'),
+        builder: (_) => ManualTransactionForm(),
+      ),
+      _MenuItem(
+        id: 4,
         label: 'View All Transactions',
         icon: Icons.receipt_long,
         visibleFor: (labels) => labels.contains('transactions') || labels.contains('admin'),
         builder: (_) => const TransactionPageNew(),
       ),
       _MenuItem(
-        id: 4,
+        id: 5,
         label: 'View My Transactions',
         icon: Icons.receipt,
         visibleFor: (_) => true,
         builder: (user) => TransactionPageNew(userMode: true, userModeUserid: user.$id),
       ),
       _MenuItem(
-        id: 5,
+        id: 6,
         label: 'All Withdrawals',
         icon: Icons.account_balance_wallet_outlined,
         visibleFor: (labels) => labels.contains('withdrawal') || labels.contains('admin'),
         builder: (_) => ManageWithdrawals(),
       ),
       _MenuItem(
-        id: 6,
+        id: 7,
         label: 'My Withdrawals',
         icon: Icons.account_balance_wallet,
         visibleFor: (_) => true,
         builder: (user) => ManageWithdrawals(userMode: true, userModeUserid: user.$id),
       ),
       _MenuItem(
-        id: 7,
+        id: 8,
         label: 'Settings',
         icon: Icons.settings,
         visibleFor: (labels) => labels.contains('payout') || labels.contains('admin'),

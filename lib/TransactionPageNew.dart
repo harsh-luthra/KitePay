@@ -186,6 +186,9 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
       if (firstLoad) {
         transactions = fetched.transactions.toList();
+        // for(Transaction t in transactions){
+        //   print(t.toString());
+        // }
       } else {
         final existingIds = transactions.map((t) => t.id).toSet();
         final newOnes = fetched.transactions.where(
@@ -569,7 +572,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                           ...users.map(
                                 (user) => DropdownMenuItem(
                               value: user.id,
-                              child: Text(user.name),
+                              child: Text('${user.name} (${user.email})'),
                             ),
                           ),
                         ],

@@ -12,6 +12,7 @@ class TransactionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final date = DateFormat('dd MMM yyyy, hh:mm a').format(txn.createdAt.toLocal());
 
+
     return Card(
       elevation: 2,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

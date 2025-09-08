@@ -223,8 +223,8 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
         _qrCodes = codes;
         userQrCount = _qrCodes.length;
         activeUserQrCount = activeQrCount(_qrCodes);
-        print('userQrCount: '+userQrCount.toString());
-        print('activeUserQrCount: '+activeUserQrCount.toString());
+        // print('userQrCount: '+userQrCount.toString());
+        // print('activeUserQrCount: '+activeUserQrCount.toString());
       });
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(

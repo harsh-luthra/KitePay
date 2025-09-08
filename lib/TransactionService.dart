@@ -54,6 +54,8 @@ class TransactionService {
         final List data = responseData['transactions'];
         final String? nextCursor = responseData['nextCursor'];
 
+        // print(data);
+
         return PaginatedTransactions(
           transactions: data.map((e) => Transaction.fromJson(e)).toList(),
           nextCursor: nextCursor,
@@ -131,6 +133,53 @@ class TransactionService {
       return PaginatedTransactions(transactions: [], nextCursor: null);
     }
   }
+
+  static Future<bool> uploadManualTransaction({
+    required String qrCodeId,
+    required String rrnNumber,
+    required double amount,
+    required String isoDate,
+    // String? payload,
+    // String? paymentId,
+    // String? vpa,
+    required String jwtToken,
+  }) async {
+    try {
+      final Map<String, dynamic> body = {
+        'qrCodeId': qrCodeId,
+        'rrnNumber': rrnNumber,
+        'amount': amount,
+        'isoDate': isoDate,
+      };
+
+      // Optional fields if provided
+      // if (payload != null) body['payload'] = payload;
+      // if (paymentId != null) body['paymentId'] = paymentId;
+      // if (vpa != null) body['vpa'] = vpa;
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/admin/transactions/manual'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwtToken', // 👈 attach admin JWT here
+        },
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 201) {
+        return true;
+      } else {
+        print('❌ Manual transaction upload failed: ${response.body}');
+        throw Exception('${response.body}');
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your internet connection.');
+    } catch (e) {
+      print('❌ Manual transaction upload failed: $e');
+      throw Exception('❌ Manual transaction upload failed: $e');
+    }
+  }
+
 
   static String _formatDate(DateTime date) {
     return "${date.year.toString().padLeft(4, '0')}-"
