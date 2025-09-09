@@ -6,6 +6,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:html' as html; // only works on Flutter web
+import 'dart:typed_data';
+import 'package:http/http.dart' as http;
 
 import 'AppWriteService.dart';
 import 'MyMetaApi.dart';
@@ -185,7 +188,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     try{
       final codes = await _qrCodeService.getQrCodes(_jwtToken);
       setState(() {
-        _qrCodes = codes;
+        _qrCodes = codes.reversed.toList(); // Reversed so New Codes comes on top;
       });
     } catch (e) {
         _scaffoldMessengerKey.currentState?.showSnackBar(
@@ -220,7 +223,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     try{
       final codes = await _qrCodeService.getUserQrCodes(widget.userModeUserid!);
       setState(() {
-        _qrCodes = codes;
+        _qrCodes = codes.reversed.toList(); // Reversed so New Codes comes on top
         userQrCount = _qrCodes.length;
         activeUserQrCount = activeQrCount(_qrCodes);
         // print('userQrCount: '+userQrCount.toString());
@@ -874,21 +877,61 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             showDialog(
               context: context,
               builder: (_) => Dialog(
-                child: InteractiveViewer( // allows pinch zoom
-                  child: qrCode.imageUrl.isNotEmpty
-                      ? CachedNetworkImage(
-                    imageUrl: qrCode.imageUrl,
-                    fit: BoxFit.contain,
-                    placeholder: (context, url) => const Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Center(child: CircularProgressIndicator()),
+                child: Stack(
+                  children: [
+                    // 🔍 Zoomable QR Image
+                    InteractiveViewer(
+                      child: qrCode.imageUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                        imageUrl: qrCode.imageUrl,
+                        fit: BoxFit.contain,
+                        placeholder: (context, url) => const Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                        errorWidget: (context, url, error) =>
+                        const Icon(Icons.error, size: 100),
+                      )
+                          : const Icon(Icons.qr_code, size: 100),
                     ),
-                    errorWidget: (context, url, error) =>
-                    const Icon(Icons.error, size: 100),
-                  )
-                      : const Icon(Icons.qr_code, size: 100),
+
+                    // Download button
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: IconButton(
+                        icon: const Icon(Icons.download, size: 28, color: Colors.blue),
+                        tooltip: "Download QR",
+                        onPressed: () async {
+                          try {
+                            // Fetch image as bytes
+                            final response = await http.get(Uri.parse(qrCode.imageUrl));
+                            if (response.statusCode == 200) {
+                              final Uint8List bytes = response.bodyBytes;
+
+                              // Create blob & trigger download
+                              final blob = html.Blob([bytes]);
+                              final url = html.Url.createObjectUrlFromBlob(blob);
+                              final anchor = html.AnchorElement(href: url)
+                                ..download = "qr_${DateTime.now().millisecondsSinceEpoch}.png"
+                                ..style.display = 'none';
+                              html.document.body!.append(anchor);
+                              anchor.click();
+                              anchor.remove();
+                              html.Url.revokeObjectUrl(url);
+                            } else {
+                              debugPrint("❌ Failed to fetch image for download");
+                            }
+                          } catch (e) {
+                            debugPrint("❌ Download error: $e");
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
+
             );
           },
           child: SizedBox(
@@ -1055,22 +1098,42 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                     onTap: () {
                       showDialog(
                         context: context,
-                        builder: (_) => Dialog(
-                          child: InteractiveViewer( // allows pinch zoom
-                            child: qrCode.imageUrl.isNotEmpty
-                                ? CachedNetworkImage(
-                              imageUrl: qrCode.imageUrl,
-                              fit: BoxFit.contain,
-                              placeholder: (context, url) => const Padding(
-                                padding: EdgeInsets.all(20),
-                                child: Center(child: CircularProgressIndicator()),
-                              ),
-                              errorWidget: (context, url, error) =>
-                              const Icon(Icons.error, size: 100),
-                            )
-                                : const Icon(Icons.qr_code, size: 100),
+                          builder: (_) => Dialog(
+                            child: Stack(
+                              children: [
+                                // 🔍 Zoomable QR Image
+                                InteractiveViewer(
+                                  child: qrCode.imageUrl.isNotEmpty
+                                      ? CachedNetworkImage(
+                                    imageUrl: qrCode.imageUrl,
+                                    fit: BoxFit.contain,
+                                    placeholder: (context, url) => const Padding(
+                                      padding: EdgeInsets.all(20),
+                                      child: Center(child: CircularProgressIndicator()),
+                                    ),
+                                    errorWidget: (context, url, error) =>
+                                    const Icon(Icons.error, size: 100),
+                                  )
+                                      : const Icon(Icons.qr_code, size: 100),
+                                ),
+
+                                // ⬇️ Download Button
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.download, size: 28, color: Colors.blue),
+                                    onPressed: () {
+                                      final anchor = html.AnchorElement(href: qrCode.imageUrl)
+                                        ..download = "qr_${DateTime.now().millisecondsSinceEpoch}.png"
+                                        ..target = 'blank';
+                                      anchor.click();
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
                       );
                     },
                     child: SizedBox(

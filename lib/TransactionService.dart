@@ -117,7 +117,7 @@ class TransactionService {
         final List data = responseData['transactions'];
         final String? nextCursor = responseData['nextCursor'];
 
-        print('NextCursor : $nextCursor');
+        print('responseData : $responseData');
 
         return PaginatedTransactions(
           transactions: data.map((e) => Transaction.fromJson(e)).toList(),

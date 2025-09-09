@@ -335,9 +335,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   }
 
   void _showAddUserDialog(BuildContext parentContext) {
-    final emailController = TextEditingController(text: "test@gmail.com");
-    final passController = TextEditingController(text: "Test@1234");
-    final nameController = TextEditingController(text: "Test");
+    final emailController = TextEditingController(text: "");
+    final passController = TextEditingController(text: "");
+    final nameController = TextEditingController(text: "");
     String? selectedRole =
         userMeta.role == "subadmin" ? "user" : null; // store chosen role
 
@@ -454,7 +454,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                             ),
                           ),
                         );
-                        if (ok) await _fetchUsers();
+                        if (ok) await _fetchUsers(firstLoad: true);
                       } catch (e) {
                         ScaffoldMessenger.of(parentContext).showSnackBar(
                           SnackBar(content: Text('Failed to add user: $e')),
