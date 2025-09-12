@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'AppWriteService.dart';
 import 'QRService.dart';
 import 'TransactionService.dart';
-import 'UsersService.dart';
+import 'AdminUsersService.dart';
 import 'models/QrCode.dart';
 import 'models/Transaction.dart';
 
@@ -86,7 +86,7 @@ class _TransactionPageNewBkupState extends State<TransactionPageNewBkup> {
 
     if(mounted) setState(() {loadingQr = true;});
     try{
-      qrCodes = await _qrCodeService.getUserQrCodes(widget.userModeUserid!);
+      qrCodes = await _qrCodeService.getUserQrCodes(widget.userModeUserid!, await AppWriteService().getJWT());
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('❌ Failed to fetch User Qr Codes: $e')),

@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 
 import 'AppWriteService.dart';
 import 'QRService.dart';
-import 'UsersService.dart';
+import 'AdminUsersService.dart';
 import 'models/AppUser.dart';
 import 'models/QrCode.dart';
 

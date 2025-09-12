@@ -75,7 +75,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
 
     try {
       final codes = await _qrCodeService.getUserQrCodes(
-          await AppWriteService().getUserId()!);
+          await AppWriteService().getUserId()!, await AppWriteService().getJWT());
       setState(() {
         _qrCodes = codes;
       });

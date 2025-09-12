@@ -15,7 +15,7 @@ import 'MyMetaApi.dart';
 import 'NewFeatureCornerButton.dart';
 import 'TransactionPage.dart';
 import 'TransactionPageNew.dart';
-import 'UsersService.dart';
+import 'AdminUsersService.dart';
 import 'models/AppUser.dart';
 import 'models/QrCode.dart';
 
@@ -221,7 +221,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     }
     // createdByUserId
     try{
-      final codes = await _qrCodeService.getUserQrCodes(widget.userModeUserid!);
+      final codes = await _qrCodeService.getUserQrCodes(widget.userModeUserid!, await AppWriteService().getJWT());
       setState(() {
         _qrCodes = codes.reversed.toList(); // Reversed so New Codes comes on top
         userQrCount = _qrCodes.length;

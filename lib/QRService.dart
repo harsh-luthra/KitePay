@@ -161,12 +161,15 @@ class QrCodeService {
     }
   }
 
-  Future<List<QrCode>> getUserQrCodes(String userId) async {
+  Future<List<QrCode>> getUserQrCodes(String userId, String? jwtToken) async {
     if (userId.isEmpty) return [];
 
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/qr-codes/user/$userId'),
+        headers: {
+          'Authorization': 'Bearer $jwtToken',
+        },
       ).timeout(Duration(seconds: 10));
 
       if (response.statusCode == 200) {

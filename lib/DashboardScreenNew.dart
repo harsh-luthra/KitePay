@@ -11,6 +11,7 @@ import 'AppConstants.dart';
 import 'AppWriteService.dart';
 import 'ManageUsersScreen.dart';
 import 'ManageQrScreen.dart';
+import 'ManageWithdrawalsNew.dart';
 import 'MyMetaApi.dart';
 import 'TransactionPageNew.dart';
 import 'ManageWithdrawals.dart';
@@ -120,14 +121,14 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         label: 'All Withdrawals',
         icon: Icons.account_balance_wallet_outlined,
         visibleFor: (labels) => labels.contains('withdrawal') || labels.contains('admin'),
-        builder: (_) => ManageWithdrawals(),
+        builder: (_) => ManageWithdrawalsNew(),
       ),
       _MenuItem(
         id: 7,
         label: 'My Withdrawals',
         icon: Icons.account_balance_wallet,
         visibleFor: (_) => true,
-        builder: (user) => ManageWithdrawals(userMode: true, userModeUserid: user.$id),
+        builder: (user) => ManageWithdrawalsNew(userMode: true, userModeUserid: user.$id),
       ),
       _MenuItem(
         id: 8,

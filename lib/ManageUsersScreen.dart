@@ -5,7 +5,7 @@ import 'package:admin_qr_manager/MyMetaApi.dart';
 import 'package:admin_qr_manager/widget/TransactionCardShimmer.dart';
 import 'package:flutter/material.dart';
 import 'TransactionPageNew.dart';
-import 'UsersService.dart';
+import 'AdminUsersService.dart';
 import 'models/AppUser.dart';
 
 class ManageUsersScreen extends StatefulWidget {
@@ -164,7 +164,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                     }
                                     // Refresh list (ensure owning State is still mounted)
                                     if (pageContext.mounted) {
-                                      _fetchUsers(); // make sure this is safe to call
+                                      _fetchUsers(firstLoad: true); // make sure this is safe to call
                                     }
                                   } catch (e) {
                                     // Dismiss loading dialog
@@ -240,15 +240,18 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
     final jwtToken = await AppWriteService().getJWT();
 
+    print("UNsassign call 1");
+
     // Show loader
-    await showDialog(
+    showDialog(
       context: pageContext,
       barrierDismissible: false,
-      useRootNavigator: true, // safer with nested navigators
+      useRootNavigator: true,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
     try {
+      print("UNsassign call 2");
       await AdminUserService.assignUserToSubadmin(
         unassign: true,
         subadminId: subadminId,
@@ -260,7 +263,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         ScaffoldMessenger.of(pageContext).showSnackBar(
           SnackBar(content: Text('User: $userId Unassigned Successfully')),
         );
-        _fetchUsers(); // make sure owner is still mounted if it triggers setState
+        _fetchUsers(firstLoad: true); // make sure owner is still mounted if it triggers setState
       }
     } catch (e) {
       if (pageContext.mounted) {
