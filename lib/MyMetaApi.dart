@@ -11,6 +11,7 @@ class MyMetaApi {
 
   // Fetches from API (GET), caches, and returns AppUser.
   // If refresh == false, tries cache first.
+
   static Future<AppUser?> getMyMetaData({
     required String jwtToken,
     bool refresh = false,

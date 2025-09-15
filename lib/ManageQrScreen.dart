@@ -224,6 +224,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       final codes = await _qrCodeService.getUserQrCodes(widget.userModeUserid!, await AppWriteService().getJWT());
       setState(() {
         _qrCodes = codes.reversed.toList(); // Reversed so New Codes comes on top
+        // print(_qrCodes[0].toString());
         userQrCount = _qrCodes.length;
         activeUserQrCount = activeQrCount(_qrCodes);
         // print('userQrCount: '+userQrCount.toString());
@@ -998,6 +999,21 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
           'Amount Received: ${CurrencyUtils.formatIndianCurrency((qrCode.totalPayInAmount ?? 0) / 100)}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
+        const SizedBox(height: 6),
+
+        Text(
+          'Withdrawal Requested Amount: ${CurrencyUtils.formatIndianCurrency((qrCode.withdrawalRequestedAmount ?? 0) / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          'Withdrawal Approved Amount: ${CurrencyUtils.formatIndianCurrency((qrCode.withdrawalApprovedAmount ?? 0) / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          'Amount Available ForWithdrawal: ${CurrencyUtils.formatIndianCurrency((qrCode.amountAvailableForWithdrawal ?? 0) / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+
         const SizedBox(height: 6),
         if (!widget.userMode)
           Text(

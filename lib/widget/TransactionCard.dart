@@ -3,15 +3,25 @@ import 'package:flutter/material.dart';
 import '../models/Transaction.dart';
 import 'package:intl/intl.dart';
 
+// Define a typedef for clarity
+typedef TxnActionAsync = Future<void> Function(Transaction txn);
+
 class TransactionCard extends StatelessWidget {
   final Transaction txn;
+  final TxnActionAsync? onEdit;
+  final TxnActionAsync? onDelete;
 
-  const TransactionCard({super.key, required this.txn});
+  const TransactionCard({
+    super.key,
+    required this.txn,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final date = DateFormat('dd MMM yyyy, hh:mm a').format(txn.createdAt.toLocal());
-
+    final date =
+    DateFormat('dd MMM yyyy, hh:mm a').format(txn.createdAt.toLocal());
 
     return Card(
       elevation: 2,
@@ -22,6 +32,8 @@ class TransactionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header row with title + trailing actions
+            const SizedBox(height: 8),
             _infoRow(Icons.currency_rupee, 'Amount', CurrencyUtils.formatIndianCurrency(txn.amount / 100)),
             _infoRow(Icons.qr_code, 'QR Code ID', txn.qrCodeId),
             _infoRow(Icons.payment, 'Payment ID', txn.paymentId),
@@ -29,6 +41,26 @@ class TransactionCard extends StatelessWidget {
             _infoRow(Icons.alternate_email, 'VPA', txn.vpa),
             _infoRow(Icons.calendar_today, 'Created At', date),
             _infoRow(Icons.confirmation_number, 'Transaction ID', txn.id),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const SizedBox(width: 8),
+                // Trailing actions
+                if (onEdit != null)
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.blueGrey),
+                    tooltip: 'Edit',
+                    // onPressed: () => onEdit?.call(txn),
+                    onPressed: () async => await onEdit?.call(txn),
+                  ),
+                if (onDelete != null)
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.redAccent),
+                    tooltip: 'Delete',
+                    onPressed: () async => await onDelete?.call(txn),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
@@ -43,12 +75,9 @@ class TransactionCard extends StatelessWidget {
           Icon(icon, size: 18, color: Colors.blueGrey),
           const SizedBox(width: 8),
           Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
-          Expanded(
-            child: Text(value, overflow: TextOverflow.ellipsis),
-          ),
+          Expanded(child: Text(value, overflow: TextOverflow.ellipsis)),
         ],
       ),
     );
   }
-
 }

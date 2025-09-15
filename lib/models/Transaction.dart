@@ -1,6 +1,6 @@
 class Transaction {
   final String id;
-  final String payload;
+  final String? payload;
   final String qrCodeId;
   final String paymentId;
   final String rrnNumber;
@@ -10,7 +10,7 @@ class Transaction {
 
   Transaction({
     required this.id,
-    required this.payload,
+    this.payload,
     required this.qrCodeId,
     required this.paymentId,
     required this.rrnNumber,
@@ -22,7 +22,7 @@ class Transaction {
   factory Transaction.fromJson(Map<String, dynamic> json) {
     return Transaction(
       id: json['\$id'],
-      payload: json['payload'],
+      // payload: json['payload'],
       qrCodeId: json['qrCodeId'],
       paymentId: json['paymentId'],
       rrnNumber: json['rrnNumber'],
@@ -34,7 +34,7 @@ class Transaction {
 
   @override
   String toString() {
-    return 'Transaction{id: $id, payload: $payload, qrCodeId: $qrCodeId, paymentId: $paymentId, rrnNumber: $rrnNumber, vpa: $vpa, createdAt: $createdAt, amount: $amount}';
+    return 'Transaction{id: $id, qrCodeId: $qrCodeId, paymentId: $paymentId, rrnNumber: $rrnNumber, vpa: $vpa, createdAt: $createdAt, amount: $amount}';
   }
 
   String get amountInRupees => '₹ ${(amount / 100).toStringAsFixed(2)}';

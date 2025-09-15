@@ -117,7 +117,7 @@ class TransactionService {
         final List data = responseData['transactions'];
         final String? nextCursor = responseData['nextCursor'];
 
-        print('responseData : $responseData');
+        // print('responseData : $responseData');
 
         return PaginatedTransactions(
           transactions: data.map((e) => Transaction.fromJson(e)).toList(),
@@ -180,6 +180,80 @@ class TransactionService {
     }
   }
 
+  static Future<bool> editTransaction({
+    required String id,           // Appwrite $id of the transaction document
+    String? qrCodeId,             // optional
+    String? rrnNumber,            // optional
+    double? amount,               // rupees; backend converts to paise
+    String? isoDate,              // ISO-8601 string
+    required String jwtToken,
+  }) async {
+    try {
+      final Map<String, dynamic> body = {};
+      if (qrCodeId != null) body['qrCodeId'] = qrCodeId;
+      if (rrnNumber != null) body['rrnNumber'] = rrnNumber;
+      if (amount != null) body['amount'] = amount;
+      if (isoDate != null) body['isoDate'] = isoDate;
+
+      if (body.isEmpty) {
+        throw Exception('No fields to update');
+      }
+
+      final url = Uri.parse('$_baseUrl/admin/transactions/$id');
+
+      final response = await http
+          .patch(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwtToken',
+        },
+        body: jsonEncode(body),
+      )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        // propagate server error body for context
+        throw Exception('Edit failed: ${response.statusCode} ${response.body}');
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your internet connection.');
+    } catch (e) {
+      throw Exception('❌ Edit transaction failed: $e');
+    }
+  }
+
+  static Future<bool> deleteTransaction({
+    required String id,        // Appwrite $id of the transaction
+    required String jwtToken,  // admin JWT
+  }) async {
+    try {
+      final url = Uri.parse('$_baseUrl/admin/transactions/$id');
+
+      final resp = await http
+          .delete(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwtToken',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (resp.statusCode == 200) {
+        return true;
+      } else if (resp.statusCode == 404) {
+        throw Exception('Transaction not found');
+      } else {
+        throw Exception('Delete failed: ${resp.statusCode} ${resp.body}');
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your internet connection.');
+    } catch (e) {
+      throw Exception('❌ Delete transaction failed: $e');
+    }
+  }
 
   static String _formatDate(DateTime date) {
     return "${date.year.toString().padLeft(4, '0')}-"
