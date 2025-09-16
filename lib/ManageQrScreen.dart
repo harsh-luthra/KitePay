@@ -659,6 +659,25 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     );
   }
 
+  // New function to show the options for an assigned QR code
+  Future<void> _showCannotAssign(QrCode qrCode) async {
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Manage User Assignment'),
+          content: Text('You Can\'t Change QR Assignment Once Assigned'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('OK'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _createAssignUserQR() async {
     print(widget.userMeta.labels.toString());
     if(!widget.userMeta.labels.contains('admin') && !widget.userMeta.labels.contains('SelfQr')){
@@ -770,8 +789,8 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
           actions: [
             if(!widget.userMode)
               IconButton(onPressed: _jwtToken != null && !_isProcessing ? _showUploadQrDialog : null, icon: Icon(Icons.add)),
-            if(widget.userMode && widget.userMeta.role != "user")
-              NewFeatureCornerButton(onPressed: !_isProcessing ? _createAssignUserQR : null, icon: Icon(Icons.add_box_rounded), label: Text('Create QR Code'),),
+            // if(widget.userMode && widget.userMeta.role != "user")
+              // NewFeatureCornerButton(onPressed: !_isProcessing ? _createAssignUserQR : null, icon: Icon(Icons.add_box_rounded), label: Text('Create QR Code'),),
             // if(widget.userMode)
             //   NewFeatureCornerButton(
             //     onPressed: () {
@@ -1013,6 +1032,10 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
           'Amount Available ForWithdrawal: ${CurrencyUtils.formatIndianCurrency((qrCode.amountAvailableForWithdrawal ?? 0) / 100)}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
+        Text(
+          'Amount OnHold: ${CurrencyUtils.formatIndianCurrency((qrCode.amountOnHold ?? 0) / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
 
         const SizedBox(height: 6),
         if (!widget.userMode)
@@ -1026,6 +1049,21 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
         ),
       ],
     );
+  }
+
+  void assignmentOptionForAdminSubAdmin(QrCode qrCode){
+    // !widget.userMode ? _showAssignOptions(qrCode) : _showCannotAssign(qrCode);
+    if(widget.userMeta.role.contains("subadmin")){
+      // IF QR ASSIGNED TO SUB ADMIN THEN HE CAN ASSIGN TO OTHER USER
+      if(qrCode.assignedUserId == widget.userMeta.id){
+        _showAssignOptions(qrCode);
+      }else{
+        _showCannotAssign(qrCode);
+      }
+      return;
+    }
+    // IF IS ADMIN THEN SHOW ALL OPTIONS
+    _showAssignOptions(qrCode);
   }
 
 
@@ -1057,7 +1095,8 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                 ? null
                 : () => qrCode.assignedUserId == null
                 ? _assignUser(qrCode.qrId, qrCode.fileId)
-                : _showAssignOptions(qrCode),
+                : assignmentOptionForAdminSubAdmin(qrCode) // if its not admin then show
+                // : _showAssignOptions(qrCode),
           ),
         IconButton(
           icon: const Icon(Icons.article_outlined, color: Colors.deepPurple),

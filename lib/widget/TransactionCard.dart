@@ -6,24 +6,38 @@ import 'package:intl/intl.dart';
 // Define a typedef for clarity
 typedef TxnActionAsync = Future<void> Function(Transaction txn);
 
+enum TxnStatus { normal, cyber, refund, chargeback }
+
 class TransactionCard extends StatelessWidget {
   final Transaction txn;
   final TxnActionAsync? onEdit;
   final TxnActionAsync? onDelete;
+  final TxnActionAsync? onStatus;
 
   const TransactionCard({
     super.key,
     required this.txn,
     this.onEdit,
     this.onDelete,
+    this.onStatus,
   });
+
+  TxnStatus? txnStatusFromString(String? value) {
+    if (value == null) return null; // keep nullability explicit [18]
+    // Safe lookup: returns null if not found
+    final map = TxnStatus.values.asNameMap(); // { 'normal': TxnStatus.normal, ... } [15]
+    return map[value.toLowerCase()]; // ensure incoming strings match enum names [15]
+    // Alternatively, strict lookup (throws if missing):
+    // return TxnStatus.values.byName(value); // throws ArgumentError on unknown [10][7]
+  }
 
   @override
   Widget build(BuildContext context) {
     final date =
     DateFormat('dd MMM yyyy, hh:mm a').format(txn.createdAt.toLocal());
-
+    final status = txnStatusFromString(txn.status); // txn.status is String? [10]
     return Card(
+      color: cardColorForStatus(status),
       elevation: 2,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -41,25 +55,36 @@ class TransactionCard extends StatelessWidget {
             _infoRow(Icons.alternate_email, 'VPA', txn.vpa),
             _infoRow(Icons.calendar_today, 'Created At', date),
             _infoRow(Icons.confirmation_number, 'Transaction ID', txn.id),
+            if(!(txn.status == '' || txn.status == 'normal'))
+              _infoRow(Icons.confirmation_number, 'Status: ', "${txn.status} Hold"),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                const SizedBox(width: 8),
-                // Trailing actions
-                if (onEdit != null)
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.blueGrey),
-                    tooltip: 'Edit',
-                    // onPressed: () => onEdit?.call(txn),
-                    onPressed: () async => await onEdit?.call(txn),
-                  ),
-                if (onDelete != null)
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.redAccent),
-                    tooltip: 'Delete',
-                    onPressed: () async => await onDelete?.call(txn),
-                  ),
-              ],
+            Container(
+              color: Colors.white,
+              child: Row(
+                children: [
+                  const SizedBox(width: 8),
+                  // Trailing actions
+                  if (onEdit != null)
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.blueGrey),
+                      tooltip: 'Edit',
+                      // onPressed: () => onEdit?.call(txn),
+                      onPressed: () async => await onEdit?.call(txn),
+                    ),
+                  if (onDelete != null)
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.redAccent),
+                      tooltip: 'Delete',
+                      onPressed: () async => await onDelete?.call(txn),
+                    ),
+                  if (onStatus != null)
+                    IconButton(
+                      icon: const Icon(Icons.change_circle_outlined, color: Colors.green),
+                      tooltip: 'Change Status',
+                      onPressed: () async => await onStatus?.call(txn),
+                    ),
+                ],
+              ),
             ),
           ],
         ),
@@ -80,4 +105,20 @@ class TransactionCard extends StatelessWidget {
       ),
     );
   }
+
+  Color cardColorForStatus(TxnStatus? status) {
+    switch (status) {
+      case TxnStatus.normal:
+        return Colors.white; // normal [21]
+      case TxnStatus.cyber:
+        return Colors.red; // cyber [21]
+      case TxnStatus.refund:
+        return Colors.orange; // refund [22]
+      case TxnStatus.chargeback:
+        return Colors.yellow; // chargeback [22]
+      case null:
+        return Colors.white; // fallback for null [21]
+    }
+  }
+
 }

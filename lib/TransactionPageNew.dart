@@ -21,6 +21,8 @@ import 'package:audioplayers/audioplayers.dart';
 
 import 'package:flutter_tts/flutter_tts.dart';
 
+import 'package:number_to_indian_words/number_to_indian_words.dart';
+
 class TransactionPageNew extends StatefulWidget {
   final String? filterUserId;
   final String? filterQrCodeId;
@@ -38,6 +40,12 @@ class TransactionPageNew extends StatefulWidget {
 
   @override
   State<TransactionPageNew> createState() => _TransactionPageNewState();
+}
+
+enum TxnStatus { normal, cyber, refund, chargeback }
+
+extension TxnStatusX on TxnStatus {
+  String get label => name; // send this to API as text [19]
 }
 
 class _TransactionPageNewState extends State<TransactionPageNew> {
@@ -60,8 +68,10 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   DateTime? selectedFromDate;
   DateTime? selectedToDate;
 
+  String? selectedStatus;
+
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
-      GlobalKey<ScaffoldMessengerState>();
+  GlobalKey<ScaffoldMessengerState>();
 
   // PAGINATION
   String? nextCursor;
@@ -81,7 +91,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
   StreamSubscription<Map<String, dynamic>>? _txSub;
 
-  final AudioPlayer _sfx = AudioPlayer()..setReleaseMode(ReleaseMode.stop);
+  final AudioPlayer _sfx = AudioPlayer()
+    ..setReleaseMode(ReleaseMode.stop);
 
   final FlutterTts _tts = FlutterTts();
 
@@ -96,13 +107,15 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   }
 
   Future<void> initTts() async {
-    await _tts.setLanguage('en-IN');           // or 'en-US' etc.
-    await _tts.setSpeechRate(0.9);             // 0.0–1.0
-    await _tts.setPitch(1.0);                  // 0.5–2.0
+    await _tts.setLanguage('en-IN'); // or 'en-US' etc.
+    await _tts.setSpeechRate(0.9); // 0.0–1.0
+    await _tts.setPitch(1.0); // 0.5–2.0
     // Optional handlers
     _tts.setStartHandler(() {});
     _tts.setCompletionHandler(() {});
-    _tts.setErrorHandler((msg) { /* log */ });
+    _tts.setErrorHandler((msg) {
+      /* log */
+    });
   }
 
   @override
@@ -128,10 +141,10 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       'https://kite-pay-api-v1.onrender.com',
       IO.OptionBuilder()
           .setTransports(['websocket'])
-          .setAuth({'token': jwt})           // JWT on connect [web:522]
-          .enableReconnection()              // auto-retry [web:522]
-          .enableForceNew()                  // isolate this connection
-          .setQuery({'v': '1'})              // optional versioning
+          .setAuth({'token': jwt}) // JWT on connect [web:522]
+          .enableReconnection() // auto-retry [web:522]
+          .enableForceNew() // isolate this connection
+          .setQuery({'v': '1'}) // optional versioning
           .build(),
     );
 
@@ -175,21 +188,40 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     } catch (_) {}
   }
 
-  Future<String> getJwtTokenFromAppWriteService() async{
+  Future<String> getJwtTokenFromAppWriteService() async {
     return await AppWriteService().getJWT();
   }
 
   Future<void> _playNewTxnSound() async {
     try {
-      await _sfx.play(AssetSource('sounds/ding.mp3')); // looks under assets/ [2]
+      await _sfx.play(
+          AssetSource('sounds/ding.mp3')); // looks under assets/ [2]
     } catch (e) {
       // ignore or log
     }
   }
 
-  void socketManagerConnect() async{
-    await  initTts(); // TTS initialize
-    if(!SocketManager.instance.isConnected){
+  String amountToWordsIndian(int amountPaise) {
+    final rupees = amountPaise ~/ 100;
+    final words = NumToWords.convertNumberToIndianWords(
+        rupees); // uses lakh/crore style [6]
+    return words.toLowerCase();
+  }
+
+  Future<void> speakAmountReceived(int amountPaise) async {
+    await _tts.setLanguage('en-IN'); // Indian English accent [18]
+    await _tts.setSpeechRate(0.9);
+    await _tts.setPitch(1.0);
+
+    final words = amountToWordsIndian(
+        amountPaise); // 125.00 INR -> "one hundred twenty five" [9]
+    final sentence = '₹$words received in KitePay';
+    await _tts.speak(sentence); // say full words, not digits [18]
+  }
+
+  void socketManagerConnect() async {
+    await initTts(); // TTS initialize
+    if (!SocketManager.instance.isConnected) {
       await SocketManager.instance.connect(
         url: 'https://kite-pay-api-v1.onrender.com',
         // url: 'http://localhost:3000',
@@ -197,21 +229,24 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         // qrIds: ["119188392"],
         qrIds: ["119188392"],
       );
-    }else{
+    } else {
       SocketManager.instance.subscribeQrIds(["119188392"]);
     }
 
     _txSub = SocketManager.instance.txStream.listen((event) async {
       // event: { id, qrCodeId, amountPaise, createdAtIso, ... }
       Transaction txn = Transaction.fromJson(event);
-      if(mounted){
+      if (mounted) {
         final String? newRrn = txn.rrnNumber; // may be null
-        final bool exists = newRrn != null && transactions.any((t) => (t.rrnNumber ?? '').trim() == newRrn.trim());
+        final bool exists = newRrn != null &&
+            transactions.any((t) => (t.rrnNumber ?? '').trim() ==
+                newRrn.trim());
         if (!exists) {
-          final amt = (txn.amount / 100).toStringAsFixed(0);
-          final message = '₹$amt received in KitePay';
-          await _tts.stop();                // avoid overlap
-          await _tts.speak(message);        // speak it
+          speakAmountReceived(txn.amount);
+          // final amt = (txn.amount / 100).toStringAsFixed(0);
+          // final message = '₹$amt received in KitePay';
+          // await _tts.stop();                // avoid overlap
+          // await _tts.speak(message);        // speak it
           setState(() {
             transactions.insert(0, txn);
             // print(transactions[0]);
@@ -219,21 +254,22 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
             showDialog(
               context: context,
               barrierDismissible: true, // tap outside to close [1]
-              builder: (ctx) => AlertDialog(
-                title: const Text('New Payment Received'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TransactionCard(txn: txn),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text('Close'),
+              builder: (ctx) =>
+                  AlertDialog(
+                    title: const Text('New Payment Received'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TransactionCard(txn: txn),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: const Text('Close'),
+                      ),
+                    ],
                   ),
-                ],
-              ),
             );
           });
         }
@@ -248,7 +284,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   }
 
   Future<void> loadInitialData() async {
-
     setState(() {
       loading = true;
       _searchController.clear();
@@ -275,7 +310,12 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       }
     }
 
-    // socketManagerConnect();
+    // if(userMeta.role == 'admin'){
+    //   socketManagerConnect();
+    // }
+
+    socketManagerConnect();
+
 
     if (widget.userMode) {
       await fetchUserTransactions();
@@ -288,7 +328,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   }
 
   Future<void> refreshTransactionsOnly() async {
-
     setState(() {
       loading = true;
       _searchController.clear();
@@ -312,7 +351,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   Future<void> fetchOnlyUserQrCodes() async {
     if (mounted) setState(() => loadingQr = true);
     try {
-      qrCodes = await _qrCodeService.getUserQrCodes(widget.userModeUserid!, await AppWriteService().getJWT());
+      qrCodes = await _qrCodeService.getUserQrCodes(
+          widget.userModeUserid!, await AppWriteService().getJWT());
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('❌ Failed to fetch User Qr Codes: $e')),
@@ -325,7 +365,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     if (mounted) setState(() => loadingUsers = true);
 
     try {
-      final fetched = await AdminUserService.listUsers(jwtToken: await AppWriteService().getJWT());
+      final fetched = await AdminUserService.listUsers(
+          jwtToken: await AppWriteService().getJWT());
       users = fetched.appUsers;
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
@@ -355,9 +396,9 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     }
 
     final effectiveUserId =
-        widget.userMode
-            ? widget.userModeUserid
-            : (selectedUserId ?? widget.filterUserId);
+    widget.userMode
+        ? widget.userModeUserid
+        : (selectedUserId ?? widget.filterUserId);
     final effectiveQrId = selectedQrCodeId ?? widget.filterQrCodeId;
 
     try {
@@ -381,7 +422,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       } else {
         final existingIds = transactions.map((t) => t.id).toSet();
         final newOnes = fetched.transactions.where(
-          (t) => !existingIds.contains(t.id),
+              (t) => !existingIds.contains(t.id),
         );
         transactions.addAll(newOnes);
         // transactions.addAll(fetched.transactions);
@@ -432,7 +473,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       } else {
         final existingIds = transactions.map((t) => t.id).toSet();
         final newOnes = fetched.transactions.where(
-          (t) => !existingIds.contains(t.id),
+              (t) => !existingIds.contains(t.id),
         );
         transactions.addAll(newOnes);
         // transactions.addAll(fetched.transactions);
@@ -467,9 +508,9 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     try {
       // Use selected filters first; fall back to widget filters
       final effectiveUserId =
-          widget.userMode
-              ? widget.userModeUserid
-              : (selectedUserId ?? widget.filterUserId);
+      widget.userMode
+          ? widget.userModeUserid
+          : (selectedUserId ?? widget.filterUserId);
       final effectiveQrId = selectedQrCodeId ?? widget.filterQrCodeId;
 
       // Call the right fetch based on userMode
@@ -480,6 +521,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           qrId: effectiveQrId,
           from: selectedFromDate,
           to: selectedToDate,
+          status: selectedStatus,
           cursor: null,
           searchField: selectedSearchField,
           searchValue: searchText.isEmpty ? null : searchText,
@@ -495,6 +537,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           cursor: null,
           from: selectedFromDate,
           to: selectedToDate,
+          status: selectedStatus,
           searchField: selectedSearchField,
           searchValue: searchText.isEmpty ? null : searchText,
           jwtToken: _jwtToken!,
@@ -527,11 +570,11 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
     if (selectedUserId != null) {
       final userQrCodeIds =
-          qrCodes
-              .where((qr) => qr.assignedUserId == selectedUserId)
-              .map((qr) => qr.qrId)
-              .whereType<String>()
-              .toSet();
+      qrCodes
+          .where((qr) => qr.assignedUserId == selectedUserId)
+          .map((qr) => qr.qrId)
+          .whereType<String>()
+          .toSet();
 
       if (selectedQrCodeId != null) {
         filtered =
@@ -574,7 +617,9 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       context: context,
       initialDate: selectedFromDate ?? DateTime.now(),
       firstDate: DateTime(2025),
-      lastDate: DateTime(DateTime.now().year),
+      lastDate: DateTime(DateTime
+          .now()
+          .year),
     );
     if (picked != null) {
       selectedFromDate = picked;
@@ -586,23 +631,26 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       context: context,
       initialDate: selectedToDate ?? DateTime.now(),
       firstDate: DateTime(2025),
-      lastDate: DateTime(DateTime.now().year),
+      lastDate: DateTime(DateTime
+          .now()
+          .year),
     );
     if (picked != null) {
       selectedToDate = picked;
     }
   }
 
-  Future<void> editTransaction(
-      BuildContext context, {
-        required Transaction txn,
-      }) async {
+  Future<void> editTransaction(BuildContext context, {
+    required Transaction txn,
+  }) async {
     final formKey = GlobalKey<FormState>();
 
     // Local state
     String? selectedUserId;
-    String? selectedQrCodeId = txn.qrCodeId; // UI selection; may temporarily become null
-    final qrIdController = TextEditingController(text: txn.qrCodeId); // actual value used in payload
+    String? selectedQrCodeId = txn
+        .qrCodeId; // UI selection; may temporarily become null
+    final qrIdController = TextEditingController(
+        text: txn.qrCodeId); // actual value used in payload
     final rrnController = TextEditingController(text: txn.rrnNumber);
     final amountController = TextEditingController(
       text: (txn.amount / 100).toStringAsFixed(0),
@@ -616,7 +664,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
     List<QrCode> filteredQrCodes() {
       if (selectedUserId == null) return qrCodes;
-      return qrCodes.where((qr) => qr.assignedUserId == selectedUserId).toList();
+      return qrCodes.where((qr) => qr.assignedUserId == selectedUserId)
+          .toList();
     }
 
     List<String> filteredUniqueQrIds() {
@@ -691,7 +740,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                   parsedAmount >= 0 &&
                   parsedAmount.toStringAsFixed(2) !=
                       (txn.amount / 100).toStringAsFixed(2)) {
-                payload['amount'] = parsedAmount; // rupees; backend converts [6]
+                payload['amount'] =
+                    parsedAmount; // rupees; backend converts [6]
               }
 
               if (isoUtcValue != txn.createdAt.toUtc().toIso8601String()) {
@@ -752,10 +802,11 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                             child: Text('--------'),
                           ),
                           ...users.map(
-                                (u) => DropdownMenuItem<String>(
-                              value: u.id,
-                              child: Text('${u.name} (${u.email})'),
-                            ),
+                                (u) =>
+                                DropdownMenuItem<String>(
+                                  value: u.id,
+                                  child: Text('${u.name} (${u.email})'),
+                                ),
                           ),
                         ],
                         onChanged: (v) {
@@ -775,7 +826,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                       Text('Select QR Code'),
                       DropdownButtonFormField<String>(
                         isExpanded: true,
-                        value: effectiveSelectedQr, // may be null -> shows '--------' [1]
+                        value: effectiveSelectedQr,
+                        // may be null -> shows '--------' [1]
                         hint: const Text('Select QR Code'),
                         items: [
                           const DropdownMenuItem<String>(
@@ -783,17 +835,19 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                             child: Text('--------'),
                           ),
                           ...ids.map(
-                                (id) => DropdownMenuItem<String>(
-                              value: id,
-                              child: Text(id),
-                            ),
+                                (id) =>
+                                DropdownMenuItem<String>(
+                                  value: id,
+                                  child: Text(id),
+                                ),
                           ),
                         ],
                         onChanged: (v) {
                           setState(() {
                             selectedQrCodeId = v; // UI selection
                             if (v != null && v.isNotEmpty) {
-                              qrIdController.text = v; // update actual field only on explicit select [1]
+                              qrIdController.text =
+                                  v; // update actual field only on explicit select [1]
                             }
                           });
                         },
@@ -806,7 +860,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                         readOnly: true,
                         enableInteractiveSelection: false,
                         showCursor: false,
-                        validator: (v) => (v == null || v.isEmpty)
+                        validator: (v) =>
+                        (v == null || v.isEmpty)
                             ? 'QR Code ID required'
                             : null,
                         onTap: () => FocusScope.of(ctx).unfocus(),
@@ -821,8 +876,10 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                           LengthLimitingTextInputFormatter(12),
                         ],
                         validator: (v) {
-                          if (v == null || v.isEmpty) return 'RRN Number required';
-                          if (v.length != 12) return 'RRN Number must be 12 digits';
+                          if (v == null || v.isEmpty)
+                            return 'RRN Number required';
+                          if (v.length != 12)
+                            return 'RRN Number must be 12 digits';
                           return null;
                         },
                       ),
@@ -847,7 +904,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                           labelText: 'Transaction Date & Time',
                           hintText: 'Select date & time',
                         ),
-                        validator: (v) => (v == null || v.isEmpty)
+                        validator: (v) =>
+                        (v == null || v.isEmpty)
                             ? 'Date & Time required'
                             : null,
                         onTap: pickDateTime,
@@ -880,37 +938,37 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     );
   }
 
-  Future<void> deleteTransaction(
-      BuildContext context, {
-        required Transaction txn,
-      }) async {
+  Future<void> deleteTransaction(BuildContext context, {
+    required Transaction txn,
+  }) async {
     final bool? confirm = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete transaction?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TransactionCard(txn: txn),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('No'),
-          ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.delete),
-            label: const Text('Yes, delete'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              foregroundColor: Colors.white,
+      builder: (ctx) =>
+          AlertDialog(
+            title: const Text('Delete transaction?'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TransactionCard(txn: txn),
+              ],
             ),
-            onPressed: () => Navigator.of(ctx).pop(true),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('No'),
+              ),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.delete),
+                label: const Text('Yes, delete'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.of(ctx).pop(true),
+              ),
+            ],
           ),
-        ],
-      ),
     ); // confirm dialog [1][2]
 
     if (confirm != true) return; // user canceled [1]
@@ -919,7 +977,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     showDialog<void>(
       context: context,
       barrierDismissible: false, // block touches while deleting
-      builder: (ctx) => const AlertDialog(
+      builder: (ctx) =>
+      const AlertDialog(
         content: SizedBox(
           height: 56,
           child: Row(
@@ -942,7 +1001,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       ); // call DELETE API [3]
 
       // Close loading dialog
-      if (context.mounted) Navigator.of(context, rootNavigator: true).pop(); // dismiss loader [1]
+      if (context.mounted) Navigator.of(context, rootNavigator: true)
+          .pop(); // dismiss loader [1]
 
       if (ok && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -952,14 +1012,16 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       }
     } on TimeoutException {
       if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop(); // ensure loader is closed [1]
+        Navigator.of(context, rootNavigator: true)
+            .pop(); // ensure loader is closed [1]
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Request timed out. Please try again.')),
         ); // feedback [3]
       }
     } catch (e) {
       if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop(); // ensure loader is closed [1]
+        Navigator.of(context, rootNavigator: true)
+            .pop(); // ensure loader is closed [1]
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('❌ Delete failed: $e')),
         ); // feedback [3]
@@ -967,6 +1029,135 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     }
   }
 
+  Future<void> changeTransactionStatus(BuildContext context, {
+    required Transaction txn,
+  }) async {
+    // Local selection defaulted from txn.status String? (case-insensitive).
+    TxnStatus? selected = _parseStatusOrNull(
+        txn.status); // 'normal' -> TxnStatus.normal [19]
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            return AlertDialog(
+              title: const Text('Change status?'), // [2]
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TransactionCard(txn: txn), // existing preview [2]
+                  const SizedBox(height: 12),
+                  DropdownButton<TxnStatus>(
+                    value: selected,
+                    hint: const Text('Select new status'),
+                    isExpanded: true,
+                    items: TxnStatus.values
+                        .map((s) =>
+                        DropdownMenuItem<TxnStatus>(
+                          value: s,
+                          child: Text(s.label),
+                        ))
+                        .toList(),
+                    // enum -> dropdown items [15]
+                    onChanged: (v) => setState(() => selected = v),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.check),
+                  label: const Text('Change'),
+                  onPressed: selected == null
+                      ? null
+                      : () => Navigator.of(ctx).pop(true),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ); // confirm with dropdown [2][15][11]
+
+    if (confirm != true || selected == null)
+      return; // user canceled or nothing chosen [11]
+
+    // Show loading dialog (modal)
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) =>
+      const AlertDialog(
+        content: SizedBox(
+          height: 56,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(width: 8),
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Updating status...'),
+            ],
+          ),
+        ),
+      ),
+    ); // loading modal [11][2]
+
+    try {
+      // final ok = await changeStatusApi(
+      //   txnId: txn.id,
+      //   status: selected!.name, // send text form [19]
+      // ); // call UPDATE API
+
+      final ok = await TransactionService.editTransaction(
+        id: txn.id,
+        jwtToken: await AppWriteService().getJWT(),
+        status: selected!.name,
+      ); // call UPDATE API
+
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // close loader [11]
+      }
+
+      if (ok) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('✅ Status changed to ${selected?.label}')),
+          ); // success feedback
+          _refetchWithCurrentFilters(); // refresh list
+        }
+      }
+    } on TimeoutException {
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Request timed out. Please try again.')),
+        ); // timeout feedback
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Change failed: $e')),
+        ); // error feedback
+      }
+    }
+  }
+
+  // Case-insensitive parse from String? to enum, returns null when unknown.
+  TxnStatus? _parseStatusOrNull(String? raw) {
+    if (raw == null) return null;
+    final lower = raw.toLowerCase();
+    for (final s in TxnStatus.values) {
+      if (s.name == lower) return s;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -979,50 +1170,60 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           title: Text(widget.userMode ? 'Transactions' : 'All Transactions'),
           actions: [
             // if (widget.filterUserId == null && widget.filterQrCodeId == null)
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed:
-                    () =>
-                        !widget.userMode
-                            ? loadInitialData()
-                            : loadInitialData(),
-              ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed:
+                  () =>
+              !widget.userMode
+                  ? loadInitialData()
+                  : loadInitialData(),
+            ),
           ],
         ),
-          body: Column(
-            children: [
-              // Always show search and filters when no fixed filter applied
-              if (widget.filterUserId == null && widget.filterQrCodeId == null) ...[
-                _buildSearchArea(), // <-- Always visible
-                _buildFilters(userHasQrCodes),
-              ],
-              const SizedBox(height: 8),
-
-              // Now show loader or list below
-              Expanded(
-                child: loading
-                    ? ListView.builder(
-                  itemCount: 8, // shimmer placeholders
-                  itemBuilder: (_, __) => const TransactionCardShimmer(),
-                )
-                    : (transactions.isEmpty
-                    ? const Center(child: Text('No transactions found.'))
-                    : ListView.builder(
-                  controller: _scrollController,
-                  itemCount: transactions.length + (loadingMore ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index < transactions.length) {
-                      return userMeta.role == 'admin' ? TransactionCard(txn: transactions[index],onEdit: (txn) => editTransaction(context, txn: txn),onDelete: (txn) => deleteTransaction(context, txn: txn),)
-                          : TransactionCard(txn: transactions[index]);
-                      // return TransactionCard(txn: transactions[index],onEdit: (txn) => editTransaction(context, txn: txn),onDelete: (txn) => deleteTransaction(context, txn: txn),);
-                    }
-                    return const TransactionCardShimmer();
-                  },
-                )
-                ),
-              ),
+        body: Column(
+          children: [
+            // Always show search and filters when no fixed filter applied
+            if (widget.filterUserId == null &&
+                widget.filterQrCodeId == null) ...[
+              _buildSearchArea(), // <-- Always visible
+              _buildFilters(userHasQrCodes),
             ],
-          ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: buildStatusFilter(),
+            ),
+            const SizedBox(height: 8),
+
+            // Now show loader or list below
+            Expanded(
+              child: loading
+                  ? ListView.builder(
+                itemCount: 8, // shimmer placeholders
+                itemBuilder: (_, __) => const TransactionCardShimmer(),
+              )
+                  : (transactions.isEmpty
+                  ? const Center(child: Text('No transactions found.'))
+                  : ListView.builder(
+                controller: _scrollController,
+                itemCount: transactions.length + (loadingMore ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index < transactions.length) {
+                    return userMeta.role == 'admin' ? TransactionCard(
+                        txn: transactions[index],
+                        onEdit: (txn) => editTransaction(context, txn: txn),
+                        onDelete: (txn) => deleteTransaction(context, txn: txn),
+                        onStatus: (txn) =>
+                            changeTransactionStatus(context, txn: txn))
+                        : TransactionCard(txn: transactions[index]);
+                    // return TransactionCard(txn: transactions[index],onEdit: (txn) => editTransaction(context, txn: txn),onDelete: (txn) => deleteTransaction(context, txn: txn),);
+                  }
+                  return const TransactionCardShimmer();
+                },
+              )
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1051,17 +1252,20 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                 ),
                 value: selectedSearchField,
                 items: [
-                  const DropdownMenuItem(value: null, child: Text('Select field')),
-                  ...searchFields.map((field) => DropdownMenuItem(
-                    value: field,
-                    child: Text(field),
-                  )),
+                  const DropdownMenuItem(
+                      value: null, child: Text('Select field')),
+                  ...searchFields.map((field) =>
+                      DropdownMenuItem(
+                        value: field,
+                        child: Text(field),
+                      )),
                 ],
                 onChanged: (value) {
                   setState(() {
                     selectedSearchField = value;
                     // Clear input if needed
-                    if ((value == 'amount' || value == 'rrnNumber') && searchText.isNotEmpty) {
+                    if ((value == 'amount' || value == 'rrnNumber') &&
+                        searchText.isNotEmpty) {
                       searchText = '';
                       _searchController.clear();
                     }
@@ -1074,10 +1278,12 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
               flex: 3,
               child: TextField(
                 controller: _searchController,
-                keyboardType: (selectedSearchField == 'amount' || selectedSearchField == 'rrnNumber')
+                keyboardType: (selectedSearchField == 'amount' ||
+                    selectedSearchField == 'rrnNumber')
                     ? const TextInputType.numberWithOptions(decimal: false)
                     : TextInputType.text,
-                inputFormatters: (selectedSearchField == 'amount' || selectedSearchField == 'rrnNumber')
+                inputFormatters: (selectedSearchField == 'amount' ||
+                    selectedSearchField == 'rrnNumber')
                     ? [FilteringTextInputFormatter.digitsOnly]
                     : null,
                 decoration: const InputDecoration(
@@ -1136,10 +1342,11 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                             child: Text('--------'),
                           ),
                           ...users.map(
-                                (user) => DropdownMenuItem(
-                              value: user.id,
-                              child: Text('${user.name} (${user.email})'),
-                            ),
+                                (user) =>
+                                DropdownMenuItem(
+                                  value: user.id,
+                                  child: Text('${user.name} (${user.email})'),
+                                ),
                           ),
                         ],
                         onChanged: (value) {
@@ -1177,10 +1384,12 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                           child: Text('--------'),
                         ),
                         ...filteredQrCodes.map(
-                              (qr) => DropdownMenuItem(
-                            value: qr.qrId,
-                            child: Text('${qr.qrId} (${qr.totalTransactions})'),
-                          ),
+                              (qr) =>
+                              DropdownMenuItem(
+                                value: qr.qrId,
+                                child: Text(
+                                    '${qr.qrId} (${qr.totalTransactions})'),
+                              ),
                         ),
                       ],
                       onChanged: (value) {
@@ -1198,124 +1407,132 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
           // 📅 Date Filters
           const SizedBox(height: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("From Date", style: TextStyle(fontWeight: FontWeight.bold)),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextButton(
-                              onPressed: () async {
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: selectedFromDate ?? DateTime.now(),
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime.now(),
-                                );
-                                if (picked != null) {
-                                  setState(() {
-                                    selectedFromDate = picked;
-                                  });
-                                  _refetchWithCurrentFilters();
-                                }
-                              },
-                              child: Text(
-                                selectedFromDate == null
-                                    ? "Pick Date"
-                                    : "${selectedFromDate!.toLocal()}".split(' ')[0],
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("From Date",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextButton(
+                                onPressed: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: selectedFromDate ??
+                                        DateTime.now(),
+                                    firstDate: DateTime(2020),
+                                    lastDate: DateTime.now(),
+                                  );
+                                  if (picked != null) {
+                                    setState(() {
+                                      selectedFromDate = picked;
+                                    });
+                                    _refetchWithCurrentFilters();
+                                  }
+                                },
+                                child: Text(
+                                  selectedFromDate == null
+                                      ? "Pick Date"
+                                      : "${selectedFromDate!.toLocal()}".split(
+                                      ' ')[0],
+                                ),
                               ),
                             ),
-                          ),
-                          if (selectedFromDate != null)
-                            IconButton(
-                              icon: const Icon(Icons.clear, size: 20),
-                              onPressed: () {
-                                setState(() {
-                                  selectedFromDate = null;
-                                });
-                                _refetchWithCurrentFilters();
-                              },
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("To Date", style: TextStyle(fontWeight: FontWeight.bold)),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextButton(
-                              onPressed: () async {
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: selectedToDate ?? DateTime.now(),
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime.now(),
-                                );
-                                if (picked != null) {
+                            if (selectedFromDate != null)
+                              IconButton(
+                                icon: const Icon(Icons.clear, size: 20),
+                                onPressed: () {
                                   setState(() {
-                                    selectedToDate = picked;
+                                    selectedFromDate = null;
                                   });
                                   _refetchWithCurrentFilters();
-                                }
-                              },
-                              child: Text(
-                                selectedToDate == null
-                                    ? "Pick Date"
-                                    : "${selectedToDate!.toLocal()}".split(' ')[0],
+                                },
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("To Date",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextButton(
+                                onPressed: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: selectedToDate ??
+                                        DateTime.now(),
+                                    firstDate: DateTime(2020),
+                                    lastDate: DateTime.now(),
+                                  );
+                                  if (picked != null) {
+                                    setState(() {
+                                      selectedToDate = picked;
+                                    });
+                                    _refetchWithCurrentFilters();
+                                  }
+                                },
+                                child: Text(
+                                  selectedToDate == null
+                                      ? "Pick Date"
+                                      : "${selectedToDate!.toLocal()}".split(
+                                      ' ')[0],
+                                ),
                               ),
                             ),
-                          ),
-                          if (selectedToDate != null)
-                            IconButton(
-                              icon: const Icon(Icons.clear, size: 20),
-                              onPressed: () {
-                                setState(() {
-                                  selectedToDate = null;
-                                });
-                                _refetchWithCurrentFilters();
-                              },
-                            ),
-                        ],
-                      ),
-                    ],
+                            if (selectedToDate != null)
+                              IconButton(
+                                icon: const Icon(Icons.clear, size: 20),
+                                onPressed: () {
+                                  setState(() {
+                                    selectedToDate = null;
+                                  });
+                                  _refetchWithCurrentFilters();
+                                },
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 8),
-
-            // 🔹 Clear All Dates button
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                icon: const Icon(Icons.delete_sweep, size: 18),
-                label: const Text("Clear All Dates"),
-                onPressed: () {
-                  setState(() {
-                    selectedFromDate = null;
-                    selectedToDate = null;
-                  });
-                  _refetchWithCurrentFilters();
-                },
+                ],
               ),
-            ),
-          ],
-        ),
+
+              const SizedBox(height: 8),
+
+              // Select Status
+              // buildStatusFilter(),
+
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.delete_sweep, size: 18),
+                  label: const Text("Clear All Dates"),
+                  onPressed: () {
+                    setState(() {
+                      selectedFromDate = null;
+                      selectedToDate = null;
+                    });
+                    _refetchWithCurrentFilters();
+                  },
+                ),
+              ),
+            ],
+          ),
 
           if (selectedUserId != null && !userHasQrCodes)
             const Padding(
@@ -1330,112 +1547,153 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     );
   }
 
-  // Widget _buildFilters(bool userHasQrCodes) {
-  //   return Padding(
-  //     padding: const EdgeInsets.all(8.0),
-  //     child: Column(
-  //       children: [
-  //         Row(
-  //           crossAxisAlignment: CrossAxisAlignment.start,
-  //           children: [
-  //             if (!widget.userMode)
-  //               Expanded(
-  //                 child: Column(
-  //                   crossAxisAlignment: CrossAxisAlignment.start,
-  //                   children: [
-  //                     const Padding(
-  //                       padding: EdgeInsets.only(bottom: 4),
-  //                       child: Text(
-  //                         'Filter User',
-  //                         style: TextStyle(fontWeight: FontWeight.bold),
-  //                       ),
-  //                     ),
-  //                     loadingUsers
-  //                         ? const CircularProgressIndicator()
-  //                         : DropdownButtonFormField<String>(
-  //                           isExpanded: true,
-  //                           value: selectedUserId,
-  //                           hint: const Text('Select User'),
-  //                           items: [
-  //                             const DropdownMenuItem(
-  //                               value: null,
-  //                               child: Text('--------'),
-  //                             ),
-  //                             ...users.map(
-  //                               (user) => DropdownMenuItem(
-  //                                 value: user.id,
-  //                                 child: Text(user.name),
-  //                               ),
-  //                             ),
-  //                           ],
-  //                           onChanged: (value) {
-  //                             setState(() {
-  //                               selectedUserId = value;
-  //                               selectedQrCodeId = null;
-  //                             });
-  //                             // applyFilters();
-  //                             _refetchWithCurrentFilters();
-  //                           },
-  //                         ),
-  //                   ],
-  //                 ),
-  //               ),
-  //             const SizedBox(width: 8),
-  //             Expanded(
-  //               child: Column(
-  //                 crossAxisAlignment: CrossAxisAlignment.start,
-  //                 children: [
-  //                   const Padding(
-  //                     padding: EdgeInsets.only(bottom: 4),
-  //                     child: Text(
-  //                       'Filter QR Code',
-  //                       style: TextStyle(fontWeight: FontWeight.bold),
-  //                     ),
-  //                   ),
-  //                   loadingQr
-  //                       ? const CircularProgressIndicator()
-  //                       : DropdownButtonFormField<String>(
-  //                         isExpanded: true,
-  //                         value: selectedQrCodeId,
-  //                         hint: const Text('Select QR Code'),
-  //                         items: [
-  //                           const DropdownMenuItem(
-  //                             value: null,
-  //                             child: Text('--------'),
-  //                           ),
-  //                           ...filteredQrCodes.map(
-  //                             (qr) => DropdownMenuItem(
-  //                               value: qr.qrId,
-  //                               child: Text('${qr.qrId} (${qr.totalTransactions})'),
-  //                             ),
-  //                           ),
-  //                         ],
-  //                         onChanged: (value) {
-  //                           setState(() {
-  //                             selectedQrCodeId = value;
-  //                           });
-  //                           // applyFilters();
-  //                           // Server-side refetch for new filters
-  //                           _refetchWithCurrentFilters();
-  //                         },
-  //                       ),
-  //                 ],
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //         if (selectedUserId != null && !userHasQrCodes)
-  //           const Padding(
-  //             padding: EdgeInsets.only(top: 10),
-  //             child: Text(
-  //               'No QR codes assigned to this user.',
-  //               style: TextStyle(color: Colors.red),
-  //             ),
-  //           ),
-  //       ],
-  //     ),
-  //   );
-  // }
+  Widget buildStatusFilter() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Select Status
+        const Padding(
+          padding: EdgeInsets.only(bottom: 4),
+          child: Text(
+            'Filter Status',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        )
+        , loading
+            ? const CircularProgressIndicator() :
+        DropdownButtonFormField<String>(
+          isExpanded: true,
+          value: selectedStatus,
+          hint: const Text('Select Status'),
+          items: [
+            const DropdownMenuItem<String>(
+              value: null, // represents "ALL"
+              child: Text('ALL'),
+            ),
+            ...TxnStatus.values.map(
+                  (s) => DropdownMenuItem<String>(
+                value: s.name,
+                child: Text(s.name), // "normal", "cyber", ...
+              ),
+            ),
+          ],
+          onChanged: (value) {
+            setState(() => selectedStatus = value);
+            print(selectedStatus);
+            _refetchWithCurrentFilters();
+          },
+        ),
+      ],
+    );
+  }
+
+// Widget _buildFilters(bool userHasQrCodes) {
+//   return Padding(
+//     padding: const EdgeInsets.all(8.0),
+//     child: Column(
+//       children: [
+//         Row(
+//           crossAxisAlignment: CrossAxisAlignment.start,
+//           children: [
+//             if (!widget.userMode)
+//               Expanded(
+//                 child: Column(
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     const Padding(
+//                       padding: EdgeInsets.only(bottom: 4),
+//                       child: Text(
+//                         'Filter User',
+//                         style: TextStyle(fontWeight: FontWeight.bold),
+//                       ),
+//                     ),
+//                     loadingUsers
+//                         ? const CircularProgressIndicator()
+//                         : DropdownButtonFormField<String>(
+//                           isExpanded: true,
+//                           value: selectedUserId,
+//                           hint: const Text('Select User'),
+//                           items: [
+//                             const DropdownMenuItem(
+//                               value: null,
+//                               child: Text('--------'),
+//                             ),
+//                             ...users.map(
+//                               (user) => DropdownMenuItem(
+//                                 value: user.id,
+//                                 child: Text(user.name),
+//                               ),
+//                             ),
+//                           ],
+//                           onChanged: (value) {
+//                             setState(() {
+//                               selectedUserId = value;
+//                               selectedQrCodeId = null;
+//                             });
+//                             // applyFilters();
+//                             _refetchWithCurrentFilters();
+//                           },
+//                         ),
+//                   ],
+//                 ),
+//               ),
+//             const SizedBox(width: 8),
+//             Expanded(
+//               child: Column(
+//                 crossAxisAlignment: CrossAxisAlignment.start,
+//                 children: [
+//                   const Padding(
+//                     padding: EdgeInsets.only(bottom: 4),
+//                     child: Text(
+//                       'Filter QR Code',
+//                       style: TextStyle(fontWeight: FontWeight.bold),
+//                     ),
+//                   ),
+//                   loadingQr
+//                       ? const CircularProgressIndicator()
+//                       : DropdownButtonFormField<String>(
+//                         isExpanded: true,
+//                         value: selectedQrCodeId,
+//                         hint: const Text('Select QR Code'),
+//                         items: [
+//                           const DropdownMenuItem(
+//                             value: null,
+//                             child: Text('--------'),
+//                           ),
+//                           ...filteredQrCodes.map(
+//                             (qr) => DropdownMenuItem(
+//                               value: qr.qrId,
+//                               child: Text('${qr.qrId} (${qr.totalTransactions})'),
+//                             ),
+//                           ),
+//                         ],
+//                         onChanged: (value) {
+//                           setState(() {
+//                             selectedQrCodeId = value;
+//                           });
+//                           // applyFilters();
+//                           // Server-side refetch for new filters
+//                           _refetchWithCurrentFilters();
+//                         },
+//                       ),
+//                 ],
+//               ),
+//             ),
+//           ],
+//         ),
+//         if (selectedUserId != null && !userHasQrCodes)
+//           const Padding(
+//             padding: EdgeInsets.only(top: 10),
+//             child: Text(
+//               'No QR codes assigned to this user.',
+//               style: TextStyle(color: Colors.red),
+//             ),
+//           ),
+//       ],
+//     ),
+//   );
+// }
 
 
 }

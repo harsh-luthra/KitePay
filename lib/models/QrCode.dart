@@ -12,6 +12,8 @@ class QrCode {
   final int? withdrawalApprovedAmount;        // sum of approved withdrawals (paise)
   final int? amountAvailableForWithdrawal;    // derived or stored (paise)
 
+  final int? amountOnHold;
+
   QrCode({
     required this.qrId,
     required this.fileId,
@@ -24,6 +26,7 @@ class QrCode {
     this.withdrawalRequestedAmount,
     this.withdrawalApprovedAmount,
     this.amountAvailableForWithdrawal,
+    this.amountOnHold,
   });
 
   factory QrCode.fromJson(Map<String, dynamic> json) {
@@ -39,11 +42,13 @@ class QrCode {
       withdrawalRequestedAmount: json['withdrawalRequestedAmount'] as int? ?? 0,
       withdrawalApprovedAmount: json['withdrawalApprovedAmount'] as int? ?? 0,
       amountAvailableForWithdrawal: json['amountAvailableForWithdrawal'] as int? ?? 0,
+      amountOnHold: json['amountOnHold'] as int? ?? 0,
     );
   }
 
   @override
   String toString() {
-    return 'QrCode{qrId: $qrId, fileId: $fileId, imageUrl: $imageUrl, assignedUserId: $assignedUserId, isActive: $isActive, createdAt: $createdAt, totalTransactions: $totalTransactions, totalPayInAmount: $totalPayInAmount, withdrawalRequestedAmount: $withdrawalRequestedAmount, withdrawalApprovedAmount: $withdrawalApprovedAmount, amountAvailableForWithdrawal: $amountAvailableForWithdrawal}';
+    return 'QrCode{qrId: $qrId, fileId: $fileId, imageUrl: $imageUrl, assignedUserId: $assignedUserId, isActive: $isActive, createdAt: $createdAt, totalTransactions: $totalTransactions, totalPayInAmount: $totalPayInAmount, withdrawalRequestedAmount: $withdrawalRequestedAmount, withdrawalApprovedAmount: $withdrawalApprovedAmount, amountAvailableForWithdrawal: $amountAvailableForWithdrawal, amountOnHold: $amountOnHold}';
   }
+
 }

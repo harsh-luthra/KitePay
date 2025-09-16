@@ -5,6 +5,9 @@ import 'package:http/http.dart' as http;
 import 'AppConstants.dart';
 import 'models/Transaction.dart';
 
+// Enum used in UI layer
+enum TxnStatus { normal, cyber, refund, chargeback }
+
 class TransactionService {
   static final String _baseUrl = AppConstants.baseApiUrl;
 
@@ -15,6 +18,7 @@ class TransactionService {
     DateTime? to,
     String? cursor,
     int limit = 25,
+    String? status,
     String? searchField,
     String? searchValue,
     required String jwtToken,
@@ -30,6 +34,7 @@ class TransactionService {
       if (cursor != null) queryParams['cursor'] = cursor;
       if (from != null) queryParams['from'] = _formatDate(from);
       if (to != null) queryParams['to'] = _formatDate(to);
+      if (status != null) queryParams['status'] = status;
 
       // Add search query params if specified
       if (searchField != null && searchValue != null) {
@@ -80,6 +85,7 @@ class TransactionService {
     DateTime? to,
     String? cursor,
     int limit = 25,
+    String? status,
     String? searchField,
     String? searchValue,
     required String jwtToken,
@@ -95,6 +101,7 @@ class TransactionService {
       if (cursor != null) queryParams['cursor'] = cursor;
       if (from != null) queryParams['from'] = _formatDate(from);
       if (to != null) queryParams['to'] = _formatDate(to);
+      if (status != null) queryParams['status'] = status;
 
       // Add search query params if specified
       if (searchField != null && searchValue != null) {
@@ -186,6 +193,8 @@ class TransactionService {
     String? rrnNumber,            // optional
     double? amount,               // rupees; backend converts to paise
     String? isoDate,              // ISO-8601 string
+    String? status,         // add: plain string e.g. "refund"
+    TxnStatus? statusEnum,  // optional: convenience overload to accept enum
     required String jwtToken,
   }) async {
     try {
@@ -194,6 +203,13 @@ class TransactionService {
       if (rrnNumber != null) body['rrnNumber'] = rrnNumber;
       if (amount != null) body['amount'] = amount;
       if (isoDate != null) body['isoDate'] = isoDate;
+
+      // Prefer explicit string if both provided; otherwise use enum.name
+      if (status != null && status.isNotEmpty) {
+        body['status'] = status.toLowerCase(); // backend expects lowercase [21]
+      } else if (statusEnum != null) {
+        body['status'] = statusEnum.name; // "normal" | "cyber" | ... [6][19]
+      }
 
       if (body.isEmpty) {
         throw Exception('No fields to update');
