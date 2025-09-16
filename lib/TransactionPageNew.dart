@@ -96,6 +96,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
   final FlutterTts _tts = FlutterTts();
 
+  bool showingFilters = false;
+
   @override
   void initState() {
     super.initState();
@@ -1170,6 +1172,17 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           title: Text(widget.userMode ? 'Transactions' : 'All Transactions'),
           actions: [
             // if (widget.filterUserId == null && widget.filterQrCodeId == null)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Toggle Filters: '),
+                Switch.adaptive(
+                  value: showingFilters,
+                  onChanged: (val) => setState(() => showingFilters = val),
+                ),
+              ],
+            ),
+
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed:
@@ -1178,6 +1191,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                   ? loadInitialData()
                   : loadInitialData(),
             ),
+            // Compact switch + label
+
           ],
         ),
         body: Column(
@@ -1185,9 +1200,12 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
             // Always show search and filters when no fixed filter applied
             if (widget.filterUserId == null &&
                 widget.filterQrCodeId == null) ...[
+              if(showingFilters)
               _buildSearchArea(), // <-- Always visible
+              if(showingFilters)
               _buildFilters(userHasQrCodes),
             ],
+            if(showingFilters)
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: buildStatusFilter(),

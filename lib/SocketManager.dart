@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:admin_qr_manager/AppWriteService.dart';
+import 'package:admin_qr_manager/MyMetaApi.dart';
+import 'package:admin_qr_manager/models/AppUser.dart';
+import 'package:admin_qr_manager/models/QrCode.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 enum SocketStatus { connecting, connected, reconnected, disconnected, error }
@@ -21,10 +25,15 @@ class SocketManager {
   final _connController = StreamController<SocketStatus>.broadcast();
   Stream<SocketStatus> get connectionStream => _connController.stream;
 
+  // Connection status broadcast
+  final _qrAlertController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get qrAlertController => _qrAlertController.stream;
+
   Future<void> connect({
     required String url,
     required String jwt,
     required List<String> qrIds,
+    required AppUser userMeta,
   }) async {
 
     _connController.add(SocketStatus.connecting);
@@ -58,8 +67,11 @@ class SocketManager {
     }
 
     _socket!
-      ..onConnect((_) {
+      ..onConnect((_) async {
         subscribeQrIds(qrIds);
+        if(userMeta.role == 'admin'){
+          subscribeQrAlert();
+        }
         _connController.add(SocketStatus.connected);
         print("socket Connected Single");
       })
@@ -68,12 +80,23 @@ class SocketManager {
         _connController.add(SocketStatus.reconnected);
       })
       ..on('txn:new', (data) {
-        print(data);
+        // print(data);
         // Ensure a Map payload for downstream consumers
         if (data is Map) {
           _txController.add(Map<String, dynamic>.from(data));
         } else {
           _txController.add({'raw': data});
+        }
+        // TODO: forward to a StreamController/BLoC/callback
+      })
+      ..on('qrsAlert', (data) {
+        // print('QR ALERT:'+ data.toString());
+        // QrCode qrCode = QrCode.fromJson(data);
+        // print(qrCode.toString());
+        if (data is Map) {
+          _qrAlertController.add(Map<String, dynamic>.from(data));
+        } else {
+          _qrAlertController.add({'raw': data});
         }
         // TODO: forward to a StreamController/BLoC/callback
       })
@@ -93,6 +116,17 @@ class SocketManager {
   void subscribeQrIds(List<String> qrIds) {
     if (!isConnected) return;
     _socket!.emit('subscribe:qrs', {'qrIds': List<String>.from(qrIds)});
+  }
+
+  void subscribeQrAlert() {
+    if (!isConnected) return;
+    _socket!.emit('subscribe:qrsAlert', 'qrId');
+  }
+
+  void sendQrCodeAlert(QrCode qr) {
+    if (!isConnected) return;
+    // print("Sedning Qr Alert: "+qr.toString());
+    _socket!.emit('send:qrsAlert', qr.toJson());
   }
 
   void unsubscribeQrIds(List<String> qrIds) {
@@ -115,6 +149,7 @@ class SocketManager {
   void closeStreams() {
     _txController.close();
     _connController.close();
+    _qrAlertController.close();
   }
 
 }

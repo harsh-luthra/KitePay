@@ -10,6 +10,7 @@ import 'package:appwrite/models.dart' show User;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:number_to_indian_words/number_to_indian_words.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:socket_io_client/socket_io_client.dart';
 import 'AppConfig.dart';
 import 'AppConstants.dart';
 import 'AppWriteService.dart';
@@ -75,12 +76,27 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
 
   late StreamSubscription<SocketStatus> _connSub;
 
+  late StreamSubscription<Map<String, dynamic>>? _qrAlertSub;
+
   bool ttsENABLED = true;
 
   bool popUpENABLED = true;
 
   bool socketConnected = false;
 
+  // Minimal Hindi number words (0..99)
+  static const _hindiUnits = [
+    'शून्य','एक','दो','तीन','चार','पाँच','छह','सात','आठ','नौ',
+    'दस','ग्यारह','बारह','तेरह','चौदह','पंद्रह','सोलह','सत्रह','अठारह','उन्नीस',
+    'बीस','इक्कीस','बाइस','तेइस','चौबीस','पच्चीस','छब्बीस','सत्ताईस','अट्ठाईस','उनतीस',
+    'तीस','इकतीस','बत्तीस','तैंतीस','चौंतीस','पैंतीस','छत्तीस','सैंतीस','अड़तीस','उनतालीस',
+    'चालीस','इकतालीस','बयालीस','तैंतालीस','चवालीस','पैंतालीस','छियालीस','सैंतालीस','अड़तालीस','उनचास',
+    'पचास','इक्यावन','बावन','तिरेपन','चौवन','पचपन','छप्पन','सत्तावन','अट्ठावन','उनसठ',
+    'साठ','इकसठ','बासठ','तिरेसठ','चौंसठ','पैंसठ','छियासठ','सड़सठ','अड़सठ','उनहत्तर',
+    'सत्तर','इकहत्तर','बहत्तर','तिहत्तर','चौहत्तर','पचहत्तर','छिहत्तर','सत्तहत्तर','अठहत्तर','उन्नासी',
+    'अस्सी','इक्यासी','बयासी','तिरासी','चौरासी','पचासी','छियासी','सत्तासी','अठासी','नवासी',
+    'नब्बे','इक्यानबे','बानवे','तििरानवे','चौरानवे','पचानवे','छियानवे','सतानवे','अट्ठानवे','निन्यानवे'
+  ];
 
   @override
   void initState() {
@@ -176,6 +192,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   void dispose() {
     _txSub?.cancel();
     _connSub?.cancel();
+    _qrAlertSub?.cancel();
     super.dispose();
   }
 
@@ -196,21 +213,129 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     return words.toLowerCase();
   }
 
-  Future<void> speakAmountReceived(int amountPaise) async {
-    await _tts.setLanguage('en-IN'); // Indian English accent [18]
-    await _tts.setSpeechRate(0.9);
-    await _tts.setPitch(1.0);
+  String _twoDigitsHindi(int n) => _hindiUnits[n];
 
-    final words = amountToWordsIndian(
-        amountPaise); // 125.00 INR -> "one hundred twenty five" [9]
-    final sentence = '₹$words received in KitePay';
-    await _tts.speak(sentence); // say full words, not digits [18]
+  String _segmentHindi(int n) {
+    if (n < 100) return _twoDigitsHindi(n);
+    if (n < 1000) {
+      final h = n ~/ 100, r = n % 100;
+      return r == 0 ? '${_hindiUnits[h]} सौ' : '${_hindiUnits[h]} सौ ${_twoDigitsHindi(r)}';
+    }
+    if (n < 100000) { // thousand
+      final th = n ~/ 1000, r = n % 1000;
+      final head = th == 1 ? 'एक हज़ार' : '${_segmentHindi(th)} हज़ार';
+      return r == 0 ? head : '$head ${_segmentHindi(r)}';
+    }
+    if (n < 10000000) { // lakh
+      final lk = n ~/ 100000, r = n % 100000;
+      final head = lk == 1 ? 'एक लाख' : '${_segmentHindi(lk)} लाख';
+      return r == 0 ? head : '$head ${_segmentHindi(r)}';
+    }
+    // crore
+    final cr = n ~/ 10000000, r = n % 10000000;
+    final head = cr == 1 ? 'एक करोड़' : '${_segmentHindi(cr)} करोड़';
+    return r == 0 ? head : '$head ${_segmentHindi(r)}';
+  }
+
+  String amountToHindiWords(int amountPaise) {
+    final rupees = amountPaise ~/ 100;
+    if (rupees == 0) return 'शून्य';
+    return _segmentHindi(rupees);
+  }
+
+  Future<void> speakAmountReceived(int amountPaise) async {
+    // List supported languages (optional, for debugging/install hints)
+    final langs = await _tts.getLanguages;
+    // print(langs);
+
+    // Prefer Hindi (India)
+    const hindiIndia = 'hi-IN';
+    if (langs is List && langs.contains(hindiIndia)) {
+      await _tts.setLanguage(hindiIndia); // Hindi (India)
+      await _tts.setSpeechRate(0.8);
+      await _tts.setPitch(1.0);
+
+      final words = amountToHindiWords(amountPaise); // Hindi Indian numbering
+      final sentence = 'काइटपे पर $words रुपये प्राप्त हुए'; // natural Hindi announcement
+      await _tts.speak(sentence);
+
+    } else {
+      // Fallback or show a prompt that Hindi voice is not installed
+      await _tts.setLanguage('en-IN'); // fallback
+
+      final words = amountToWordsIndian(amountPaise); // 125.00 INR -> "one hundred twenty five" [9]
+      // ₹
+      final sentence = '$words rupees received in Kitepay';
+      await _tts.speak(sentence); // say full words, not digits [18]
+    }
+
+    // await _tts.setSpeechRate(0.9);
+    // await _tts.setPitch(1.0);
+    //
+    // final words = amountToHindiWords(amountPaise); // Hindi Indian numbering
+    // final sentence = 'काइटपे में $words रुपये प्राप्त हुए'; // natural Hindi announcement
+    // await _tts.speak(sentence);
+
+    // final words = amountToWordsIndian(amountPaise); // 125.00 INR -> "one hundred twenty five" [9]
+    // // ₹
+    // final sentence = 'KitePay per $words rupees prapt hue';
+    // await _tts.speak(sentence); // say full words, not digits [18]
+  }
+
+  Future<void> speakQrAlert() async {
+    // List supported languages (optional, for debugging/install hints)
+    final langs = await _tts.getLanguages;
+    // print(langs);
+
+    // Prefer Hindi (India)
+    const hindiIndia = 'hi-IN';
+    if (langs is List && langs.contains(hindiIndia)) {
+      await _tts.setLanguage(hindiIndia); // Hindi (India)
+      await _tts.setSpeechRate(0.9);
+      await _tts.setPitch(1.0);
+
+      final sentence = 'क्यूआर का काम शुरू हो गया है';
+      await _tts.speak(sentence); // say full words, not digits [18]
+
+    } else {
+      // Fallback or show a prompt that Hindi voice is not installed
+      await _tts.setLanguage('en-IN'); // fallback
+
+      await _tts.setSpeechRate(0.9);
+      await _tts.setPitch(1.0);
+
+      final sentence = 'QR ka kaam shuru ho gaya hai';
+      await _tts.speak(sentence); // say full words, not digits [18]
+    }
+
+    // await _tts.setSpeechRate(0.9);
+    // await _tts.setPitch(1.0);
+    //
+    // // final sentence = 'QR ka kaam shuru ho gaya hai';
+    // await _tts.speak(sentence); // say full words, not digits [18]
   }
 
   Future<void> initTts() async {
-    await _tts.setLanguage('en-IN'); // or 'en-US' etc.
-    await _tts.setSpeechRate(0.9); // 0.0–1.0
-    await _tts.setPitch(1.0); // 0.5–2.0
+
+    final langs = await _tts.getLanguages;
+    // print(langs);
+
+    // Prefer Hindi (India)
+    const hindiIndia = 'hi-IN';
+    if (langs is List && langs.contains(hindiIndia)) {
+      await _tts.setLanguage(hindiIndia); // Hindi (India)
+    } else {
+      // Fallback or show a prompt that Hindi voice is not installed
+      await _tts.setLanguage('en-IN'); // fallback
+    }
+
+    // await _tts.setLanguage('en-IN'); // Indian English accent [18]
+    await _tts.setSpeechRate(0.9);
+    await _tts.setPitch(1.0);
+
+    // await _tts.setLanguage('en-IN'); // or 'en-US' etc.
+    // await _tts.setSpeechRate(0.9); // 0.0–1.0
+    // await _tts.setPitch(1.0); // 0.5–2.0
     // Optional handlers
     _tts.setStartHandler(() {});
     _tts.setCompletionHandler(() {});
@@ -228,9 +353,16 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         jwt: await AppWriteService().getJWT(),
         // qrIds: ["119188392"],
         qrIds: myQrCodes,
+        userMeta: widget.userMeta,
       );
+      if(widget.userMeta.role == 'admin'){
+        SocketManager.instance.subscribeQrAlert();
+      }
     } else {
       SocketManager.instance.subscribeQrIds(myQrCodes);
+      if(widget.userMeta.role == 'admin'){
+        SocketManager.instance.subscribeQrAlert();
+      }
     }
 
     if (mounted) {
@@ -256,7 +388,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         );
       }
 
-
     });
 
     _connSub = SocketManager.instance.connectionStream.listen((status) {
@@ -264,6 +395,32 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       if (socketConnected != connected && mounted) {
         setState(() => socketConnected = connected);
       }
+
+      if(status == SocketStatus.connected){
+        print("Connected");
+        // speakQrAlert('रीयल-टाइम ट्रांज़ैक्शन्स सर्वर कनेक्ट हो गया है');
+      }
+
+    });
+
+      _qrAlertSub = SocketManager.instance.qrAlertController.listen((event) async {
+      // event: { id, qrCodeId, amountPaise, createdAtIso, ... }
+      QrCode qr = QrCode.fromJson(event);
+
+      if(ttsENABLED){
+        speakQrAlert();
+      }
+
+      if(popUpENABLED){
+        await DialogSingleton.showReplacing(
+          builder: (ctx) => AlertDialog(
+            title: const Text('Qr Work Started'),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [Text(qr.qrId)]),
+            actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close'))],
+          ),
+        );
+      }
+
     });
 
   }

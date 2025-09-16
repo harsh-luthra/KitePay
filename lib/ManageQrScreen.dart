@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:admin_qr_manager/QRService.dart';
+import 'package:admin_qr_manager/SocketManager.dart';
 import 'package:admin_qr_manager/utils/CurrencyUtils.dart';
 import 'package:appwrite/models.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -1128,6 +1129,15 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             tooltip: 'Delete QR Code',
             onPressed:
             _isProcessing ? null : () => _deleteQrCode(qrCode.qrId),
+          ),
+        // SEND QR Alert To user
+        if(widget.userMode)
+          IconButton(
+            icon: const Icon(Icons.add_alert),
+            onPressed: (){
+              SocketManager.instance.sendQrCodeAlert(qrCode);
+            },
+            // onPressed: !_isProcessing ? _fetchOnlyUserQrCodes : null,
           ),
       ],
     );

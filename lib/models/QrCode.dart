@@ -46,6 +46,23 @@ class QrCode {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'qrId': qrId,
+      'fileId': fileId,
+      'imageUrl': imageUrl,
+      'assignedUserId': assignedUserId,
+      'createdAt': createdAt, // already a String in your model
+      'isActive': isActive,
+      'totalTransactions': totalTransactions,
+      'totalPayInAmount': totalPayInAmount,
+      'withdrawalRequestedAmount': withdrawalRequestedAmount,
+      'withdrawalApprovedAmount': withdrawalApprovedAmount,
+      'amountAvailableForWithdrawal': amountAvailableForWithdrawal,
+      'amountOnHold': amountOnHold,
+    };
+  }
+
   @override
   String toString() {
     return 'QrCode{qrId: $qrId, fileId: $fileId, imageUrl: $imageUrl, assignedUserId: $assignedUserId, isActive: $isActive, createdAt: $createdAt, totalTransactions: $totalTransactions, totalPayInAmount: $totalPayInAmount, withdrawalRequestedAmount: $withdrawalRequestedAmount, withdrawalApprovedAmount: $withdrawalApprovedAmount, amountAvailableForWithdrawal: $amountAvailableForWithdrawal, amountOnHold: $amountOnHold}';
