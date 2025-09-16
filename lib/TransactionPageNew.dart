@@ -221,17 +221,17 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
   void socketManagerConnect() async {
     await initTts(); // TTS initialize
-    if (!SocketManager.instance.isConnected) {
-      await SocketManager.instance.connect(
-        url: 'https://kite-pay-api-v1.onrender.com',
-        // url: 'http://localhost:3000',
-        jwt: _jwtToken!,
-        // qrIds: ["119188392"],
-        qrIds: ["119188392"],
-      );
-    } else {
-      SocketManager.instance.subscribeQrIds(["119188392"]);
-    }
+    // if (!SocketManager.instance.isConnected) {
+    //   await SocketManager.instance.connect(
+    //     url: 'https://kite-pay-api-v1.onrender.com',
+    //     // url: 'http://localhost:3000',
+    //     jwt: _jwtToken!,
+    //     // qrIds: ["119188392"],
+    //     qrIds: ["119188392"],
+    //   );
+    // } else {
+    //   // SocketManager.instance.subscribeQrIds(["119188392"]);
+    // }
 
     _txSub = SocketManager.instance.txStream.listen((event) async {
       // event: { id, qrCodeId, amountPaise, createdAtIso, ... }
@@ -242,7 +242,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
             transactions.any((t) => (t.rrnNumber ?? '').trim() ==
                 newRrn.trim());
         if (!exists) {
-          speakAmountReceived(txn.amount);
+          // speakAmountReceived(txn.amount);
           // final amt = (txn.amount / 100).toStringAsFixed(0);
           // final message = '₹$amt received in KitePay';
           // await _tts.stop();                // avoid overlap
@@ -251,26 +251,26 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
             transactions.insert(0, txn);
             // print(transactions[0]);
             // After duplicate check and successful insert
-            showDialog(
-              context: context,
-              barrierDismissible: true, // tap outside to close [1]
-              builder: (ctx) =>
-                  AlertDialog(
-                    title: const Text('New Payment Received'),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TransactionCard(txn: txn),
-                      ],
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        child: const Text('Close'),
-                      ),
-                    ],
-                  ),
-            );
+            // showDialog(
+            //   context: context,
+            //   barrierDismissible: true, // tap outside to close [1]
+            //   builder: (ctx) =>
+            //       AlertDialog(
+            //         title: const Text('New Payment Received'),
+            //         content: Column(
+            //           mainAxisSize: MainAxisSize.min,
+            //           children: [
+            //             TransactionCard(txn: txn),
+            //           ],
+            //         ),
+            //         actions: [
+            //           TextButton(
+            //             onPressed: () => Navigator.of(ctx).pop(),
+            //             child: const Text('Close'),
+            //           ),
+            //         ],
+            //       ),
+            // );
           });
         }
 

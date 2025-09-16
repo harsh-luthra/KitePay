@@ -5,6 +5,7 @@ import 'package:admin_qr_manager/login_page.dart';
 import 'package:web/web.dart' as web;
 import 'dart:js_interop';
 
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
 // Create <style> element
@@ -55,6 +56,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: rootNavigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'KitePay',
       // theme: ThemeData(

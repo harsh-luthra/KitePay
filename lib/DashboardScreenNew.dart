@@ -2,9 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:admin_qr_manager/ManualTransactionForm.dart';
+import 'package:admin_qr_manager/QRService.dart';
 import 'package:admin_qr_manager/models/AppUser.dart';
+import 'package:admin_qr_manager/widget/TransactionCard.dart';
 import 'package:flutter/material.dart';
 import 'package:appwrite/models.dart' show User;
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:number_to_indian_words/number_to_indian_words.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'AppConfig.dart';
 import 'AppConstants.dart';
@@ -13,11 +17,16 @@ import 'ManageUsersScreen.dart';
 import 'ManageQrScreen.dart';
 import 'ManageWithdrawalsNew.dart';
 import 'MyMetaApi.dart';
+import 'SocketManager.dart';
 import 'TransactionPageNew.dart';
 import 'ManageWithdrawals.dart';
 import 'WithdrawalFormPage.dart';
 import 'adminLoginPage.dart';
 import 'package:http/http.dart' as http;
+
+import 'main.dart';
+import 'models/QrCode.dart';
+import 'models/Transaction.dart';
 
 class DashboardScreenNew extends StatefulWidget {
   final User user;
@@ -28,6 +37,8 @@ class DashboardScreenNew extends StatefulWidget {
   @override
   State<DashboardScreenNew> createState() => _DashboardScreenNewState();
 }
+
+// final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 class _DashboardScreenNewState extends State<DashboardScreenNew> {
   final AppWriteService _appWriteService = AppWriteService();
@@ -57,6 +68,19 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   //   //   // Provide a minimal initial menu or leave empty until loaded
   //   //   _allMenuItems = [];
   //   // }
+
+  final FlutterTts _tts = FlutterTts();
+
+  StreamSubscription<Map<String, dynamic>>? _txSub;
+
+  late StreamSubscription<SocketStatus> _connSub;
+
+  bool ttsENABLED = true;
+
+  bool popUpENABLED = true;
+
+  bool socketConnected = false;
+
 
   @override
   void initState() {
@@ -143,6 +167,105 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     for (var item in _allMenuItems) {
       _hovering[item.id] = false;
     }
+
+    setupSocketTransactionSpeech();
+
+  }
+
+  @override
+  void dispose() {
+    _txSub?.cancel();
+    _connSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> setupSocketTransactionSpeech() async {
+    final QrCodeService _qrCodeService = QrCodeService();
+    String jwtToken = await AppWriteService().getJWT();
+    List<QrCode> _qrCodes = await _qrCodeService.getUserQrCodes(widget.userMeta.id, jwtToken);
+    final myQrCodes = _qrCodes.where((q) => (q.assignedUserId ?? '').toLowerCase() == widget.userMeta.id).toList();
+    final List<String> qrIds =
+    myQrCodes.map((q) => q.qrId).whereType<String>().toSet().toList();
+    socketManagerConnect(qrIds);
+  }
+
+  String amountToWordsIndian(int amountPaise) {
+    final rupees = amountPaise ~/ 100;
+    final words = NumToWords.convertNumberToIndianWords(
+        rupees); // uses lakh/crore style [6]
+    return words.toLowerCase();
+  }
+
+  Future<void> speakAmountReceived(int amountPaise) async {
+    await _tts.setLanguage('en-IN'); // Indian English accent [18]
+    await _tts.setSpeechRate(0.9);
+    await _tts.setPitch(1.0);
+
+    final words = amountToWordsIndian(
+        amountPaise); // 125.00 INR -> "one hundred twenty five" [9]
+    final sentence = '₹$words received in KitePay';
+    await _tts.speak(sentence); // say full words, not digits [18]
+  }
+
+  Future<void> initTts() async {
+    await _tts.setLanguage('en-IN'); // or 'en-US' etc.
+    await _tts.setSpeechRate(0.9); // 0.0–1.0
+    await _tts.setPitch(1.0); // 0.5–2.0
+    // Optional handlers
+    _tts.setStartHandler(() {});
+    _tts.setCompletionHandler(() {});
+    _tts.setErrorHandler((msg) {
+      /* log */
+    });
+  }
+
+  void socketManagerConnect(List<String> myQrCodes) async {
+    await initTts(); // TTS initialize
+    if (!SocketManager.instance.isConnected) {
+      await SocketManager.instance.connect(
+        url: 'https://kite-pay-api-v1.onrender.com',
+        // url: 'http://localhost:3000',
+        jwt: await AppWriteService().getJWT(),
+        // qrIds: ["119188392"],
+        qrIds: myQrCodes,
+      );
+    } else {
+      SocketManager.instance.subscribeQrIds(myQrCodes);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ Realtime Transactions Connected')),
+      );
+    }
+
+    _txSub = SocketManager.instance.txStream.listen((event) async {
+      // event: { id, qrCodeId, amountPaise, createdAtIso, ... }
+      Transaction txn = Transaction.fromJson(event);
+      if(ttsENABLED){
+        speakAmountReceived(txn.amount);
+      }
+
+      if(popUpENABLED){
+        await DialogSingleton.showReplacing(
+          builder: (ctx) => AlertDialog(
+            title: const Text('New Payment Received'),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [TransactionCard(txn: txn)]),
+            actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close'))],
+          ),
+        );
+      }
+
+
+    });
+
+    _connSub = SocketManager.instance.connectionStream.listen((status) {
+      final connected = status == SocketStatus.connected || status == SocketStatus.reconnected;
+      if (socketConnected != connected && mounted) {
+        setState(() => socketConnected = connected);
+      }
+    });
+
   }
 
   Future<void> loadUserMeta() async {
@@ -292,87 +415,167 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         color: Theme.of(context).colorScheme.surface,
         border: Border(right: BorderSide(color: Colors.grey.shade200)),
       ),
-      child: Column(
-        children: [
-          // header (profile + collapse)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4),
-            child: Row(
+      child: ListView(
+          children: [
+            Column(
               children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Colors.blue.shade700,
-                  child: Text(
-                    (widget.user.name?.isNotEmpty ?? false)
-                        ? widget.user.name!.substring(0, 1).toUpperCase()
-                        : 'U',
-                    style: const TextStyle(color: Colors.white),
+                // header (profile + collapse)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Colors.blue.shade700,
+                        child: Text(
+                          (widget.user.name?.isNotEmpty ?? false)
+                              ? widget.user.name!.substring(0, 1).toUpperCase()
+                              : 'U',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      if (!collapsed) ...[
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(widget.user.name ?? 'Unknown',
+                                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                              Text(widget.user.email ?? '',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                            ],
+                          ),
+                        ),
+                        if(isDesktop)
+                        IconButton(
+                          tooltip: _sidebarCollapsed ? 'Expand' : 'Collapse',
+                          onPressed: () => setState(() => _sidebarCollapsed = !_sidebarCollapsed),
+                          icon: Icon(_sidebarCollapsed ? Icons.chevron_right : Icons.chevron_left),
+                        )
+                      ] else
+                        IconButton(
+                          onPressed: () => setState(() => _sidebarCollapsed = !_sidebarCollapsed),
+                          icon: const Icon(Icons.menu),
+                          tooltip: 'Expand',
+                        )
+                    ],
                   ),
                 ),
-                if (!collapsed) ...[
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+
+                const SizedBox(height: 8),
+                // menu list
+                // Expanded(
+                //   child: SingleChildScrollView(
+                //     child: Column(
+                //       children: items.map((mi) {
+                //         final isActive = _activeIndex == mi.id;
+                //         return _buildSidebarItem(mi, isActive, collapsed, isDesktop);
+                //       }).toList(),
+                //     ),
+                //   ),
+                // ),
+
+                // menu list (rendered inline so it scrolls with the rest)
+                ...items.map((mi) {
+                  final isActive = _activeIndex == mi.id;
+                  return _buildSidebarItem(mi, isActive, collapsed, isDesktop);
+                }),
+
+                if (!collapsed)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0, left: 8, right: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(widget.user.name ?? 'Unknown',
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text(widget.user.email ?? '',
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                        const Expanded(
+                          child: Text('Transactions Server', style: TextStyle(fontSize: 16)),
+                        ),
+                        _statusChip(socketConnected), // read-only visual status
                       ],
                     ),
                   ),
-                  if(isDesktop)
-                  IconButton(
-                    tooltip: _sidebarCollapsed ? 'Expand' : 'Collapse',
-                    onPressed: () => setState(() => _sidebarCollapsed = !_sidebarCollapsed),
-                    icon: Icon(_sidebarCollapsed ? Icons.chevron_right : Icons.chevron_left),
-                  )
-                ] else
-                  IconButton(
-                    onPressed: () => setState(() => _sidebarCollapsed = !_sidebarCollapsed),
-                    icon: const Icon(Icons.menu),
-                    tooltip: 'Expand',
+
+                if (!collapsed)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0, left: 8, right: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SwitchListTile(
+                            title: const Text('PopUp transactions'),
+                            value: popUpENABLED,
+                            onChanged: (v) => setState(() => popUpENABLED = v),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                if (!collapsed)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0, left: 8, right: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SwitchListTile(
+                            title: const Text('Speak transactions'),
+                            value: ttsENABLED,
+                            onChanged: (v) => setState(() => ttsENABLED = v),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // bottom quick actions
+                if (!collapsed)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0, left: 8, right: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.logout, size: 18),
+                            label: const Text('Logout'),
+                            onPressed: () => _logout(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   )
               ],
             ),
-          ),
 
-          const SizedBox(height: 8),
-          // menu list
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: items.map((mi) {
-                  final isActive = _activeIndex == mi.id;
-                  return _buildSidebarItem(mi, isActive, collapsed, isDesktop);
-                }).toList(),
-              ),
-            ),
-          ),
 
-          // bottom quick actions
-          if (!collapsed)
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0, left: 8, right: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.logout, size: 18),
-                      label: const Text('Logout'),
-                      onPressed: () => _logout(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        textStyle: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )
-        ],
+          ],
+        ),
+    );
+  }
+
+  // Colors
+  Color _statusColor(bool connected) =>
+      connected ? const Color(0xFF2E7D32) /*green*/ : const Color(0xFFC62828) /*red*/;
+
+  Widget _statusChip(bool connected) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: _statusColor(connected).withOpacity(0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _statusColor(connected)),
+      ),
+      child: Text(
+        connected ? 'Connected' : 'Disconnected',
+        style: TextStyle(
+          color: _statusColor(connected),
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -498,3 +701,45 @@ class _MenuItem {
     required this.builder,
   });
 }
+
+class DialogSingleton {
+  static Completer<void>? _active;
+
+  static Future<void> showReplacing({
+    required WidgetBuilder builder,
+    bool barrierDismissible = true,
+  }) async {
+    final navigator = rootNavigatorKey.currentState;
+    if (navigator == null) return;
+
+    // Close active dialog if any
+    if (_active != null && !_active!.isCompleted && navigator.canPop()) {
+      navigator.pop();
+      await _active!.future.catchError((_) {});
+    }
+
+    final c = Completer<void>();
+    _active = c;
+
+    try {
+      // Ensure called in a frame owned by the root navigator
+      await Future.microtask(() {}); // yield to event loop
+      await showDialog(
+        context: rootNavigatorKey.currentContext!,
+        barrierDismissible: barrierDismissible,
+        builder: builder,
+      ); // always uses a valid, top-level context [1][2]
+    } finally {
+      if (!c.isCompleted) c.complete();
+      if (identical(_active, c)) _active = null;
+    }
+  }
+
+  static void closeIfAny() {
+    final nav = rootNavigatorKey.currentState;
+    if (nav != null && nav.canPop()) {
+      nav.pop();
+    }
+  }
+}
+

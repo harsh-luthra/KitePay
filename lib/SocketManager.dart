@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
+enum SocketStatus { connecting, connected, reconnected, disconnected, error }
+
 class SocketManager {
   SocketManager._();
   static final SocketManager instance = SocketManager._(); // singleton [1]
@@ -15,14 +17,22 @@ class SocketManager {
   final _txController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get txStream => _txController.stream;
 
+  // Connection status broadcast
+  final _connController = StreamController<SocketStatus>.broadcast();
+  Stream<SocketStatus> get connectionStream => _connController.stream;
+
   Future<void> connect({
     required String url,
     required String jwt,
     required List<String> qrIds,
   }) async {
+
+    _connController.add(SocketStatus.connecting);
+
     // Reuse connection if alive
     if (isConnected) {
       subscribeQrIds(qrIds);
+      _connController.add(SocketStatus.connected);
       return;
     }
 
@@ -50,9 +60,13 @@ class SocketManager {
     _socket!
       ..onConnect((_) {
         subscribeQrIds(qrIds);
+        _connController.add(SocketStatus.connected);
         print("socket Connected Single");
       })
-      ..onReconnect((_) => subscribeQrIds(qrIds))
+      ..onReconnect((_) {
+        subscribeQrIds(qrIds);
+        _connController.add(SocketStatus.reconnected);
+      })
       ..on('txn:new', (data) {
         print(data);
         // Ensure a Map payload for downstream consumers
@@ -64,10 +78,14 @@ class SocketManager {
         // TODO: forward to a StreamController/BLoC/callback
       })
       ..onConnectError((err) {
-        // handle auth/network failure
+        _connController.add(SocketStatus.error);
       })
-      ..onError((err) {})
-      ..onDisconnect((_) {});
+      ..onError((err) {
+        _connController.add(SocketStatus.error);
+      })
+      ..onDisconnect((_) {
+        _connController.add(SocketStatus.disconnected);
+      });
 
     _initialized = true;
   }
@@ -91,10 +109,12 @@ class SocketManager {
     } catch (_) {}
     _socket = null;
     _initialized = false;
+    _connController.add(SocketStatus.disconnected);
   }
 
   void closeStreams() {
     _txController.close();
+    _connController.close();
   }
 
 }
