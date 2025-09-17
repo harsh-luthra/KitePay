@@ -199,17 +199,14 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   Future<void> setupSocketTransactionSpeech() async {
     final QrCodeService _qrCodeService = QrCodeService();
     String jwtToken = await AppWriteService().getJWT();
-    List<QrCode> _qrCodes = await _qrCodeService.getUserQrCodes(widget.userMeta.id, jwtToken);
-    final myQrCodes = _qrCodes.where((q) => (q.assignedUserId ?? '').toLowerCase() == widget.userMeta.id).toList();
-    final List<String> qrIds =
-    myQrCodes.map((q) => q.qrId).whereType<String>().toSet().toList();
+    List<QrCode> _qrCodes = await _qrCodeService.getUserAssignedQrCodes(widget.userMeta.id, jwtToken);
+    final List<String> qrIds = _qrCodes.map((q) => q.qrId).whereType<String>().toSet().toList();
     socketManagerConnect(qrIds);
   }
 
   String amountToWordsIndian(int amountPaise) {
     final rupees = amountPaise ~/ 100;
-    final words = NumToWords.convertNumberToIndianWords(
-        rupees); // uses lakh/crore style [6]
+    final words = NumToWords.convertNumberToIndianWords(rupees); // uses lakh/crore style [6]
     return words.toLowerCase();
   }
 

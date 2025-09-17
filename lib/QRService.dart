@@ -188,6 +188,33 @@ class QrCodeService {
     }
   }
 
+  Future<List<QrCode>> getUserAssignedQrCodes(String userId, String? jwtToken) async {
+    if (userId.isEmpty) return [];
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/qr-codes/user_assigned/$userId'),
+        headers: {
+          'Authorization': 'Bearer $jwtToken',
+        },
+      ).timeout(Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        List<dynamic> jsonList = jsonDecode(response.body);
+        // print(response.body);
+        return jsonList.map((json) => QrCode.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to load user QR codes from the server');
+      }
+    } on TimeoutException {
+      throw Exception(
+          'Request timed out. Please check your connection or try again later.');
+    } catch (e) {
+      print('Error fetching user QR codes: $e');
+      return [];
+    }
+  }
+
 
   // Function to toggle the 'isActive' status
   // Your server will handle updating the boolean field in the Appwrite database.

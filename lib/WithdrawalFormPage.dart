@@ -1,4 +1,6 @@
 import 'package:admin_qr_manager/AppWriteService.dart';
+import 'package:admin_qr_manager/MyMetaApi.dart';
+import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:admin_qr_manager/models/WithdrawalRequest.dart';
 import 'package:admin_qr_manager/utils/CurrencyUtils.dart';
 import 'package:flutter/material.dart';
@@ -19,8 +21,9 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
   final _formKey = GlobalKey<FormState>();
   String _mode = 'upi'; // 'upi' or 'bank'
 
-  final max_withdrawal_amount = AppConfig().maxWithdrawalAmount;
-  final min_withdrawal_amount = AppConfig().minWithdrawalAmount;
+  final maxWithdrawalAmount = AppConfig().maxWithdrawalAmount;
+  final minWithdrawalAmount = AppConfig().minWithdrawalAmount;
+  final overheadBalanceRequired = AppConfig().overheadBalanceRequired;
 
   // Common
   final _amountController = TextEditingController();
@@ -41,16 +44,19 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
       ScaffoldMessengerState>();
 
   final QrCodeService _qrCodeService = QrCodeService();
-  List<QrCode> _qrCodes = [];
+  List<QrCode> _qrCodesAssignedToMe = [];
   bool _isLoadingUserQrs = true;
 
   // 🔹 Global selected QR (can be accessed anywhere)
   QrCode? selectedQrCode;
 
+  late AppUser UserMeta;
+
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
+    UserMeta = MyMetaApi.current!;
     _fetchOnlyUserQrCodes();
   }
 
@@ -74,12 +80,13 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     }
 
     try {
-      final codes = await _qrCodeService.getUserQrCodes(
+      final codes = await _qrCodeService.getUserAssignedQrCodes(
           await AppWriteService().getUserId()!, await AppWriteService().getJWT());
       setState(() {
-        _qrCodes = codes;
+        List<QrCode> qrCodesFetched = codes;
+        _qrCodesAssignedToMe = qrCodesFetched.where((q) => (q.assignedUserId ?? '').toLowerCase() == UserMeta.id).toList();
       });
-      if (_qrCodes.isNotEmpty) {
+      if (_qrCodesAssignedToMe.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             print("Loaded User Qr codes");
@@ -105,49 +112,66 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     showDialog(
       context: context,
       barrierDismissible: false, // force selection
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Select QR Code for Withdrawal Request'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: _qrCodes.length,
-              itemBuilder: (context, index) {
-                final qr = _qrCodes[index];
-                return ListTile(
-                  leading: const Icon(Icons.qr_code),
-                  title: Text("QR ${qr.qrId}"),
-                  // adjust field
-                  subtitle: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Transactions: ${CurrencyUtils
-                          .formatIndianCurrencyWithoutSign(qr
-                          .totalTransactions!)}'),
-                      Text('Amount Received: ${CurrencyUtils
-                          .formatIndianCurrency(qr.totalPayInAmount! / 100)}'),
-                      Text(qr.isActive ? "Active" : "InActive"),
-                    ],
-                  ),
-                  selected: selectedQrCode?.qrId == qr.qrId,
-                  iconColor: qr.isActive ? Colors.green : Colors.red,
-                  onTap: () {
-                    setState(() {
-                      selectedQrCode = qr; // 🔹 save globally
-                    });
-                    Navigator.pop(context); // close dialog
-                    _scaffoldMessengerKey.currentState?.showSnackBar(
-                      SnackBar(content: Text('✅ Selected QR: ${qr.qrId}')),
-                    );
-                    // ScaffoldMessenger.of(context).showSnackBar(
-                    //   SnackBar(content: Text('✅ Selected QR: ${qr.qrId}')),
-                    // );
-                  },
-                );
-              },
+      builder: (alertContext) {
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            title: const Text('Select QR Code for Withdrawal Request'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _qrCodesAssignedToMe.length,
+                itemBuilder: (context, index) {
+                  final qr = _qrCodesAssignedToMe[index];
+                  return ListTile(
+                    leading: const Icon(Icons.qr_code),
+                    title: Text("QR ${qr.qrId}"),
+                    // adjust field
+                    subtitle: Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Transactions: ${CurrencyUtils
+                            .formatIndianCurrencyWithoutSign(qr.totalTransactions!)}'),
+                        Text('Amount Received: ${CurrencyUtils
+                            .formatIndianCurrency(qr.totalPayInAmount! / 100)}'),
+                        Text(
+                          'Amount Available For Withdrawal: ${CurrencyUtils.formatIndianCurrency((qr.amountAvailableForWithdrawal ?? 0) / 100)}',
+                        ),
+                        Text(qr.isActive ? "Active" : "InActive"),
+                      ],
+                    ),
+                    selected: selectedQrCode?.qrId == qr.qrId,
+                    iconColor: qr.isActive ? Colors.green : Colors.red,
+                    onTap: () {
+                      setState(() {
+                        selectedQrCode = qr; // 🔹 save globally
+                      });
+                      Navigator.pop(context); // close dialog
+                      _scaffoldMessengerKey.currentState?.showSnackBar(
+                        SnackBar(content: Text('✅ Selected QR: ${qr.qrId}')),
+                      );
+                      // ScaffoldMessenger.of(context).showSnackBar(
+                      //   SnackBar(content: Text('✅ Selected QR: ${qr.qrId}')),
+                      // );
+                    },
+                  );
+                },
+              ),
             ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  // 1) Close the dialog
+                  Navigator.of(alertContext).pop();
+                  // 2) Go back to the previous page/route
+                  // Navigator.of(context).maybePop(); // safe back; use pop() if guaranteed
+                  Navigator.pop(context, true); // also close page
+                },
+                child: const Text('Cancel'),
+              ),
+            ],
           ),
         );
       },
@@ -277,6 +301,35 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
       }
     }
 
+  // int checkCanWithdraw(QrCode qr){
+  //   final int availableRupeesInt = ((selectedQrCode?.amountAvailableForWithdrawal ?? 0) / 100.0).floor();
+  //   int withdrawAmount = availableRupeesInt - (minWithdrawalAmount + overheadBalanceRequired);
+  //   if(withdrawAmount >= 0){
+  //     return (availableRupeesInt - (withdrawAmount + overheadBalanceRequired));
+  //   }
+  //   return -1;
+  // }
+
+  int maxWithdrawableRupees(QrCode qr) {
+    // Assuming amountAvailableForWithdrawal is in paise (int)
+    final int availablePaise = qr.amountAvailableForWithdrawal ?? 0;
+    // Convert paise -> rupees using integer division (truncate paise)
+    final int availableRupees = availablePaise ~/ 100; // integer division [web:142]
+
+    // Amount that could be withdrawn while leaving the overhead
+    final int afterOverhead = availableRupees - overheadBalanceRequired;
+
+    // If we can't withdraw at least the minimum, say 0 is withdrawable
+    if (afterOverhead < minWithdrawalAmount) return 0;
+
+    // Respect the configured max cap
+    final int capped = afterOverhead.clamp(minWithdrawalAmount, maxWithdrawalAmount);
+
+    // Also never exceed what's actually available after reserving overhead
+    final int hardCap = (availableRupees - overheadBalanceRequired);
+    return capped.clamp(minWithdrawalAmount, hardCap);
+  }
+
   @override
   Widget build(BuildContext context) {
     return ScaffoldMessenger(
@@ -293,26 +346,73 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
               children: [
                 if(selectedQrCode != null)
                   QrCodeCard(selectedQrCode!),
-                // Amount
-                TextFormField(
-                  controller: _amountController,
-                  keyboardType: TextInputType.numberWithOptions(decimal: false),
-                  decoration: const InputDecoration(labelText: 'Amount (₹)'),
-                  validator: (val) {
-                    if (val == null || val
-                        .trim()
-                        .isEmpty) {
-                      return 'Enter amount';
-                    }
-                    final num = int.tryParse(val.trim());
-                    if (num == null || num <= 0) return 'Enter valid amount between $min_withdrawal_amount - $max_withdrawal_amount';
-                    if(num < min_withdrawal_amount) return 'Minimum Withdrawal Amount is: $min_withdrawal_amount';
-                    if(num > max_withdrawal_amount) return 'Maximum Withdrawal Amount is: $max_withdrawal_amount';
-                    return null;
-                  },
-                ),
+                if(selectedQrCode != null)...[
+                  if(maxWithdrawableRupees(selectedQrCode!) >= 0)
+                    Text("Can Withdraw: ${maxWithdrawableRupees(selectedQrCode!)}"),
+                ],
 
-                if(_qrCodes.isEmpty)
+                // Amount
+            TextFormField(
+              controller: _amountController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: false),
+              decoration: const InputDecoration(labelText: 'Amount (₹)'),
+                validator: (val) {
+
+                  if(selectedQrCode == null){
+                    return "QR CODE NOT SELECTED";
+                  }
+
+                  final text = val?.trim();
+                  if (text == null || text.isEmpty) {
+                    return 'Enter amount';
+                  }
+
+                  // Parse as int rupees
+                  final int? amount = int.tryParse(text);
+                  if (amount == null || amount <= 0) {
+                    return 'Enter valid amount between $minWithdrawalAmount - $maxWithdrawalAmount';
+                  }
+
+                  // Convert available (paise) -> rupees
+                  final int availableRupeesInt = ((selectedQrCode?.amountAvailableForWithdrawal ?? 0) / 100.0).floor();
+
+                  if(availableRupeesInt < 0){
+                    return 'Your Balance is Negative : $availableRupeesInt';
+                  }
+
+                  // Min/Max bounds in rupees
+                  if (amount < minWithdrawalAmount) {
+                    return 'Minimum Withdrawal Amount is: $minWithdrawalAmount';
+                  }
+                  if (amount > maxWithdrawalAmount) {
+                    return 'Maximum Withdrawal Amount is: $maxWithdrawalAmount';
+                  }
+
+                  // Overhead-adjusted limit
+                  final int maxWithdrawableWithOverhead = (availableRupeesInt - overheadBalanceRequired).clamp(0, availableRupeesInt);
+
+                  // Overhead shortfall (covers all amounts >= min)
+                  if ((amount + overheadBalanceRequired) > availableRupeesInt) {
+                    final int extraReq = (amount + overheadBalanceRequired - availableRupeesInt).clamp(1, overheadBalanceRequired);
+                    return 'Short by ₹$extraReq: max withdrawable is ₹$maxWithdrawableWithOverhead';
+                  }
+
+                  if (amount == maxWithdrawalAmount && (amount + overheadBalanceRequired) > availableRupeesInt) {
+                    final int shortfall = (amount + overheadBalanceRequired) - availableRupeesInt;
+                    final int maxWithdrawable = (availableRupeesInt - overheadBalanceRequired).clamp(0, maxWithdrawalAmount);
+                    return 'Short by ₹$shortfall: max withdrawable is ₹$maxWithdrawable';
+                  }
+
+                  // Optional: direct available cap if no overhead issue but amount > available (rare when overhead small)
+                  if (amount > availableRupeesInt) {
+                    return 'Requested amount ₹$amount exceeds available ₹$availableRupeesInt';
+                  }
+
+                  return null;
+                },
+            ),
+
+                if(_qrCodesAssignedToMe.isEmpty)
                   Text("No Qr Assigned to You So you can't Request Withdrawals"),
 
                 const SizedBox(height: 16),
@@ -400,7 +500,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                 const SizedBox(height: 30),
 
                 // Submit Button
-                if(_qrCodes.isNotEmpty)
+                if(_qrCodesAssignedToMe.isNotEmpty)
                 ElevatedButton.icon(
                   onPressed: _isSubmitting ? null : _submitForm,
                   icon: _isSubmitting
@@ -440,6 +540,19 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
             Text("ID: ${selectedQrCode?.qrId}"),
             Text('Transactions: ${CurrencyUtils.formatIndianCurrencyWithoutSign(selectedQrCode?.totalTransactions as num)}'),
             Text('Amount Received: ${CurrencyUtils.formatIndianCurrency(selectedQrCode!.totalPayInAmount! / 100)}'),
+            Text(
+              'Available For Withdrawal: ${CurrencyUtils.formatIndianCurrency((selectedQrCode!.amountAvailableForWithdrawal ?? 0) / 100)}',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'Withdrawal Requested: ${CurrencyUtils.formatIndianCurrency((selectedQrCode!.withdrawalRequestedAmount ?? 0) / 100)}',
+            ),
+            Text(
+              'Withdrawal Approved: ${CurrencyUtils.formatIndianCurrency((selectedQrCode!.withdrawalApprovedAmount ?? 0) / 100)}',
+            ),
+            Text(
+              'OnHold: ${CurrencyUtils.formatIndianCurrency((selectedQrCode!.amountOnHold ?? 0) / 100)}',
+            ),
             Text(
               selectedQrCode!.isActive ? "Active" : "Inactive",
               style: TextStyle(

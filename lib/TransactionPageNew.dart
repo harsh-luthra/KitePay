@@ -1116,7 +1116,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       //   status: selected!.name, // send text form [19]
       // ); // call UPDATE API
 
-      final ok = await TransactionService.editTransaction(
+      final ok = await TransactionService.editTransactionStatus(
         id: txn.id,
         jwtToken: await AppWriteService().getJWT(),
         status: selected!.name,

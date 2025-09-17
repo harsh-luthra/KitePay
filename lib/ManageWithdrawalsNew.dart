@@ -594,84 +594,78 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
 
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Reject Withdrawal'),
-            content: Form(
-              key: formKey,
-              child: TextFormField(
-                controller: reasonController,
-                decoration: const InputDecoration(
-                  labelText: 'Reason for rejection',
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Reason is required';
-                  }
-                  if (value.trim().length < 4) {
-                    return 'Minimum 4 characters required';
-                  }
-                  return null;
-                },
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  if (formKey.currentState!.validate()) {
-                    try {
-                      final apiTuple = await _showBlockingProgress(
-                        context: context,
-                        message: 'Rejecting request...',
-                        future: WithdrawService.rejectWithdrawal(
-                          jwtToken: await AppWriteService().getJWT(),
-                          requestId: request.id!,
-                          reason: reasonController.text.trim(),
-                        ),
-                      );
-
-                      final success = apiTuple.$1;
-                      final message = apiTuple.$2;
-
-                      await _showResultDialog(
-                        context,
-                        title: success ? 'Rejected' : 'Rejection failed',
-                        message: message,
-                        success: success,
-                      );
-
-                      if (success) {
-                        // 1) Refresh current tab immediately
-                        await _resetTab(filter, fetch: true);
-
-                        // 2) Force refresh All, even if currently on All
-                        await _refreshAllForced();
-
-                        // 3) Invalidate related tabs to lazy reload on next visit
-                        pages['pending'] = PageState<WithdrawalRequest>();
-                        pages['approved'] = PageState<WithdrawalRequest>();
-                        pages['rejected'] = PageState<WithdrawalRequest>();
-                        setState(() {});
-                      }
-                      // No need to manually Navigator.pop here; progress dialog already closed.
-                    } catch (e) {
-                      await _showResultDialog(
-                        context,
-                        title: 'Error',
-                        message: 'Failed to reject: $e',
-                        success: false,
-                      );
-                    }
-                  }
-                },
-                child: const Text('Reject'),
-              ),
-            ],
+      builder: (alertContext) => AlertDialog(
+        title: const Text('Reject Withdrawal'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: reasonController,
+            decoration: const InputDecoration(labelText: 'Reason for rejection'),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) return 'Reason is required';
+              if (value.trim().length < 4) return 'Minimum 4 characters required';
+              return null;
+            },
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(alertContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              try {
+                // Show blocking progress (make sure it closes itself)
+                final apiTuple = await _showBlockingProgress(
+                  context: context,
+                  message: 'Rejecting request...',
+                  future: WithdrawService.rejectWithdrawal(
+                    jwtToken: await AppWriteService().getJWT(),
+                    requestId: request.id!,
+                    reason: reasonController.text.trim(),
+                  ),
+                );
+
+                final success = apiTuple.$1;
+                final message = apiTuple.$2;
+
+                // Close the reject dialog now that the operation completed
+                if (success) {
+                  Navigator.pop(alertContext); // dismiss this AlertDialog [web:228]
+                }
+
+                await _showResultDialog(
+                  context,
+                  title: success ? 'Rejected' : 'Rejection failed',
+                  message: message,
+                  success: success,
+                );
+
+                if (success) {
+                  await _resetTab(filter, fetch: true);
+                  await _refreshAllForced();
+                  pages['pending'] = PageState<WithdrawalRequest>();
+                  pages['approved'] = PageState<WithdrawalRequest>();
+                  pages['rejected'] = PageState<WithdrawalRequest>();
+                  if (mounted) setState(() {});
+                }
+              } catch (e) {
+                // Ensure the reject dialog closes on error if desired
+                // Navigator.pop(alertContext);
+                await _showResultDialog(
+                  context,
+                  title: 'Error',
+                  message: 'Failed to reject: $e',
+                  success: false,
+                );
+              }
+            },
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -767,6 +761,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
           actions:
               !loading
                   ? [
+                    if(widget.userMode)
                     IconButton(
                       icon: const Icon(Icons.add),
                       onPressed: () async {
@@ -795,6 +790,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                               pages['rejected'] =
                                   PageState<WithdrawalRequest>();
                               setState(() {});
+                              _refreshAllForced();
                             }
                           } else {
                             showMaxPendingDialog(

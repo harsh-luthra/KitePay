@@ -33,7 +33,7 @@ class WithdrawService {
       }
 
       final response = await http.post(
-        Uri.parse('$_baseUrl/user/withdraw'),
+        Uri.parse('$_baseUrl/user/withdraw_new'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(body),
       ).timeout(Duration(seconds: 10));
@@ -217,7 +217,7 @@ class WithdrawService {
   }) async {
     try {
       final res = await http.post(
-        Uri.parse('$_baseUrl/user/withdrawals/approve'),
+        Uri.parse('$_baseUrl/user/withdrawals/approve_new'),
         headers: {'Authorization': 'Bearer $jwtToken','Content-Type': 'application/json'},
         body: jsonEncode({'id': requestId, 'utrNumber': utrNumber}),
       ).timeout(Duration(seconds: 10));
@@ -245,7 +245,7 @@ class WithdrawService {
   }) async {
     try {
       final res = await http.post(
-        Uri.parse('$_baseUrl/user/withdrawals/reject'),
+        Uri.parse('$_baseUrl/user/withdrawals/reject_new'),
         headers: {'Authorization': 'Bearer $jwtToken','Content-Type': 'application/json'},
         body: jsonEncode({'id': requestId, 'reason': reason}),
       ).timeout(Duration(seconds: 10));

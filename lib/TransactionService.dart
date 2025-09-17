@@ -187,6 +187,52 @@ class TransactionService {
     }
   }
 
+  static Future<bool> editTransactionStatus({
+    required String id,           // Appwrite $id of the transaction document
+    String? status,         // add: plain string e.g. "refund"
+    TxnStatus? statusEnum,  // optional: convenience overload to accept enum
+    required String jwtToken,
+  }) async {
+    try {
+      final Map<String, dynamic> body = {};
+
+      // Prefer explicit string if both provided; otherwise use enum.name
+      if (status != null && status.isNotEmpty) {
+        body['status'] = status.toLowerCase(); // backend expects lowercase [21]
+      } else if (statusEnum != null) {
+        body['status'] = statusEnum.name; // "normal" | "cyber" | ... [6][19]
+      }
+
+      if (body.isEmpty) {
+        throw Exception('No fields to update');
+      }
+
+      final url = Uri.parse('$_baseUrl/admin/transactions/$id/status');
+
+      final response = await http
+          .patch(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwtToken',
+        },
+        body: jsonEncode(body),
+      )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        // propagate server error body for context
+        throw Exception('Edit failed: ${response.statusCode} ${response.body}');
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your internet connection.');
+    } catch (e) {
+      throw Exception('❌ Edit transaction failed: $e');
+    }
+  }
+
   static Future<bool> editTransaction({
     required String id,           // Appwrite $id of the transaction document
     String? qrCodeId,             // optional

@@ -6,20 +6,26 @@ class AppConfig {
   AppConfig._internal();
 
   bool isLoaded = false;
+  int defaultMaxWithdrawalRequests = 2;
+  int defaultOverheadBalanceRequired = 0;
   late int maxWithdrawalAmount;
   late int minWithdrawalAmount;
   late int maxWithdrawalRequests;
   late double transactionFeePercent;
+  late int overheadBalanceRequired;
 
   void loadFromJson(Map<String, dynamic> json) {
     maxWithdrawalAmount = json['max_withdrawal_amount'] ?? 0;
     minWithdrawalAmount = json['min_withdrawal_amount'] ?? 0;
     transactionFeePercent = (json['transaction_fee_percent'] ?? 0).toDouble();
-    maxWithdrawalRequests = json['max_withdrawal_requests'] ?? 2;
+    maxWithdrawalRequests = json['max_withdrawal_requests'] ?? defaultMaxWithdrawalRequests;
+    overheadBalanceRequired = json['overhead_balance_required'] ?? defaultOverheadBalanceRequired;
     // print("max_withdrawal_amount: $maxWithdrawalAmount");
     // print("min_withdrawal_amount: $minWithdrawalAmount");
     // print("transaction_fee_percent: $transactionFeePercent");
     // print("max_withdrawal_requests: $maxWithdrawalrequests");
+    print("overhead_balance_required: $overheadBalanceRequired");
+
   }
 
 }

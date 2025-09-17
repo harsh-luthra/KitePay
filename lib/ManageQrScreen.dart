@@ -1030,7 +1030,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         Text(
-          'Amount Available ForWithdrawal: ${CurrencyUtils.formatIndianCurrency((qrCode.amountAvailableForWithdrawal ?? 0) / 100)}',
+          'Amount Available For Withdrawal: ${CurrencyUtils.formatIndianCurrency((qrCode.amountAvailableForWithdrawal ?? 0) / 100)}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         Text(
