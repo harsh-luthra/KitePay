@@ -21,7 +21,7 @@ class AdminUserService {
 
       if (cursor != null) queryParams['cursor'] = cursor;
 
-      url += '?' + Uri(queryParameters: queryParams).query;
+      url += '?${Uri(queryParameters: queryParams).query}';
 
       final response = await http.get(
         Uri.parse(url),
@@ -63,7 +63,7 @@ class AdminUserService {
     }
   }
 
-  static Future<List<AppUser>> listSubadmins(String jwtToken, {String? search}) async {
+  static Future<List<AppUser>> listSubAdmins(String jwtToken, {String? search}) async {
     try {
       final baseUrl = '$_baseUrl/admin/subadmins';
       final url = (search != null && search.isNotEmpty)
@@ -176,13 +176,13 @@ class AdminUserService {
     }
   }
 
-  static Future<bool> assignUserToSubadmin({
-    required String subadminId,
+  static Future<bool> assignUserToSubAdmin({
+    required String subAdminId,
     required String userId,
     required String jwtToken,
-    bool unassign = false, // when true, clears parentId on server
+    bool unAssign = false, // when true, clears parentId on server
   }) async {
-    final url = Uri.parse('$_baseUrl/admin/assign-user/$subadminId');
+    final url = Uri.parse('$_baseUrl/admin/assign-user/$subAdminId');
 
     try {
       final resp = await http.put(
@@ -193,7 +193,7 @@ class AdminUserService {
         },
         body: jsonEncode({
           'userId': userId,
-          'unassign': unassign, // optional; omit or false to assign
+          'unassign': unAssign, // optional; omit or false to assign
         }),
       );
 

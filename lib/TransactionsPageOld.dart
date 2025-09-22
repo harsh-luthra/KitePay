@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 
 import 'AppWriteService.dart';
 import 'QRService.dart';
-import 'AdminUsersService.dart';
+import 'UsersService.dart';
 import 'models/AppUser.dart';
 import 'models/QrCode.dart';
 

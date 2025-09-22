@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:admin_qr_manager/AppConstants.dart';
 import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:admin_qr_manager/widget/TransactionCard.dart';
 import 'package:admin_qr_manager/widget/TransactionCardShimmer.dart';
@@ -11,7 +12,7 @@ import 'MyMetaApi.dart';
 import 'QRService.dart';
 import 'SocketManager.dart';
 import 'TransactionService.dart';
-import 'AdminUsersService.dart';
+import 'UsersService.dart';
 import 'models/QrCode.dart';
 import 'models/Transaction.dart';
 
@@ -1226,12 +1227,11 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                 itemCount: transactions.length + (loadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index < transactions.length) {
-                    return userMeta.role == 'admin' ? TransactionCard(
+                    return (userMeta.role == 'admin' || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.editTransactions))) ? TransactionCard(
                         txn: transactions[index],
                         onEdit: (txn) => editTransaction(context, txn: txn),
                         onDelete: (txn) => deleteTransaction(context, txn: txn),
-                        onStatus: (txn) =>
-                            changeTransactionStatus(context, txn: txn))
+                        onStatus: (txn) => changeTransactionStatus(context, txn: txn))
                         : TransactionCard(txn: transactions[index]);
                     // return TransactionCard(txn: transactions[index],onEdit: (txn) => editTransaction(context, txn: txn),onDelete: (txn) => deleteTransaction(context, txn: txn),);
                   }

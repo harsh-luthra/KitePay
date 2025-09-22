@@ -1,11 +1,12 @@
 import 'dart:async';
 
+import 'package:admin_qr_manager/AppConstants.dart';
 import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:admin_qr_manager/MyMetaApi.dart';
 import 'package:admin_qr_manager/widget/TransactionCardShimmer.dart';
 import 'package:flutter/material.dart';
 import 'TransactionPageNew.dart';
-import 'AdminUsersService.dart';
+import 'UsersService.dart';
 import 'models/AppUser.dart';
 
 class ManageUsersScreen extends StatefulWidget {
@@ -13,6 +14,7 @@ class ManageUsersScreen extends StatefulWidget {
 
   @override
   State<ManageUsersScreen> createState() => _ManageUsersScreenState();
+
 }
 
 class _ManageUsersScreenState extends State<ManageUsersScreen> {
@@ -26,15 +28,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
   late AppUser appUser;
 
-  // final List<String> availableLabels = [
-  //   'user',
-  //   'qr',
-  //   'transactions',
-  //   'withdrawal',
-  //   'payout',
-  // ];
-
-  final List<String> availableLabels = ['SelfQr', 'users'];
+  final List<String> availableLabels = ['SelfQr', 'users', 'all_users', 'all_qr', 'manual_transactions','all_transactions', 'edit_transactions', 'all_withdrawals' , 'edit_withdrawals'];
 
   late AppUser userMeta;
 
@@ -48,7 +42,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll); // PAGINATION listener
-    loadUserMeta();
+    // loadUserMeta();
+    userMeta = MyMetaApi.current!;
     _fetchUsers(firstLoad: true);
   }
 
@@ -101,7 +96,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     SizedBox(height: 10),
                     Expanded(
                       child: FutureBuilder<List<AppUser>>(
-                        future: AdminUserService.listSubadmins(
+                        future: AdminUserService.listSubAdmins(
                           jwtToken,
                           search: localSearchTerm,
                         ),
@@ -141,8 +136,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                         ),
                                   );
                                   try {
-                                    await AdminUserService.assignUserToSubadmin(
-                                      subadminId: subadmin.id,
+                                    await AdminUserService.assignUserToSubAdmin(
+                                      subAdminId: subadmin.id,
                                       userId: userId,
                                       jwtToken: jwtToken,
                                     );
@@ -252,9 +247,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
     try {
       print("UNsassign call 2");
-      await AdminUserService.assignUserToSubadmin(
-        unassign: true,
-        subadminId: subadminId,
+      await AdminUserService.assignUserToSubAdmin(
+        unAssign: true,
+        subAdminId: subadminId,
         userId: userId,
         jwtToken: jwtToken,
       );
@@ -276,12 +271,13 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   }
 
   Future<void> loadUserMeta() async {
-    String jwtToken = await AppWriteService().getJWT();
-    userMeta =
-        (await MyMetaApi.getMyMetaData(
-          jwtToken: jwtToken,
-          refresh: false, // set true to force re-fetch
-        ))!;
+    userMeta = MyMetaApi.current!;
+    print(userMeta.toString());
+    // String jwtToken = await AppWriteService().getJWT();
+    // userMeta = (await MyMetaApi.getMyMetaData(
+    //       jwtToken: jwtToken,
+    //       refresh: false, // set true to force re-fetch
+    //     ))!;
   }
 
   Future<void> _fetchUsers({bool firstLoad = false}) async {
@@ -386,7 +382,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                       "Select Role",
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    if (userMeta.role == "admin")
+                    if (userMeta.role == "admin") ...[
                       RadioListTile<String>(
                         title: const Text("Sub-Admin"),
                         value: "subadmin",
@@ -397,6 +393,18 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                           });
                         },
                       ),
+                      RadioListTile<String>(
+                        title: const Text("Employee"),
+                        value: "employee",
+                        groupValue: selectedRole,
+                        onChanged: (value) {
+                          setState(() {
+                            selectedRole = value;
+                          });
+                        },
+                      ),
+                    ],
+
                     RadioListTile<String>(
                       title: const Text("User"),
                       value: "user",
@@ -793,6 +801,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           actions:
               !loading
                   ? [
+                    if(userMeta.role != "employee")
                     IconButton(
                       icon: const Icon(Icons.add),
                       tooltip: "Add User",
@@ -918,7 +927,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                               const SizedBox(height: 12),
 
                               // Labels
-                              if (user.labels != null && user.labels.isNotEmpty)
+                              if (user.labels != null && user.labels.isNotEmpty && userMeta.role == "admin")
                                 Wrap(
                                   spacing: 6,
                                   children:
@@ -942,26 +951,29 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                               const SizedBox(height: 12),
 
                               // Action Buttons
-                              if (user.role != 'admin')
-                                Row(
+                                if (userMeta.role == 'admin' || userMeta.role == 'employee' || userMeta.role == 'subadmin')
+                                  Row(
                                   mainAxisAlignment:
                                   MainAxisAlignment.spaceBetween,
                                   children: [
                                     // Status switch
                                     Row(
                                       children: [
-                                        const Text("Status:"),
-                                        const SizedBox(width: 6),
-                                        Switch(
-                                          value: user.status ?? false,
-                                          onChanged:
-                                              (newStatus) =>
-                                              _confirmAndToggleUserStatus(
-                                                context,
-                                                user,
-                                                newStatus,
-                                              ),
-                                        ),
+                                        if (user.role != 'admin')
+                                          if(userMeta.role != "employee")...[
+                                            const Text("Status:"),
+                                            const SizedBox(width: 6),
+                                            Switch(
+                                              value: user.status ?? false,
+                                              onChanged:
+                                                  (newStatus) =>
+                                                  _confirmAndToggleUserStatus(
+                                                    context,
+                                                    user,
+                                                    newStatus,
+                                                  ),
+                                            ),
+                                          ]
                                       ],
                                     ),
 
@@ -969,8 +981,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                     if (user.role != 'admin')
                                       Row(
                                         children: [
-                                          if (user.role == 'user' &&
-                                              user.parentId == null)
+                                          if (user.role == 'user' && user.parentId == null && userMeta.role != "employee")
                                             IconButton(
                                               icon: const Icon(
                                                 Icons.no_accounts_outlined,
@@ -983,8 +994,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                                 user.id,
                                               ),
                                             ),
-                                          if (user.role == 'user' &&
-                                              user.parentId != null)
+                                          if (user.role == 'user' && user.parentId != null && userMeta.role != "employee")
                                             IconButton(
                                               icon: const Icon(
                                                 Icons.account_circle,
@@ -998,20 +1008,21 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                                 user.parentId!,
                                               ),
                                             ),
+                                          if(userMeta.role != "employee")
                                           IconButton(
                                             icon: const Icon(
                                               Icons.edit,
                                               color: Colors.blue,
                                             ),
                                             tooltip: "Edit User",
-                                            onPressed:
-                                                () => _showEditDialog(
+                                            onPressed: () => _showEditDialog(
                                               user,
                                               user.name,
                                               user.email,
                                               context,
                                             ),
                                           ),
+                                          if(userMeta.role != "employee")
                                           IconButton(
                                             icon: const Icon(
                                               Icons.lock_reset,
@@ -1024,7 +1035,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                               user.id,
                                             ),
                                           ),
-                                          IconButton(
+                                          if(userMeta.role != "employee")
+                                            IconButton(
                                             icon: const Icon(
                                               Icons.delete,
                                               color: Colors.red,
@@ -1037,6 +1049,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                               user.email,
                                             ),
                                           ),
+                                          if(userMeta.role == 'admin' || userMeta.role == 'subadmin' || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.viewAllTransactions)))
                                           IconButton(
                                             icon: const Icon(
                                               Icons.receipt_long,

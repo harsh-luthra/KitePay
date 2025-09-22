@@ -48,12 +48,19 @@ class SocketManager {
     _socket ??= IO.io(
       url,
       IO.OptionBuilder()
-          .setTransports(<String>['websocket'])
+            .setTransports(<String>['websocket'])
           .setAuth({'token': jwt})
           .enableReconnection()
           .enableForceNew()
           .build(),
     );
+
+    // socket = IO.io(
+    //   'https://kite-pay-api-v1.onrender.com', // Your server URL
+    //   IO.OptionBuilder()
+    //       .setTransports(['websocket']) // Connect manually for logging
+    //       .build(),
+    // );
 
     // Remove old listeners if reusing socket object across hot restarts
     if (_initialized) {
@@ -102,9 +109,11 @@ class SocketManager {
       })
       ..onConnectError((err) {
         _connController.add(SocketStatus.error);
+        print(err);
       })
       ..onError((err) {
         _connController.add(SocketStatus.error);
+        print(err);
       })
       ..onDisconnect((_) {
         _connController.add(SocketStatus.disconnected);

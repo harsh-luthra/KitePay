@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:admin_qr_manager/ManualTransactionForm.dart';
 import 'package:admin_qr_manager/QRService.dart';
+import 'package:admin_qr_manager/SocketTest.dart';
 import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:admin_qr_manager/widget/TransactionCard.dart';
 import 'package:flutter/material.dart';
@@ -10,17 +11,16 @@ import 'package:appwrite/models.dart' show User;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:number_to_indian_words/number_to_indian_words.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:socket_io_client/socket_io_client.dart';
 import 'AppConfig.dart';
 import 'AppConstants.dart';
 import 'AppWriteService.dart';
 import 'ManageUsersScreen.dart';
 import 'ManageQrScreen.dart';
 import 'ManageWithdrawalsNew.dart';
+import 'MemberShipPlansScreen.dart';
 import 'MyMetaApi.dart';
 import 'SocketManager.dart';
 import 'TransactionPageNew.dart';
-import 'ManageWithdrawals.dart';
 import 'WithdrawalFormPage.dart';
 import 'adminLoginPage.dart';
 import 'package:http/http.dart' as http;
@@ -55,7 +55,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   // Menu definition: label, icon, and builder to return corresponding screen
   late final List<_MenuItem> _allMenuItems;
 
-  late AppUser userMetaGlobal;
+  // late AppUser userMetaGlobal;
 
   // @override
   //   // void initState() {
@@ -104,12 +104,16 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     super.initState();
 
     // loadUserMeta();
+    // print(widget.userMeta);
     loadConfig();
-    if(widget.user.labels.contains("admin")){
+    if(checkRole("admin")){
       _activeIndex = 0;
-    }else if( widget.userMeta.role.contains("subadmin") && widget.userMeta.labels.contains("users") ){
+    }else if( checkRole("subadmin") && checkLabel("users") ){
       _activeIndex = 0;
-    }else{
+    }else if(checkRole("employee")){
+      _activeIndex = 0;
+    }
+    else{
       _activeIndex = 2;
     }
 
@@ -118,65 +122,65 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         id: 0,
         label: 'Manage Users',
         icon: Icons.person,
-        visibleFor: (labels) => labels.contains('admin') || (widget.userMeta.role.contains("subadmin") && widget.userMeta.labels.contains("users")),
+        visibleFor: (labels) => checkRole('admin') || (checkRole("subadmin")  && checkLabel("users") || (checkRole("employee") && checkLabel(AppConstants.viewAllUsers))  ),
         builder: (_) => const ManageUsersScreen(),
       ),
       _MenuItem(
         id: 1,
         label: 'Manage All QR Codes',
         icon: Icons.qr_code,
-        visibleFor: (labels) => labels.contains('qr') || labels.contains('admin'),
+        visibleFor: (labels) => checkRole('admin'),
         builder: (_) => ManageQrScreen(userMeta: widget.userMeta,),
       ),
       _MenuItem(
         id: 2,
         label: 'My QR Codes',
         icon: Icons.qr_code_scanner,
-        visibleFor: (_) => true,
+        visibleFor: (_) => !checkRole('employee'),
         builder: (user) => ManageQrScreen(userMode: true, userModeUserid: user.$id, userMeta: widget.userMeta,),
       ),
       _MenuItem(
         id: 3,
         label: 'Manual Transaction',
         icon: Icons.add_box_outlined,
-        visibleFor: (labels) => labels.contains('admin'),
+        visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.manualTransactions)),
         builder: (_) => ManualTransactionForm(),
       ),
       _MenuItem(
         id: 4,
         label: 'View All Transactions',
         icon: Icons.receipt_long,
-        visibleFor: (labels) => labels.contains('transactions') || labels.contains('admin'),
+        visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
         builder: (_) => const TransactionPageNew(),
       ),
       _MenuItem(
         id: 5,
         label: 'View My Transactions',
         icon: Icons.receipt,
-        visibleFor: (_) => true,
+        visibleFor: (_) => !checkRole('employee'),
         builder: (user) => TransactionPageNew(userMode: true, userModeUserid: user.$id),
       ),
       _MenuItem(
         id: 6,
         label: 'All Withdrawals',
         icon: Icons.account_balance_wallet_outlined,
-        visibleFor: (labels) => labels.contains('withdrawal') || labels.contains('admin'),
+        visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.viewAllWithdrawals) ),
         builder: (_) => ManageWithdrawalsNew(),
       ),
       _MenuItem(
         id: 7,
         label: 'My Withdrawals',
         icon: Icons.account_balance_wallet,
-        visibleFor: (_) => true,
+        visibleFor: (_) => !checkRole('employee'),
         builder: (user) => ManageWithdrawalsNew(userMode: true, userModeUserid: user.$id),
       ),
-      _MenuItem(
-        id: 8,
-        label: 'Settings',
-        icon: Icons.settings,
-        visibleFor: (labels) => labels.contains('payout') || labels.contains('admin'),
-        builder: (_) => WithdrawalFormPage(),
-      ),
+      // _MenuItem(
+      //   id: 8,
+      //   label: 'SocketTest',
+      //   icon: Icons.settings,
+      //   visibleFor: (labels) => true,
+      //   builder: (_) => SocketTestApp(),
+      // ),
     ];
 
     // init hovering states
@@ -194,6 +198,22 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     _connSub?.cancel();
     _qrAlertSub?.cancel();
     super.dispose();
+  }
+
+  bool checkRole(String role){
+    if(widget.userMeta.role.toLowerCase() == (role.toLowerCase())) {
+      return true;
+    }else{
+      return false;
+    }
+  }
+
+  bool checkLabel(String label){
+    if(widget.userMeta.labels.contains(label.toLowerCase())) {
+      return true;
+    }else{
+      return false;
+    }
   }
 
   Future<void> setupSocketTransactionSpeech() async {
@@ -422,13 +442,13 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
 
   }
 
-  Future<void> loadUserMeta() async {
-    String jwtToken = await AppWriteService().getJWT();
-    userMetaGlobal = (await MyMetaApi.getMyMetaData(
-      jwtToken: jwtToken,
-      refresh: false, // set true to force re-fetch
-    ))!;
-  }
+  // Future<void> loadUserMeta() async {
+  //   String jwtToken = await AppWriteService().getJWT();
+  //   userMetaGlobal = (await MyMetaApi.getMyMetaData(
+  //     jwtToken: jwtToken,
+  //     refresh: false, // set true to force re-fetch
+  //   ))!;
+  // }
 
   Future<void> loadConfig() async {
     try{
@@ -482,7 +502,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   }
 
   List<_MenuItem> get _visibleMenuItems {
-    final labels = widget.user.labels.map((e) => e.toString()).toList();
+    final labels = widget.userMeta.labels.map((e) => e.toString()).toList();
     return _allMenuItems.where((m) => m.visibleFor(labels)).toList();
   }
 
@@ -582,8 +602,8 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                         radius: 18,
                         backgroundColor: Colors.blue.shade700,
                         child: Text(
-                          (widget.user.name?.isNotEmpty ?? false)
-                              ? widget.user.name!.substring(0, 1).toUpperCase()
+                          (widget.userMeta.name?.isNotEmpty ?? false)
+                              ? widget.userMeta.name!.substring(0, 1).toUpperCase()
                               : 'U',
                           style: const TextStyle(color: Colors.white),
                         ),
@@ -594,9 +614,9 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(widget.user.name ?? 'Unknown',
+                              Text(widget.userMeta.name ?? 'Unknown',
                                   style: const TextStyle(fontWeight: FontWeight.bold)),
-                              Text(widget.user.email ?? '',
+                              Text(widget.userMeta.email ?? '',
                                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                             ],
                           ),
@@ -755,7 +775,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
             ),
           const SizedBox(width: 8),
           Text(
-            '${widget.user.name ?? "Dashboard"}',
+            '${widget.userMeta.name ?? "Dashboard"}',
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
           const Spacer(),
@@ -766,8 +786,8 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(widget.user.name ?? ''),
-                  Text(widget.user.email ?? '', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(widget.userMeta.name ?? ''),
+                  Text(widget.userMeta.email ?? '', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                 ],
               ),
               const SizedBox(width: 12),

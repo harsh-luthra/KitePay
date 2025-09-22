@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:admin_qr_manager/AppConstants.dart';
 import 'package:admin_qr_manager/QRService.dart';
 import 'package:admin_qr_manager/SocketManager.dart';
 import 'package:admin_qr_manager/utils/CurrencyUtils.dart';
@@ -16,7 +17,7 @@ import 'MyMetaApi.dart';
 import 'NewFeatureCornerButton.dart';
 import 'TransactionPage.dart';
 import 'TransactionPageNew.dart';
-import 'AdminUsersService.dart';
+import 'UsersService.dart';
 import 'models/AppUser.dart';
 import 'models/QrCode.dart';
 
@@ -1012,6 +1013,10 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
         ),
         const SizedBox(height: 6),
         Text(
+          'Today PayIn: ${CurrencyUtils.formatIndianCurrency((qrCode.todayTotalPayIn ?? 0) / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Text(
           'Transactions: ${CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions ?? 0)}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
@@ -1074,6 +1079,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       runSpacing: 8, // extra spacing between rows when wrapping
       alignment: WrapAlignment.center,
       children: [
+        if(widget.userMeta.role != ("employee"))
         if(!widget.userMode || (widget.userMeta.role.contains("subadmin") && widget.userMeta.labels.contains("users")) )
           IconButton(
             icon: Icon(
@@ -1083,7 +1089,8 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             tooltip: 'Toggle Status',
             onPressed: _isProcessing ? null : () => _toggleStatus(qrCode),
           ),
-        if(!widget.userMode || (widget.userMeta.role.contains("subadmin") && widget.userMeta.labels.contains("users")) )
+        if(widget.userMeta.role != ("employee"))
+          if(!widget.userMode || (widget.userMeta.role.contains("subadmin") && widget.userMeta.labels.contains("users")) )
           IconButton(
             icon: Icon(
               qrCode.assignedUserId == null
@@ -1099,7 +1106,8 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                 : assignmentOptionForAdminSubAdmin(qrCode) // if its not admin then show
                 // : _showAssignOptions(qrCode),
           ),
-        IconButton(
+        if(widget.userMeta.role == ("admin") || (widget.userMeta.role == ("employee") && widget.userMeta.labels.contains(AppConstants.viewAllTransactions) ) || widget.userMeta.role == ("subadmin") )
+          IconButton(
           icon: const Icon(Icons.article_outlined, color: Colors.deepPurple),
           tooltip: 'View Transactions',
           onPressed: _isProcessing
@@ -1123,7 +1131,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             ),
           ),
         ),
-        if(!widget.userMode)
+        if(!widget.userMode && widget.userMeta.role == "admin")
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
             tooltip: 'Delete QR Code',
@@ -1132,8 +1140,10 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
           ),
         // SEND QR Alert To user
         if(widget.userMode)
+          if(qrCode.isActive)
           IconButton(
             icon: const Icon(Icons.add_alert),
+            tooltip: 'Notify Server',
             onPressed: (){
               SocketManager.instance.sendQrCodeAlert(qrCode);
             },
@@ -1290,7 +1300,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                           ),
                         ),
                       ),
-                      if(!widget.userMode)
+                      if(!widget.userMode && widget.userMeta.role == "admin")
                         IconButton(
                           icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                           tooltip: 'Delete QR Code',

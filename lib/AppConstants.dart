@@ -18,7 +18,19 @@ class AppConstants {
   // Transactions
   static const String getTransactions = "$baseApiUrl/transactions";
 
-  // Add more endpoints as needed...
+  // FEATURE LABELS
+  static const String viewAllUsers = "all_users";
+
+  static const String viewAllQrCodes = "all_qr";
+
+  static const String viewAllTransactions = "all_transactions";
+  static const String editTransactions = "edit_transactions";
+  static const String manualTransactions = "manual_transactions";
+
+  static const String viewAllWithdrawals = "all_withdrawals";
+  static const String manageAllWithdrawals = "edit_withdrawals";
+
+// Add more endpoints as needed...
 }
 
 

@@ -14,6 +14,8 @@ class QrCode {
 
   final int? amountOnHold;
 
+  final int? todayTotalPayIn;
+
   QrCode({
     required this.qrId,
     required this.fileId,
@@ -27,6 +29,7 @@ class QrCode {
     this.withdrawalApprovedAmount,
     this.amountAvailableForWithdrawal,
     this.amountOnHold,
+    this.todayTotalPayIn,
   });
 
   factory QrCode.fromJson(Map<String, dynamic> json) {
@@ -43,6 +46,7 @@ class QrCode {
       withdrawalApprovedAmount: json['withdrawalApprovedAmount'] as int? ?? 0,
       amountAvailableForWithdrawal: json['amountAvailableForWithdrawal'] as int? ?? 0,
       amountOnHold: json['amountOnHold'] as int? ?? 0,
+      todayTotalPayIn: json['todayTotalPayIn'] as int? ?? 0,
     );
   }
 
@@ -60,6 +64,7 @@ class QrCode {
       'withdrawalApprovedAmount': withdrawalApprovedAmount,
       'amountAvailableForWithdrawal': amountAvailableForWithdrawal,
       'amountOnHold': amountOnHold,
+      'todayTotalPayIn': todayTotalPayIn,
     };
   }
 

@@ -3,7 +3,7 @@ import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'AdminUsersService.dart';
+import 'UsersService.dart';
 import 'WithdrawService.dart';
 import 'WithdrawalFormPage.dart';
 import 'models/AppUser.dart';

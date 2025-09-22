@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'AppWriteService.dart';
 import 'QRService.dart';
 import 'TransactionService.dart';
-import 'AdminUsersService.dart';
+import 'UsersService.dart';
 import 'models/QrCode.dart';
 import 'models/Transaction.dart';
 
