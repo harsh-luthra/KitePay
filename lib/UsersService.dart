@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'AppConstants.dart';
 import 'models/AppUser.dart';
 
-class AdminUserService {
+class UserService {
   static final String _baseUrl = AppConstants.baseApiUrl;
 
   static Future<PaginatedAppUsers> listUsers({String? cursor,
@@ -234,25 +234,35 @@ class AdminUserService {
   }
 
 
-  static Future<void> editUser(String userId, String jwtToken, {String? name, String? email, List<String>? labels }) async {
+  static Future<void> editUser(
+      String userId,
+      String jwtToken, {
+        String? name,
+        String? email,
+        List<String>? labels,
+        double? commission,
+      }) async {
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (email != null) body['email'] = email;
+    if (labels != null) body['labels'] = labels;
+    if (commission != null) body['commission'] = commission;
+
     final response = await http.put(
       Uri.parse('$_baseUrl/admin/edit-user/$userId'),
       headers: {
         'Authorization': 'Bearer $jwtToken',
         'Content-Type': 'application/json',
       },
-      body: jsonEncode({
-        if (name != null) 'name': name,
-        if (email != null) 'email': email,
-        if (labels != null) 'labels' : labels,
-      }),
+      body: jsonEncode(body),
     );
 
     if (response.statusCode != 200) {
-      print('❌ Delete failed: ${response.body}');
+      print('❌ Update failed: ${response.body}');
       throw Exception(jsonDecode(response.body)['error'] ?? 'Failed to update user');
     }
   }
+
 
   static Future<bool> updateUserStatus({
     required String userId,

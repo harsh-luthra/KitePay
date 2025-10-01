@@ -7,6 +7,7 @@ class AppUser {
    String role;
    String? parentId;
    List<String> labels;
+   double? commission;
 
   AppUser({
     required this.id,
@@ -16,6 +17,7 @@ class AppUser {
     required this.role,
     this.parentId,
     required this.labels,
+    required this.commission,
   });
 
    factory AppUser.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class AppUser {
        labels: (json['labels'] as List<dynamic>? ?? const [])
            .map((e) => e.toString())
            .toList(),
+       commission: (json['commission'] != null) ? (json['commission'] as num).toDouble() : 0.0,
      );
    }
 
@@ -40,11 +43,12 @@ class AppUser {
      'role': role,
      'parentId': parentId,
      'labels': labels,
+     'commission' : commission,
    };
 
    @override
   String toString() {
-    return 'AppUser{id: $id, email: $email, name: $name, status: $status, role: $role, parentId: $parentId, labels: $labels}';
+    return 'AppUser{id: $id, email: $email, name: $name, status: $status, role: $role, parentId: $parentId, labels: $labels, commission: $commission}';
   }
 
 }

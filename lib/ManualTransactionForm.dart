@@ -58,7 +58,7 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
     setState(() => loading = true);
     _jwtToken = await AppWriteService().getJWT();
 
-    final fetched = await AdminUserService.listUsers(jwtToken: await AppWriteService().getJWT());
+    final fetched = await UserService.listUsers(jwtToken: await AppWriteService().getJWT());
     users = fetched.appUsers;
     qrCodes = await _qrCodeService.getQrCodes(_jwtToken);
 

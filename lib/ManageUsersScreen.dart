@@ -5,6 +5,7 @@ import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:admin_qr_manager/MyMetaApi.dart';
 import 'package:admin_qr_manager/widget/TransactionCardShimmer.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'TransactionPageNew.dart';
 import 'UsersService.dart';
 import 'models/AppUser.dart';
@@ -96,7 +97,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     SizedBox(height: 10),
                     Expanded(
                       child: FutureBuilder<List<AppUser>>(
-                        future: AdminUserService.listSubAdmins(
+                        future: UserService.listSubAdmins(
                           jwtToken,
                           search: localSearchTerm,
                         ),
@@ -136,7 +137,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                         ),
                                   );
                                   try {
-                                    await AdminUserService.assignUserToSubAdmin(
+                                    await UserService.assignUserToSubAdmin(
                                       subAdminId: subadmin.id,
                                       userId: userId,
                                       jwtToken: jwtToken,
@@ -247,7 +248,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
     try {
       print("UNsassign call 2");
-      await AdminUserService.assignUserToSubAdmin(
+      await UserService.assignUserToSubAdmin(
         unAssign: true,
         subAdminId: subadminId,
         userId: userId,
@@ -294,7 +295,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     }
 
     try {
-      final fetched = await AdminUserService.listUsers(
+      final fetched = await UserService.listUsers(
         cursor: nextCursor,
         jwtToken: await AppWriteService().getJWT(),
       );
@@ -449,7 +450,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
                       try {
                         final jwt = await AppWriteService().getJWT();
-                        final ok = await AdminUserService.createUser(
+                        final ok = await UserService.createUser(
                           emailController.text.trim(),
                           passController.text.trim(),
                           nameController.text.trim(),
@@ -532,7 +533,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
                 try {
                   final jwt = await AppWriteService().getJWT();
-                  await AdminUserService.resetPassword(
+                  await UserService.resetPassword(
                     userId,
                     passwordController.text.trim(),
                     jwt,
@@ -698,7 +699,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     try {
                       final jwt = await AppWriteService().getJWT();
                       // print('labelsChanged $tempLabels');
-                      await AdminUserService.editUser(
+                      await UserService.editUser(
                         user.id,
                         jwt,
                         name: nameChanged ? newName : null,
@@ -730,6 +731,110 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     );
   }
 
+  void showCommissionEditDialog({
+    required AppUser user,
+    required double minCommission,
+    required double maxCommission,
+    required BuildContext parentContext,
+  }) {
+    final commissionController =
+    TextEditingController(text: user.commission?.toStringAsFixed(1));
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: parentContext,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Commission'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: commissionController,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: 'Commission (%)',
+                hintText: 'e.g. 1.2',
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}')),
+              ],
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Enter a commission value';
+                }
+                final commission = double.tryParse(value);
+                if (commission == null) {
+                  return 'Enter a valid number';
+                }
+                if (!RegExp(r'^\d+(\.\d{1})?$').hasMatch(value)) {
+                  return 'Only one digit after the decimal allowed';
+                }
+                if (commission < minCommission || commission > maxCommission) {
+                  return 'Value must be between $minCommission and $maxCommission';
+                }
+                return null;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                final newCommission =
+                double.parse(commissionController.text.trim());
+
+                Navigator.of(context).pop(); // close edit dialog
+
+                BuildContext? progressDialogContext;
+                showDialog(
+                  context: parentContext,
+                  barrierDismissible: false,
+                  builder: (ctx) {
+                    progressDialogContext = ctx;
+                    return const Center(child: CircularProgressIndicator());
+                  },
+                );
+
+                try {
+                  final jwt = await AppWriteService().getJWT();
+                  await UserService.editUser(
+                    user.id,
+                    jwt,
+                    commission: newCommission,
+                  );
+                  if (progressDialogContext != null) {
+                    Navigator.of(progressDialogContext!).pop(); // close progress
+                  }
+                  _fetchUsers(firstLoad: true);
+                  if (parentContext.mounted) {
+                    ScaffoldMessenger.of(parentContext).showSnackBar(
+                      SnackBar(content: Text('User Commission Updated Successfully')),
+                    );
+                  }
+                } catch (e) {
+                  if (progressDialogContext != null) {
+                    Navigator.of(progressDialogContext!).pop();
+                  }
+                  if (parentContext.mounted) {
+                    ScaffoldMessenger.of(parentContext).showSnackBar(
+                      SnackBar(content: Text('Failed to update commission: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
   Future<void> _deleteUser(String userId, String name, String email) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -759,7 +864,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       );
 
       try {
-        await AdminUserService.deleteUser(
+        await UserService.deleteUser(
           userId,
           await AppWriteService().getJWT(),
         );
@@ -924,6 +1029,26 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                 ],
                               ),
 
+                              if(user.role != 'employee' && user.role != 'admin')
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.payments,
+                                    size: 16,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    "Commission : ${user.commission} %",
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.black54,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
+                              ),
+
                               const SizedBox(height: 12),
 
                               // Labels
@@ -1022,6 +1147,20 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                               context,
                                             ),
                                           ),
+                                          if(userMeta.role != "employee")
+                                            if(user.role != "employee")
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.percent_sharp,
+                                                color: Colors.blue,
+                                              ),
+                                              tooltip: 'Set Commission %',
+                                              onPressed: () => showCommissionEditDialog(
+                                                minCommission: 1.0,
+                                                maxCommission: 2.0,
+                                                parentContext: context, user: user,
+                                              ),
+                                            ),
                                           if(userMeta.role != "employee")
                                           IconButton(
                                             icon: const Icon(
@@ -1167,7 +1306,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     );
 
     final jwt = await AppWriteService().getJWT();
-    final success = await AdminUserService.updateUserStatus(
+    final success = await UserService.updateUserStatus(
       userId: user.id,
       jwtToken: jwt,
       status: newStatus,

@@ -105,7 +105,7 @@ class QrCodeService {
       if (fileId.isEmpty) {
         print('❌ Failed to get a file ID from Appwrite after upload.');
         return false;
-      }else{
+      } else {
         print('✅ Successfully uploaded file to Appwrite. File ID: $fileId');
       }
 

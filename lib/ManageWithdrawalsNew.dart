@@ -107,7 +107,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
   Future<void> _fetchUsers() async {
     setState(() => loadingUsers = true);
     try {
-      final fetched = await AdminUserService.listUsers(
+      final fetched = await UserService.listUsers(
         jwtToken: await AppWriteService().getJWT(),
       );
       users = fetched.appUsers;
@@ -320,7 +320,21 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        formatIndianCurrency(r.amount),
+                        'Credit: ${formatIndianCurrency(r.preAmount)}',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Commission: ${formatIndianCurrency(r.commission)}',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Debit: ${formatIndianCurrency(r.amount)}',
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,

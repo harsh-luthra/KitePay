@@ -4,6 +4,8 @@ class WithdrawalRequest {
   final String? qrId;
   final String holderName;
   final int amount;
+  final int preAmount;
+  final int commission;
   final String mode; // 'upi' or 'bank'
   final String? upiId;
   final String? bankName;
@@ -22,6 +24,8 @@ class WithdrawalRequest {
     this.qrId,
     required this.holderName,
     required this.amount,
+    required this.preAmount,
+    required this.commission,
     required this.mode,
     this.upiId,
     this.bankName,
@@ -40,6 +44,8 @@ class WithdrawalRequest {
     'qrId': qrId,
     'holderName': holderName,
     'amount': amount,
+    'preAmount': preAmount,
+    'commission': commission,
     'mode': mode,
     'upiId': upiId,
     'bankName': bankName,
@@ -58,7 +64,9 @@ class WithdrawalRequest {
       userId: json['userId'] ?? '',
       qrId: json['qrId'] ?? '',
       holderName: json['holderName'] ?? '',
-      amount: json['amount'] ?? '',
+      amount: json['amount'] ?? 0,
+      preAmount: json['preAmount'] ?? 0,
+      commission: json['commission'] ?? 0,
       mode: json['mode'] ?? '',
       upiId: json['upiId'],
       bankName: json['bankName'],

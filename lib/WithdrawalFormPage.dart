@@ -51,12 +51,15 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
   QrCode? selectedQrCode;
 
   late AppUser UserMeta;
+  double subAdminCommission = 0;
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
     UserMeta = MyMetaApi.current!;
+    subAdminCommission = UserMeta.commission!;
+    // print(subAdminCommission);
     _fetchOnlyUserQrCodes();
   }
 
@@ -238,68 +241,265 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
   void _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final user = await AppWriteService().account.get();
+    String userId = user.$id;
+    String name = user.name;
+
+    if (_mode == 'upi') {
+      name = _upiHolderNameController.text.trim();
+    } else {
+      name = _bankHolderNameController.text.trim();
+    }
+
+    final int requestedAmount = int.tryParse(_amountController.text.trim()) ?? 0;
+    final double commissionPercent = subAdminCommission ?? 0;
+    final double commissionRaw = requestedAmount * commissionPercent / 100;
+    final int commissionAmount = commissionRaw.ceil(); // always rounds up
+    final int netWithdrawalAmount = requestedAmount + commissionAmount;
+
+    bool proceed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Confirm Withdrawal'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text("Withdrawal amount: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(requestedAmount as num)}"),
+              Text("Commission (${commissionPercent.toStringAsFixed(1)}%): ₹$commissionAmount"),
+              Divider(thickness: 1),
+              Text("Final credited amount: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(netWithdrawalAmount as num)}"),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Confirm Withdrawal'),
+            ),
+          ],
+        );
+      },
+    ) ?? false;
+
+    if (!proceed) return;
+
     setState(() => _isSubmitting = true);
 
     try {
-      final user = await AppWriteService().account.get();
-      String userId = user.$id;
-      String name = user.name; // You can also let user enter name if needed
-
-      if (_mode == 'upi') {
-        name = _upiHolderNameController.text
-            .trim(); // You can also let user enter name if needed
-      } else {
-        name = _bankHolderNameController.text
-            .trim(); // You can also let user enter name if needed}
-      }
-
-      // Create the request object
+      // Compose the request as in your code
       final withdrawalRequest = WithdrawalRequest(
         userId: userId,
         qrId: selectedQrCode?.qrId,
         holderName: name,
-        amount: int.tryParse(_amountController.text.trim()) ?? 0,
+        amount: netWithdrawalAmount,
+        preAmount: requestedAmount,
+        commission: commissionAmount,
         mode: _mode,
         upiId: _mode == 'upi' ? _upiIdController.text.trim() : null,
         bankName: _mode == 'bank' ? _bankNameController.text.trim() : null,
-        accountNumber: _mode == 'bank'
-            ? _accountNumberController.text.trim()
-            : null,
-        ifscCode: _mode == 'bank' ? _ifscCodeController.text.trim()
-            .toUpperCase() : null,
+        accountNumber: _mode == 'bank' ? _accountNumberController.text.trim() : null,
+        ifscCode: _mode == 'bank' ? _ifscCodeController.text.trim().toUpperCase() : null,
       );
 
-      // Send request via service
-        final success = await WithdrawService.submitWithdrawRequest(
-            withdrawalRequest);
+      await WithdrawService.fetchWithdrawCommissionPreview(userId: UserMeta.id,qrId: selectedQrCode!.qrId,preAmount: requestedAmount.toDouble());
 
-        if (success) {
-          _formKey.currentState!.reset();
-          await showResultDialog(
-            context,
-            title: "✅ Success",
-            message: "Withdrawal request submitted successfully.",
-            success: true,
-          );
-        } else {
-          await showResultDialog(
-            context,
-            title: "❌ Failed",
-            message: "Failed to submit withdrawal request.",
-            success: false,
-          );
-        }
-      } catch (e) {
+      final success = await WithdrawService.submitWithdrawRequest(withdrawalRequest);
+
+      if (success) {
+        _formKey.currentState!.reset();
+        await showResultDialog(
+          context,
+          title: "✅ Success",
+          message: "Withdrawal request submitted successfully.",
+          success: true,
+        );
+      } else {
+        await showResultDialog(
+          context,
+          title: "❌ Failed",
+          message: "Failed to submit withdrawal request.",
+          success: false,
+        );
+      }
+    } catch (e) {
+      await showResultDialog(
+        context,
+        title: "❌ Error",
+        message: "Error submitting withdrawal: ${e.toString()}",
+        success: false,
+      );
+    } finally {
+      setState(() => _isSubmitting = false);
+    }
+  }
+
+  void _submitFormNew() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final user = await AppWriteService().account.get();
+    String userId = user.$id;
+
+    String name = _mode == 'upi' ? _upiHolderNameController.text.trim() : _bankHolderNameController.text.trim();
+
+    final int requestedAmount = int.tryParse(_amountController.text.trim()) ?? 0;
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final preview = await WithdrawService.fetchWithdrawCommissionPreview(
+        userId: userId,
+        qrId: selectedQrCode!.qrId,
+        preAmount: requestedAmount.toDouble(),
+      );
+
+      print(preview);
+
+      if (preview == null) {
         await showResultDialog(
           context,
           title: "❌ Error",
-          message: "Error submitting withdrawal: ${e.toString()}",
+          message: "Failed to fetch commission preview.",
           success: false,
         );
-      } finally {
         setState(() => _isSubmitting = false);
+        return;
       }
+
+      if (preview.containsKey('error')) {
+        String errorMsg = preview['error'] ?? "Unknown error";
+
+        if (errorMsg.toLowerCase().contains('exceeds')) {
+          final preAmountPaise = preview['preAmountPaise'] ?? 0;
+          final commissionRate = preview['commissionRate'] ?? 0;
+          final commissionPaise = preview['commissionPaise'] ?? 0;
+          final overheadPaise = preview['overheadPaise'] ?? 0;
+          final available = preview['amountAvailableForWithdrawal'] ?? 0;
+          final required = preview['withdrawalToCheck'] ?? 0;
+
+          errorMsg +=
+              "\nRequested: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(preAmountPaise / 100)}" +
+                  "\nCommission $commissionRate% : ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(commissionPaise / 100)}" +
+                  "\nOverhead: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(overheadPaise / 100)}" +
+                  "\nAvailable Balance: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(available / 100)}"+
+                  "\nbalance Required: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(required / 100)}";
+        }
+
+        await showResultDialog(
+          context,
+          title: "❌ Error",
+          message: errorMsg,
+          success: false,
+        );
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
+      final double commissionPercent = preview['commissionRate'];
+      final int commissionAmount = preview['commissionRs'];
+      final int netWithdrawalAmount = requestedAmount + commissionAmount;
+
+      // Optional: show error details (like excess amounts) if provided
+      if (preview.containsKey('error') && preview['error'].contains('exceeds')) {
+        await showResultDialog(
+          context,
+          title: "❌ Error",
+          message: preview['error'] +
+              "\nRequested: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(requestedAmount)}" +
+              "\nAvailable: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(preview['amountAvailable'])}",
+          success: false,
+        );
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
+      final bool? proceed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Confirm Withdrawal'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text("Withdrawal amount: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(requestedAmount)}"),
+                Text("Commission (${commissionPercent.toStringAsFixed(1)}%): ₹$commissionAmount"),
+                Divider(thickness: 1),
+                Text("Final debited amount: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(netWithdrawalAmount)}"),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Confirm Withdrawal'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (!proceed!) {
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
+// Proceed to submit the withdrawal request here
+
+      // Step 3: Submit withdrawal request with verified commission + amount
+      final withdrawalRequest = WithdrawalRequest(
+        userId: userId,
+        qrId: selectedQrCode?.qrId,
+        holderName: name,
+        amount: netWithdrawalAmount,
+        preAmount: requestedAmount,
+        commission: commissionAmount,
+        mode: _mode,
+        upiId: _mode == 'upi' ? _upiIdController.text.trim() : null,
+        bankName: _mode == 'bank' ? _bankNameController.text.trim() : null,
+        accountNumber: _mode == 'bank' ? _accountNumberController.text.trim() : null,
+        ifscCode: _mode == 'bank' ? _ifscCodeController.text.trim().toUpperCase() : null,
+      );
+
+      final success = await WithdrawService.submitWithdrawRequest(withdrawalRequest);
+
+      if (success) {
+        _formKey.currentState!.reset();
+        await showResultDialog(
+          context,
+          title: "✅ Success",
+          message: "Withdrawal request submitted successfully.",
+          success: true,
+        );
+      } else {
+        await showResultDialog(
+          context,
+          title: "❌ Failed",
+          message: "Failed to submit withdrawal request.",
+          success: false,
+        );
+      }
+    } catch (e) {
+      await showResultDialog(
+        context,
+        title: "❌ Error",
+        message: "Error submitting withdrawal: ${e.toString()}",
+        success: false,
+      );
+    } finally {
+      setState(() => _isSubmitting = false);
     }
+  }
+
 
   // int checkCanWithdraw(QrCode qr){
   //   final int availableRupeesInt = ((selectedQrCode?.amountAvailableForWithdrawal ?? 0) / 100.0).floor();
@@ -347,8 +547,9 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                 if(selectedQrCode != null)
                   QrCodeCard(selectedQrCode!),
                 if(selectedQrCode != null)...[
-                  if(maxWithdrawableRupees(selectedQrCode!) >= 0)
-                    Text("Can Withdraw: ${maxWithdrawableRupees(selectedQrCode!)}"),
+                  // Text("Commission : $subAdminCommission %",),
+                  // if(maxWithdrawableRupees(selectedQrCode!) >= 0)
+                  //   Text("Can Withdraw: ${maxWithdrawableRupees(selectedQrCode!)}"),
                 ],
 
                 // Amount
@@ -501,8 +702,8 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
 
                 // Submit Button
                 if(_qrCodesAssignedToMe.isNotEmpty)
-                ElevatedButton.icon(
-                  onPressed: _isSubmitting ? null : _submitForm,
+                ElevatedButton.icon (
+                  onPressed: _isSubmitting ? null : _submitFormNew,
                   icon: _isSubmitting
                       ? const SizedBox(width: 16,
                       height: 16,
@@ -549,6 +750,12 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
             ),
             Text(
               'Withdrawal Approved: ${CurrencyUtils.formatIndianCurrency((selectedQrCode!.withdrawalApprovedAmount ?? 0) / 100)}',
+            ),
+            Text(
+              'Commission onHold: ${CurrencyUtils.formatIndianCurrency((selectedQrCode.commissionOnHold ?? 0) / 100)}',
+            ),
+            Text(
+              'Commission Paid: ${CurrencyUtils.formatIndianCurrency((selectedQrCode.commissionPaid ?? 0) / 100)}',
             ),
             Text(
               'OnHold: ${CurrencyUtils.formatIndianCurrency((selectedQrCode!.amountOnHold ?? 0) / 100)}',

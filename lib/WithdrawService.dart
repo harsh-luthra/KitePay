@@ -14,6 +14,39 @@ class WithdrawalPage {
 class WithdrawService {
   static final String _baseUrl = AppConstants.baseApiUrl;
 
+  static Future<Map<String, dynamic>?> fetchWithdrawCommissionPreview({
+    required String userId,
+    required String qrId,
+    required double preAmount,
+  }) async {
+    final url = Uri.parse('$_baseUrl/user/withdraw_commission_preview');
+
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'userId': userId,
+        'qrId': qrId,
+        'preAmount': preAmount.toString(),
+      }),
+    );
+
+    try {
+      final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return jsonResponse;
+      } else {
+        // Return error details for caller to handle
+        return jsonResponse;
+      }
+    } catch (e) {
+      print('Error parsing response JSON: $e');
+      return null;
+    }
+  }
+
+
   static Future<bool> submitWithdrawRequest(WithdrawalRequest request) async {
     try {
       final Map<String, dynamic> body = {
@@ -22,6 +55,8 @@ class WithdrawService {
         'holderName': request.holderName,
         'mode': request.mode,
         'amount': request.amount,
+        'preAmount': request.preAmount,
+        'commission': request.commission,
       };
 
       if (request.mode == 'upi') {
@@ -76,6 +111,7 @@ class WithdrawService {
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
+        // print(response.body);
         final Map<String, dynamic> data = jsonDecode(response.body) as Map<String, dynamic>;
         final List<dynamic> rawList = (data['withdrawals'] as List?) ?? const [];
         final String? next = data['nextCursor'] as String?;
@@ -120,14 +156,11 @@ class WithdrawService {
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
+        // print(response.body);
         final Map<String, dynamic> data = jsonDecode(response.body) as Map<String, dynamic>;
         final List<dynamic> rawList = (data['withdrawals'] as List?) ?? const [];
         final String? next = data['nextCursor'] as String?;
-
-        final items = rawList
-            .map((e) => WithdrawalRequest.fromJson(e as Map<String, dynamic>))
-            .toList();
-
+        final items = rawList.map((e) => WithdrawalRequest.fromJson(e as Map<String, dynamic>)).toList();
         return WithdrawalPage(requests: items, nextCursor: next);
       } else {
         final body = jsonDecode(response.body);
@@ -138,7 +171,7 @@ class WithdrawService {
       throw Exception('Request timed out. Please check your internet connection.');
     } catch (e) {
       // ignore: avoid_print
-      print('❌ Exception in fetchUserWithdrawalsPaginated: $e');
+      print('❌ Exception in fetchWithdrawalsPaginated: $e');
       throw Exception('Failed to fetch withdrawals: $e');
     }
   }
@@ -220,7 +253,7 @@ class WithdrawService {
         Uri.parse('$_baseUrl/user/withdrawals/approve_new'),
         headers: {'Authorization': 'Bearer $jwtToken','Content-Type': 'application/json'},
         body: jsonEncode({'id': requestId, 'utrNumber': utrNumber}),
-      ).timeout(Duration(seconds: 10));
+      ).timeout(Duration(seconds: 20));
 
       final data = jsonDecode(res.body);
 

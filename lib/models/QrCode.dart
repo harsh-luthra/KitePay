@@ -12,6 +12,9 @@ class QrCode {
   final int? withdrawalApprovedAmount;        // sum of approved withdrawals (paise)
   final int? amountAvailableForWithdrawal;    // derived or stored (paise)
 
+  final int? commissionOnHold;
+  final int? commissionPaid;
+
   final int? amountOnHold;
 
   final int? todayTotalPayIn;
@@ -28,6 +31,8 @@ class QrCode {
     this.withdrawalRequestedAmount,
     this.withdrawalApprovedAmount,
     this.amountAvailableForWithdrawal,
+    this.commissionOnHold,
+    this.commissionPaid,
     this.amountOnHold,
     this.todayTotalPayIn,
   });
@@ -45,6 +50,8 @@ class QrCode {
       withdrawalRequestedAmount: json['withdrawalRequestedAmount'] as int? ?? 0,
       withdrawalApprovedAmount: json['withdrawalApprovedAmount'] as int? ?? 0,
       amountAvailableForWithdrawal: json['amountAvailableForWithdrawal'] as int? ?? 0,
+      commissionOnHold: json['commissionOnHold'] as int? ?? 0,
+      commissionPaid: json['commissionPaid'] as int? ?? 0,
       amountOnHold: json['amountOnHold'] as int? ?? 0,
       todayTotalPayIn: json['todayTotalPayIn'] as int? ?? 0,
     );
@@ -63,6 +70,8 @@ class QrCode {
       'withdrawalRequestedAmount': withdrawalRequestedAmount,
       'withdrawalApprovedAmount': withdrawalApprovedAmount,
       'amountAvailableForWithdrawal': amountAvailableForWithdrawal,
+      'commissionOnHold' : commissionOnHold,
+      'commissionPaid' : commissionPaid,
       'amountOnHold': amountOnHold,
       'todayTotalPayIn': todayTotalPayIn,
     };
@@ -70,7 +79,6 @@ class QrCode {
 
   @override
   String toString() {
-    return 'QrCode{qrId: $qrId, fileId: $fileId, imageUrl: $imageUrl, assignedUserId: $assignedUserId, isActive: $isActive, createdAt: $createdAt, totalTransactions: $totalTransactions, totalPayInAmount: $totalPayInAmount, withdrawalRequestedAmount: $withdrawalRequestedAmount, withdrawalApprovedAmount: $withdrawalApprovedAmount, amountAvailableForWithdrawal: $amountAvailableForWithdrawal, amountOnHold: $amountOnHold}';
+    return 'QrCode{qrId: $qrId, fileId: $fileId, imageUrl: $imageUrl, assignedUserId: $assignedUserId, isActive: $isActive, createdAt: $createdAt, totalTransactions: $totalTransactions, totalPayInAmount: $totalPayInAmount, withdrawalRequestedAmount: $withdrawalRequestedAmount, withdrawalApprovedAmount: $withdrawalApprovedAmount, amountAvailableForWithdrawal: $amountAvailableForWithdrawal, commissionOnHold: $commissionOnHold, commissionPaid: $commissionPaid, amountOnHold: $amountOnHold, todayTotalPayIn: $todayTotalPayIn}';
   }
-
 }

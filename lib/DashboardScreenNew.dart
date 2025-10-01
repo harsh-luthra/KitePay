@@ -21,6 +21,7 @@ import 'MemberShipPlansScreen.dart';
 import 'MyMetaApi.dart';
 import 'SocketManager.dart';
 import 'TransactionPageNew.dart';
+import 'UserDashboardScreen.dart';
 import 'WithdrawalFormPage.dart';
 import 'adminLoginPage.dart';
 import 'package:http/http.dart' as http;
@@ -106,69 +107,77 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     // loadUserMeta();
     // print(widget.userMeta);
     loadConfig();
-    if(checkRole("admin")){
-      _activeIndex = 0;
-    }else if( checkRole("subadmin") && checkLabel("users") ){
-      _activeIndex = 0;
-    }else if(checkRole("employee")){
-      _activeIndex = 0;
-    }
-    else{
-      _activeIndex = 2;
-    }
+    _activeIndex = 0;
+    // if(checkRole("admin")){
+    //   _activeIndex = 0;
+    // }else if( checkRole("subadmin") && checkLabel("users") ){
+    //   _activeIndex = 0;
+    // }else if(checkRole("employee")){
+    //   _activeIndex = 0;
+    // }
+    // else{
+    //   _activeIndex = 2;
+    // }
 
     _allMenuItems = [
       _MenuItem(
         id: 0,
+        label: 'Dashboard',
+        icon: Icons.person,
+        visibleFor: (_) => true,
+        builder: (_) => UserDashboardScreen(),
+      ),
+      _MenuItem(
+        id: 1,
         label: 'Manage Users',
         icon: Icons.person,
         visibleFor: (labels) => checkRole('admin') || (checkRole("subadmin")  && checkLabel("users") || (checkRole("employee") && checkLabel(AppConstants.viewAllUsers))  ),
         builder: (_) => const ManageUsersScreen(),
       ),
       _MenuItem(
-        id: 1,
+        id: 2,
         label: 'Manage All QR Codes',
         icon: Icons.qr_code,
         visibleFor: (labels) => checkRole('admin'),
         builder: (_) => ManageQrScreen(userMeta: widget.userMeta,),
       ),
       _MenuItem(
-        id: 2,
+        id: 3,
         label: 'My QR Codes',
         icon: Icons.qr_code_scanner,
         visibleFor: (_) => !checkRole('employee'),
         builder: (user) => ManageQrScreen(userMode: true, userModeUserid: user.$id, userMeta: widget.userMeta,),
       ),
       _MenuItem(
-        id: 3,
+        id: 4,
         label: 'Manual Transaction',
         icon: Icons.add_box_outlined,
         visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.manualTransactions)),
         builder: (_) => ManualTransactionForm(),
       ),
       _MenuItem(
-        id: 4,
+        id: 5,
         label: 'View All Transactions',
         icon: Icons.receipt_long,
         visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
         builder: (_) => const TransactionPageNew(),
       ),
       _MenuItem(
-        id: 5,
+        id: 6,
         label: 'View My Transactions',
         icon: Icons.receipt,
         visibleFor: (_) => !checkRole('employee'),
         builder: (user) => TransactionPageNew(userMode: true, userModeUserid: user.$id),
       ),
       _MenuItem(
-        id: 6,
+        id: 7,
         label: 'All Withdrawals',
         icon: Icons.account_balance_wallet_outlined,
         visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.viewAllWithdrawals) ),
         builder: (_) => ManageWithdrawalsNew(),
       ),
       _MenuItem(
-        id: 7,
+        id: 8,
         label: 'My Withdrawals',
         icon: Icons.account_balance_wallet,
         visibleFor: (_) => !checkRole('employee'),

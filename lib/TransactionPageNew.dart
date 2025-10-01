@@ -368,7 +368,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     if (mounted) setState(() => loadingUsers = true);
 
     try {
-      final fetched = await AdminUserService.listUsers(
+      final fetched = await UserService.listUsers(
           jwtToken: await AppWriteService().getJWT());
       users = fetched.appUsers;
     } catch (e) {

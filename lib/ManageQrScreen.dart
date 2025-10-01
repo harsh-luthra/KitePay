@@ -88,7 +88,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   Future<void> _fetchUsers() async {
     setState(() => _isProcessing = true);
     try {
-      final fetched = await AdminUserService.listUsers(jwtToken: await AppWriteService().getJWT());
+      final fetched = await UserService.listUsers(jwtToken: await AppWriteService().getJWT());
       users = fetched.appUsers;
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
@@ -1020,6 +1020,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
           'Transactions: ${CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions ?? 0)}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
+      if(widget.userMeta.role == ("admin"))
         Text(
           'Amount Received: ${CurrencyUtils.formatIndianCurrency((qrCode.totalPayInAmount ?? 0) / 100)}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -1038,6 +1039,16 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
           'Amount Available For Withdrawal: ${CurrencyUtils.formatIndianCurrency((qrCode.amountAvailableForWithdrawal ?? 0) / 100)}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
+        const SizedBox(height: 6),
+        Text(
+          'Commission onHold: ${CurrencyUtils.formatIndianCurrency((qrCode.commissionOnHold ?? 0) / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          'Commission Paid: ${CurrencyUtils.formatIndianCurrency((qrCode.commissionPaid ?? 0) / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
         Text(
           'Amount OnHold: ${CurrencyUtils.formatIndianCurrency((qrCode.amountOnHold ?? 0) / 100)}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),

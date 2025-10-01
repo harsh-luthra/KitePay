@@ -41,6 +41,7 @@ class MyMetaApi {
     });
 
     if (res.statusCode == 200) {
+      print(res.body);
       final Map<String, dynamic> data = jsonDecode(res.body);
       final meta = AppUser.fromJson(data);
       _inMemory = meta; // warm memory [web:80]
