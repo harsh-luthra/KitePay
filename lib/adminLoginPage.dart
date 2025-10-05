@@ -226,158 +226,182 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final formWidth = width < 480 ? width - 48 : 420.0;
+
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
         if (!didPop) {
           final exitConfirmed = await _confirmExit(context);
-          if (exitConfirmed && mounted) {
-            Navigator.of(context).pop(); // Allows back
-          }
+          if (exitConfirmed && mounted) Navigator.of(context).pop();
         }
       },
       child: Scaffold(
-        body: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'Welcome to KitePay',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Sign in to access your account',
-                  style: TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: 400,
-                  child: TextField(
-                    controller: emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: 400,
-                  child: TextField(
-                    controller: passwordController,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                    ),
-                    obscureText: _obscurePassword,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Row(
-                    //   children: [
-                    //     Checkbox(
-                    //       value: rememberMe,
-                    //       onChanged: (value) {
-                    //         setState(() {
-                    //           rememberMe = value ?? false;
-                    //         });
-                    //       },
-                    //     ),
-                    //     const Text("Remember me for 30 days"),
-                    //   ],
-                    // ),
-                    // TextButton(
-                    //   onPressed: () {
-                    //     // Implement forgot password flow
-                    //   },
-                    //   child: const Text("Forgot password?"),
-                    // ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                if (errorMessage != null)
-                  Text(errorMessage!,
-                      style: const TextStyle(color: Colors.red)),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: 350,
-                  child: ElevatedButton(
-                    onPressed: isLoading ? null : _startCheckThenLogin,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: isLoading
-                        ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                        : const Text('Sign In'),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // const Row(
-                //   children: [
-                //     Expanded(child: Divider()),
-                //     Padding(
-                //       padding: EdgeInsets.symmetric(horizontal: 8.0),
-                //       child: Text("or continue with"),
-                //     ),
-                //     Expanded(child: Divider()),
-                //   ],
-                // ),
-                // const SizedBox(height: 16),
-                // Row(
-                //   mainAxisAlignment: MainAxisAlignment.center,
-                //   children: [
-                //     OutlinedButton.icon(
-                //       onPressed: () {
-                //         // Fingerprint auth logic
-                //       },
-                //       icon: const Icon(Icons.fingerprint),
-                //       label: const Text("Fingerprint"),
-                //     ),
-                //     const SizedBox(width: 16),
-                //     OutlinedButton.icon(
-                //       onPressed: () {
-                //         // Mobile app login logic
-                //       },
-                //       icon: const Icon(Icons.smartphone),
-                //       label: const Text("Mobile App"),
-                //     ),
-                //   ],
-                // ),
-                // const SizedBox(height: 32),
-                // TextButton(
-                //   onPressed: () {
-                //     // Navigate to registration page
-                //   },
-                //   child: const Text("Don’t have an account? Create account"),
-                // ),
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Theme.of(context).colorScheme.surface,
+                Theme.of(context).colorScheme.surface.withOpacity(0.96),
               ],
             ),
           ),
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: formWidth),
+                child: Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Brand header
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundColor: Colors.blue.shade50,
+                          child: const Icon(Icons.payments_outlined, color: Colors.blue, size: 28),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text('Welcome to KitePay', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 6),
+                        const Text('Sign in to access your account', style: TextStyle(color: Colors.grey)),
+                        const SizedBox(height: 22),
+
+                        // Email
+                        TextField(
+                          controller: emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          decoration: InputDecoration(
+                            labelText: 'Email',
+                            hintText: 'email@mail.com',
+                            prefixIcon: const Icon(Icons.email_outlined),
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                            suffixIcon: (emailController.text.isNotEmpty)
+                                ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () => setState(() => emailController.clear()),
+                              tooltip: 'Clear',
+                            )
+                                : null,
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Password
+                        TextField(
+                          controller: passwordController,
+                          obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => isLoading ? null : _startCheckThenLogin(),
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                            // helperText: 'Use your admin or assigned account credentials',
+                            suffixIcon: IconButton(
+                              icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                              tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        // Error message (if any)
+                        if (errorMessage != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline, size: 16, color: Colors.red),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    errorMessage!,
+                                    style: const TextStyle(color: Colors.red),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        const SizedBox(height: 16),
+
+                        // Primary button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 46,
+                          child: ElevatedButton(
+                            onPressed: isLoading ? null : _startCheckThenLogin,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blueAccent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: isLoading
+                                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Text('Sign In', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Help row (optional)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('Having trouble?', style: TextStyle(color: Colors.grey)),
+                            TextButton(
+                              onPressed: isLoading ? null : () => _showSupportSheet(context),
+                              child: const Text('Contact support'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSupportSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text('Need help?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            SizedBox(height: 8),
+            Text('Email: support@kitepay.app'),
+            Text('Business hours: 10:00–18:00 IST'),
+            SizedBox(height: 8),
+          ],
         ),
       ),
     );

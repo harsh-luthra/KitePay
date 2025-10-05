@@ -3,7 +3,6 @@ import 'package:admin_qr_manager/AppConstants.dart';
 import 'package:admin_qr_manager/QRService.dart';
 import 'package:admin_qr_manager/SocketManager.dart';
 import 'package:admin_qr_manager/utils/CurrencyUtils.dart';
-import 'package:admin_qr_manager/widget/QrCardShimmer.dart';
 import 'package:appwrite/models.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
@@ -20,12 +19,12 @@ import 'models/AppUser.dart';
 import 'models/QrCode.dart';
 
 // QrCodesPage.dart
-class ManageQrScreen extends StatefulWidget {
+class ManageQrScreen_bkup extends StatefulWidget {
   final String? userModeUserid;
   final bool userMode;
   final AppUser userMeta; // keep nullable if not always provided
 
-  const ManageQrScreen({
+  const ManageQrScreen_bkup({
     super.key,
     this.userMode = false,
     this.userModeUserid,
@@ -33,10 +32,10 @@ class ManageQrScreen extends StatefulWidget {
   });
 
   @override
-  State<ManageQrScreen> createState() => _ManageQrScreenState();
+  State<ManageQrScreen_bkup> createState() => _ManageQrScreenbkupState();
 }
 
-class _ManageQrScreenState extends State<ManageQrScreen> {
+class _ManageQrScreenbkupState extends State<ManageQrScreen_bkup> {
   final QrCodeService _qrCodeService = QrCodeService();
   List<QrCode> _qrCodes = [];
   List<AppUser> users = [];
@@ -826,17 +825,9 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
           ],
         ),
         body: _isLoading
-            ?  ListView.builder(
-          padding: EdgeInsets.zero,
-          itemCount: 5,
-          itemBuilder: (_, __) => const QrCardShimmer(),
-        )
+            ? const Center(child: CircularProgressIndicator())
             : _isProcessing
-            ? ListView.builder(
-          padding: EdgeInsets.zero,
-          itemCount: 5,
-          itemBuilder: (_, __) => const QrCardShimmer(),
-        )
+            ? const Center(child: CircularProgressIndicator())
             : _qrCodes.isEmpty
             ? const Center(child: Text('No QR codes found.'))
             : Stack(
@@ -882,603 +873,292 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   }
 
   Widget buildQrCodeCard(QrCode qrCode, String formattedDate) {
-    final w = MediaQuery.of(context).size.width;
-    final isMobile = w < 720;
-
-    final String? assignedId = qrCode.assignedUserId;
-    final bool isSelf = assignedId != null && assignedId == widget.userMeta.id;
-    final String assignedName = displayUserNameText(assignedId) ?? '';
-    // final String assignedEmail = displayUserNameText?.call(assignedId) ?? ''; // if you have this helper
-    final String assigneeLine = assignedId == null
-        ? 'Unassigned'
-        : (isSelf
-        ? 'Self'
-        : [assignedName].where((s) => s.isNotEmpty).join(' • '));
+    final isMobile = MediaQuery.of(context).size.width < 600; // breakpoint
 
     return Card(
-      elevation: 3,
+      elevation: 4,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Column(
+        padding: const EdgeInsets.all(12.0),
+        child: isMobile
+            ? Column( // 📱 Mobile layout
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Always show full QR ID on top
-            SelectableText(
-              'QR ID: ${qrCode.qrId}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
+            _buildQrLeftSection(qrCode),   // QR + buttons
             const SizedBox(height: 12),
-
-            // Content row/column
-            isMobile
-                ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildQrLeftSection(qrCode),      // image, status chip, download/zoom
-                const SizedBox(height: 16),
-                _rightMetricsBlock(qrCode, formattedDate), // metrics + ledger + created
-                const Divider(height: 20),
-                _buildActionButtons(qrCode),
-              ],
-            )
-                : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildQrLeftSection(qrCode),
-                const SizedBox(width: 16),
-                Expanded(child: _rightMetricsBlock(qrCode, formattedDate)),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-            Center(child: _buildActionButtons(qrCode)),
-            const Divider(height: 20),
-
-            // Always show name & email at the bottom
-            Row(
-              children: [
-                const Icon(Icons.person, size: 18, color: Colors.blueGrey),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    assigneeLine.isEmpty ? (assignedId ?? 'Unassigned') : assigneeLine,
-                    style: const TextStyle(fontSize: 13, color: Colors.black87),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-
-            // Optional: show raw assigned id in a subtle line under name/email
-            // if (assignedId != null) ...[
-            //   const SizedBox(height: 4),
-            //   Row(
-            //     children: [
-            //       const SizedBox(width: 26),
-            //       Expanded(
-            //         child: Text(
-            //           'User ID: $assignedId',
-            //           style: const TextStyle(fontSize: 12, color: Colors.grey),
-            //           overflow: TextOverflow.ellipsis,
-            //         ),
-            //       ),
-            //     ],
-            //   ),
-            // ],
+            _buildQrRightSection(qrCode, formattedDate), // Info
+          ],
+        )
+            : Row( // 💻 Desktop layout
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildQrLeftSection(qrCode),
+            const SizedBox(width: 16),
+            Expanded(child: _buildQrRightSection(qrCode, formattedDate)),
           ],
         ),
       ),
     );
   }
-// Header with QR ID and assignment chip
-  Widget _qrHeader(QrCode qrCode) {
-    final String? assignedId = qrCode.assignedUserId;
-    final bool isSelf = assignedId != null && assignedId == widget.userMeta.id;
-    final String assignedDisplay = assignedId == null
-        ? 'Unassigned'
-        : (isSelf ? 'Self' : (displayUserNameText(assignedId) ?? assignedId));
 
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            'QR • ${qrCode.qrId}',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        const SizedBox(width: 8),
-        InputChip(
-          label: Text(assignedDisplay, overflow: TextOverflow.ellipsis),
-          avatar: const Icon(Icons.person, size: 18),
-          onPressed: null,
-        ),
-      ],
-    );
-  }
-
-  /// Left: QR image, status, quick actions
+  /// Left section (QR image + status + actions)
   Widget _buildQrLeftSection(QrCode qrCode) {
-    final statusColor = qrCode.isActive ? Colors.green : Colors.red;
-    final statusBg = qrCode.isActive ? Colors.green.shade50 : Colors.red.shade50;
-
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // QR thumb with loader/error
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: SizedBox(
-                width: 140,
-                height: 140,
-                child: qrCode.imageUrl.isNotEmpty
-                    ? CachedNetworkImage(
-                  imageUrl: qrCode.imageUrl,
-                  fit: BoxFit.cover,
-                  placeholder: (c, _) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                  errorWidget: (c, _, __) => const Icon(Icons.broken_image, size: 48, color: Colors.grey),
-                )
-                    : const Icon(Icons.qr_code_2, size: 72, color: Colors.blueGrey),
-              ),
-            ),
-            // Zoom tap overlay
-            Positioned.fill(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => _openQrPreviewDialog(qrCode.imageUrl),
+        GestureDetector(
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (_) => Dialog(
+                child: Stack(
+                  children: [
+                    // 🔍 Zoomable QR Image
+                    InteractiveViewer(
+                      child: qrCode.imageUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                        imageUrl: qrCode.imageUrl,
+                        fit: BoxFit.contain,
+                        placeholder: (context, url) => const Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                        errorWidget: (context, url, error) =>
+                        const Icon(Icons.error, size: 100),
+                      )
+                          : const Icon(Icons.qr_code, size: 100),
+                    ),
+
+                    // Download button
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: IconButton(
+                        icon: const Icon(Icons.download, size: 28, color: Colors.blue),
+                        tooltip: "Download QR",
+                        onPressed: () async {
+                          try {
+                            // Fetch image as bytes
+                            final response = await http.get(Uri.parse(qrCode.imageUrl));
+                            if (response.statusCode == 200) {
+                              final Uint8List bytes = response.bodyBytes;
+
+                              // Create blob & trigger download
+                              final blob = html.Blob([bytes]);
+                              final url = html.Url.createObjectUrlFromBlob(blob);
+                              final anchor = html.AnchorElement(href: url)
+                                ..download = "qr_${DateTime.now().millisecondsSinceEpoch}.png"
+                                ..style.display = 'none';
+                              html.document.body!.append(anchor);
+                              anchor.click();
+                              anchor.remove();
+                              html.Url.revokeObjectUrl(url);
+                            } else {
+                              debugPrint("❌ Failed to fetch image for download");
+                            }
+                          } catch (e) {
+                            debugPrint("❌ Download error: $e");
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            // Download FAB
-            Positioned(
-              right: -8,
-              bottom: -8,
-              child: Tooltip(
-                message: 'Download QR',
-                child: FloatingActionButton.small(
-                  heroTag: 'dl-${qrCode.qrId}',
-                  elevation: 1,
-                  onPressed: () => _downloadQrImage(qrCode.imageUrl),
-                  child: const Icon(Icons.download),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(20)),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(qrCode.isActive ? Icons.check_circle : Icons.cancel, size: 16, color: statusColor),
-              const SizedBox(width: 6),
-              Text(qrCode.isActive ? 'ACTIVE' : 'INACTIVE', style: TextStyle(color: statusColor, fontWeight: FontWeight.w600)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 
-  void _openQrPreviewDialog(String url) {
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: InteractiveViewer(
-                minScale: 0.8,
-                maxScale: 5,
-                child: url.isNotEmpty
-                    ? CachedNetworkImage(
-                  imageUrl: url,
-                  fit: BoxFit.contain,
-                  placeholder: (c, _) => const SizedBox(
-                    width: 240,
-                    height: 240,
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                  errorWidget: (c, _, __) => const Icon(Icons.error, size: 72),
-                )
-                    : const Icon(Icons.qr_code_2, size: 120),
-              ),
-            ),
-            Positioned(
-              right: 8,
-              top: 8,
-              child: IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _downloadQrImage(String url) async {
-    try {
-      if (url.isEmpty) return;
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final bytes = response.bodyBytes;
-        final blob = html.Blob([bytes]);
-        final obj = html.Url.createObjectUrlFromBlob(blob);
-        final a = html.AnchorElement(href: obj)
-          ..download = "qr_${DateTime.now().millisecondsSinceEpoch}.png"
-          ..style.display = 'none';
-        html.document.body!.append(a);
-        a.click();
-        a.remove();
-        html.Url.revokeObjectUrl(obj);
-      } else {
-        debugPrint('Download failed (${response.statusCode})');
-      }
-    } catch (e) {
-      debugPrint('Download error: $e');
-    }
-  }
-
-  /// Right: details and metrics
-  Widget _buildQrRightSection(QrCode qrCode, String formattedDate) {
-    final bool isAdmin = widget.userMeta.role == "admin";
-    final assignedId = qrCode.assignedUserId;
-
-    Widget metric(String label, String value, {IconData? icon, Color? color}) {
-      return Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          border: Border.all(color: Colors.grey.shade200),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 18, color: color ?? Colors.blueGrey),
-              const SizedBox(width: 8),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  const SizedBox(height: 2),
-                  Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    String inr(num p) => CurrencyUtils.formatIndianCurrency(p / 100);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Quick metrics grid
-        LayoutBuilder(
-          builder: (ctx, cts) {
-            final cols = cts.maxWidth > 900 ? 4 : cts.maxWidth > 600 ? 3 : 2;
-            final metrics = <Widget>[
-              metric('Today Pay-In', inr(qrCode.todayTotalPayIn ?? 0), icon: Icons.today, color: Colors.indigo),
-              metric('Transactions', CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions ?? 0),
-                  icon: Icons.receipt_long, color: Colors.teal),
-              if (isAdmin) metric('Amount Received', inr(qrCode.totalPayInAmount ?? 0), icon: Icons.account_balance_wallet),
-              metric('Avail. Withdrawal', inr(qrCode.amountAvailableForWithdrawal ?? 0), icon: Icons.savings, color: Colors.green),
-            ];
-
-            return GridView.count(
-              crossAxisCount: cols,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 2.8,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              children: metrics,
             );
           },
+          child: SizedBox(
+            width: 100,
+            height: 100,
+            child: qrCode.imageUrl.isNotEmpty
+                ? CachedNetworkImage(
+              imageUrl: qrCode.imageUrl,
+              fit: BoxFit.cover,
+              placeholder: (c, _) => const Center(child: CircularProgressIndicator()),
+              errorWidget: (c, _, __) => const Icon(Icons.error),
+            )
+                : const Icon(Icons.qr_code, size: 80),
+          ),
         ),
-        const SizedBox(height: 12),
-        // Ledger block
+        const SizedBox(height: 15),
         Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.blueGrey.shade50,
+            color: qrCode.isActive ? Colors.green.shade100 : Colors.red.shade100,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Wrap(
-            spacing: 16,
-            runSpacing: 8,
-            children: [
-              _kv('Requested', inr(qrCode.withdrawalRequestedAmount ?? 0)),
-              _kv('Approved', inr(qrCode.withdrawalApprovedAmount ?? 0)),
-              _kv('Commission On-Hold', inr(qrCode.commissionOnHold ?? 0)),
-              _kv('Commission Paid', inr(qrCode.commissionPaid ?? 0)),
-              _kv('Amount On-Hold', inr(qrCode.amountOnHold ?? 0)),
-            ],
+          child: Text(
+            qrCode.isActive ? 'ACTIVE' : 'INACTIVE',
+            style: TextStyle(
+              color: qrCode.isActive ? Colors.green.shade800 : Colors.red.shade800,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
           ),
         ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            const Icon(Icons.access_time, size: 16, color: Colors.grey),
-            const SizedBox(width: 6),
-            Text('Created: $formattedDate', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            const Spacer(),
-            if (!widget.userMode)
-              Row(
-                children: [
-                  const Icon(Icons.person_outline, size: 16, color: Colors.grey),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Assigned: ${displayUserNameText(assignedId) ?? (assignedId ?? 'Unassigned')}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-          ],
-        ),
+        const SizedBox(height: 20),
+        _buildActionButtons(qrCode), // keep your Wrap of IconButtons
       ],
     );
   }
 
-// Right: metrics + ledger + created line + actions (actions can stay at bottom of card if preferred)
-  Widget _rightMetricsBlock(QrCode qrCode, String formattedDate) {
-    final bool isAdmin = widget.userMeta.role == "admin";
-    String inr(num p) => CurrencyUtils.formatIndianCurrency(p / 100);
+  /// Right section (Details)
+  Widget _buildQrRightSection(QrCode qrCode, String formattedDate) {
+    final String? assignedId = qrCode.assignedUserId; // nullable
+    final bool isSelf = assignedId != null && assignedId == widget.userMeta.id;
 
-    Widget metric(String label, String value, {IconData? icon, Color? color}) {
-      return Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          border: Border.all(color: Colors.grey.shade200),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 18, color: color ?? Colors.blueGrey),
-              const SizedBox(width: 8),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  const SizedBox(height: 2),
-                  Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+    final String? assignedDisplay = assignedId == null
+        ? 'Unassigned'
+        : (isSelf ? 'Self' : displayUserNameText(assignedId));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          'ID: ${qrCode.qrId}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          'Assigned To: $assignedDisplay',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Today PayIn: ${CurrencyUtils.formatIndianCurrency((qrCode.todayTotalPayIn ?? 0) / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          'Transactions: ${CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions ?? 0)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      if(widget.userMeta.role == ("admin"))
+        Text(
+          'Amount Received: ${CurrencyUtils.formatIndianCurrency((qrCode.totalPayInAmount ?? 0) / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
 
-        LayoutBuilder(
-          builder: (ctx, cts) {
-            final w = cts.maxWidth;
-
-            // Adaptive tile sizing
-            final maxTileW = w >= 1000 ? 260.0 : w >= 760 ? 230.0 : w >= 560 ? 200.0 : 170.0;
-            final minTileW = 150.0;
-            final labelSmall = w < 420;
-            final hideIcons = w < 340;
-
-            Widget metricTile(String label, String value, {IconData? icon, Color? color}) {
-              return ConstrainedBox(
-                constraints: BoxConstraints(minWidth: minTileW, maxWidth: maxTileW),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    border: Border.all(color: Colors.grey.shade200),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      if (!hideIcons && icon != null) ...[
-                        Icon(icon, size: 16, color: color ?? Colors.blueGrey),
-                        const SizedBox(width: 6),
-                      ],
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              labelSmall
-                                  ? label
-                                  .replaceAll('Avail. Withdrawal', 'Available')
-                                  .replaceAll('Amount Received', 'Received')
-                                  .replaceAll('Today Pay-In', 'Today')
-                                  : label,
-                              style: const TextStyle(fontSize: 11, color: Colors.grey),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              softWrap: false,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              value,
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              softWrap: false,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            final tiles = <Widget>[
-              metricTile('Today Pay-In', inr(qrCode.todayTotalPayIn ?? 0), icon: Icons.today, color: Colors.indigo),
-              metricTile('Transactions',
-                  CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions ?? 0),
-                  icon: Icons.receipt_long, color: Colors.teal),
-              if (isAdmin)
-                metricTile('Amount Received', inr(qrCode.totalPayInAmount ?? 0),
-                    icon: Icons.account_balance_wallet, color: Colors.deepPurple),
-              metricTile('Avail. Withdrawal', inr(qrCode.amountAvailableForWithdrawal ?? 0),
-                  icon: Icons.savings, color: Colors.green),
-            ];
-
-            return Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: tiles,
-            );
-          },
+        Text(
+          'Withdrawal Requested Amount: ${CurrencyUtils.formatIndianCurrency((qrCode.withdrawalRequestedAmount ?? 0) / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          'Withdrawal Approved Amount: ${CurrencyUtils.formatIndianCurrency((qrCode.withdrawalApprovedAmount ?? 0) / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          'Amount Available For Withdrawal: ${CurrencyUtils.formatIndianCurrency((qrCode.amountAvailableForWithdrawal ?? 0) / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Commission onHold: ${CurrencyUtils.formatIndianCurrency((qrCode.commissionOnHold ?? 0) / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          'Commission Paid: ${CurrencyUtils.formatIndianCurrency((qrCode.commissionPaid ?? 0) / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Amount OnHold: ${CurrencyUtils.formatIndianCurrency((qrCode.amountOnHold ?? 0) / 100)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
 
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.blueGrey.shade50,
-            borderRadius: BorderRadius.circular(10),
+        const SizedBox(height: 6),
+        if (!widget.userMode)
+          Text(
+            'Assigned to: ${displayUserNameText(assignedId) ?? (assignedId ?? 'Unassigned')}',
+            style: const TextStyle(fontSize: 14),
           ),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _kv('Requested', inr(qrCode.withdrawalRequestedAmount ?? 0)),
-              _kv('Approved', inr(qrCode.withdrawalApprovedAmount ?? 0)),
-              _kv('Comm On-Hold', inr(qrCode.commissionOnHold ?? 0)),
-              _kv('Comm Paid', inr(qrCode.commissionPaid ?? 0)),
-              _kv('Amt On-Hold', inr(qrCode.amountOnHold ?? 0)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            const Icon(Icons.access_time, size: 16, color: Colors.grey),
-            const SizedBox(width: 6),
-            Text('Created: $formattedDate', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          ],
+        Text(
+          'Created: $formattedDate',
+          style: const TextStyle(fontSize: 13, color: Colors.grey),
         ),
       ],
     );
   }
 
-  Widget _kv(String k, String v) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('$k: ', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11)),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 220),
-            child: Text(v, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Actions
   Widget _buildActionButtons(QrCode qrCode) {
-    final canUserActions = (!widget.userMode || (widget.userMeta.role.contains("subadmin") && widget.userMeta.labels.contains("users")));
-    final canViewTx =
-        (widget.userMeta.role == "admin") ||
-            (widget.userMeta.role == "employee" && widget.userMeta.labels.contains(AppConstants.viewAllTransactions)) ||
-            (widget.userMeta.role == "subadmin") ||
-            (widget.userMeta.role == "user") ;
-
-    IconButton action({required IconData icon, required String tip, required VoidCallback? onTap, Color? color}) {
-      return IconButton(
-        icon: Icon(icon, color: color ?? Colors.blueGrey),
-        tooltip: tip,
-        onPressed: _isProcessing ? null : onTap,
-      );
-    }
-
     return Wrap(
-      spacing: 6,
-      runSpacing: 4,
+      spacing: 8,
+      runSpacing: 8, // extra spacing between rows when wrapping
+      alignment: WrapAlignment.center,
       children: [
-        if (widget.userMeta.role != "employee" && canUserActions)
-          action(
-            icon: qrCode.isActive ? Icons.toggle_on : Icons.toggle_off,
-            tip: 'Toggle Status',
-            onTap: () => _toggleStatus(qrCode),
-            color: qrCode.isActive ? Colors.green : Colors.grey,
-          ),
-        if (widget.userMeta.role != "employee" && canUserActions)
-          action(
-            icon: qrCode.assignedUserId == null ? Icons.person_add_alt_1 : Icons.person_outline,
-            tip: qrCode.assignedUserId == null ? 'Assign User' : 'Change Assignment',
-            onTap: () => qrCode.assignedUserId == null
-                ? _assignUser(qrCode.qrId, qrCode.fileId)
-                : assignmentOptionForAdminSubAdmin(qrCode),
-            color: Colors.blueAccent,
-          ),
-        if (canViewTx)
-          action(
-            icon: Icons.article_outlined,
-            tip: 'View Transactions',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => widget.userMode
-                    ? TransactionPageNew(filterQrCodeId: qrCode.qrId, userMode: true, userModeUserid: widget.userModeUserid)
-                    : TransactionPageNew(filterQrCodeId: qrCode.qrId),
-              ),
+        if(widget.userMeta.role != ("employee"))
+        if(!widget.userMode || (widget.userMeta.role.contains("subadmin") && widget.userMeta.labels.contains("users")) )
+          IconButton(
+            icon: Icon(
+              qrCode.isActive ? Icons.toggle_on : Icons.toggle_off,
+              color: qrCode.isActive ? Colors.green : Colors.grey,
             ),
-            color: Colors.deepPurple,
+            tooltip: 'Toggle Status',
+            onPressed: _isProcessing ? null : () => _toggleStatus(qrCode),
           ),
-        if (!widget.userMode && widget.userMeta.role == "admin")
-          action(
-            icon: Icons.delete_outline,
-            tip: 'Delete QR Code',
-            onTap: () => _deleteQrCode(qrCode.qrId),
-            color: Colors.redAccent,
+        if(widget.userMeta.role != ("employee"))
+          if(!widget.userMode || (widget.userMeta.role.contains("subadmin") && widget.userMeta.labels.contains("users")) )
+          IconButton(
+            icon: Icon(
+              qrCode.assignedUserId == null
+                  ? Icons.person_add_alt_1
+                  : Icons.person_outline,
+              color: Colors.blueAccent,
+            ),
+            tooltip: qrCode.assignedUserId == null ? 'Assign User' : 'Change Assignment',
+            onPressed: _isProcessing
+                ? null
+                : () => qrCode.assignedUserId == null
+                ? _assignUser(qrCode.qrId, qrCode.fileId)
+                : assignmentOptionForAdminSubAdmin(qrCode) // if its not admin then show
+                // : _showAssignOptions(qrCode),
           ),
-        if (widget.userMode && qrCode.isActive)
-          action(
-            icon: Icons.add_alert,
-            tip: 'Notify Server',
-            onTap: () => SocketManager.instance.sendQrCodeAlert(qrCode),
-            color: Colors.orange,
+        if(widget.userMeta.role == ("admin") || (widget.userMeta.role == ("employee") && widget.userMeta.labels.contains(AppConstants.viewAllTransactions) ) || widget.userMeta.role == ("subadmin") )
+          IconButton(
+          icon: const Icon(Icons.article_outlined, color: Colors.deepPurple),
+          tooltip: 'View Transactions',
+          onPressed: _isProcessing
+              ? null
+              : () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) {
+                if (widget.userMode) {
+                  return TransactionPageNew(
+                    filterQrCodeId: qrCode.qrId,
+                    userMode: true,
+                    userModeUserid: widget.userModeUserid,
+                  );
+                } else {
+                  return TransactionPageNew(
+                    filterQrCodeId: qrCode.qrId,
+                  );
+                }
+              },
+            ),
+          ),
+        ),
+        if(!widget.userMode && widget.userMeta.role == "admin")
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            tooltip: 'Delete QR Code',
+            onPressed:
+            _isProcessing ? null : () => _deleteQrCode(qrCode.qrId),
+          ),
+        // SEND QR Alert To user
+        if(widget.userMode)
+          if(qrCode.isActive)
+          IconButton(
+            icon: const Icon(Icons.add_alert),
+            tooltip: 'Notify Server',
+            onPressed: (){
+              SocketManager.instance.sendQrCodeAlert(qrCode);
+            },
+            // onPressed: !_isProcessing ? _fetchOnlyUserQrCodes : null,
           ),
       ],
     );
   }
-
 
   Widget buildQrCodeCardOld(QrCode qrCode, String formattedDate) {
     return Card(

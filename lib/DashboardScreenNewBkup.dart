@@ -16,7 +16,6 @@ import 'AdminDashboardPage.dart';
 import 'AppConfig.dart';
 import 'AppConstants.dart';
 import 'AppWriteService.dart';
-import 'CommissionSummaryBoardPage.dart';
 import 'ManageUsersScreen.dart';
 import 'ManageQrScreen.dart';
 import 'ManageWithdrawalsNew.dart';
@@ -33,19 +32,19 @@ import 'main.dart';
 import 'models/QrCode.dart';
 import 'models/Transaction.dart';
 
-class DashboardScreenNew extends StatefulWidget {
+class DashboardScreenNewBkup extends StatefulWidget {
   final User user;
   final AppUser userMeta;
 
-  const DashboardScreenNew({super.key, required this.user, required this.userMeta});
+  const DashboardScreenNewBkup({super.key, required this.user, required this.userMeta});
 
   @override
-  State<DashboardScreenNew> createState() => _DashboardScreenNewState();
+  State<DashboardScreenNewBkup> createState() => _DashboardScreenNewBkupState();
 }
 
 // final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
-class _DashboardScreenNewState extends State<DashboardScreenNew> {
+class _DashboardScreenNewBkupState extends State<DashboardScreenNewBkup> {
   final AppWriteService _appWriteService = AppWriteService();
 
   // Paint/interaction state
@@ -176,29 +175,18 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         id: 7,
         label: 'View Commission TXNs',
         icon: Icons.receipt,
-        visibleFor: (labels) => checkRole('admin') || checkRole('subadmin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
-        builder: (user) => CommissionTransactionsPage(
-          userMeta: widget.userMeta,
-          initialUserId: checkRole('subadmin') ? widget.userMeta.id : null,
-        ),
+        visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
+        builder: (user) => CommissionTransactionsPage(userMeta: widget.userMeta,),
       ),
-      // CommissionSummaryBoardPage
       _MenuItem(
         id: 8,
-        label: 'View Commission Summary',
-        icon: Icons.receipt,
-        visibleFor: (labels) => checkRole('admin') || checkRole('subadmin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
-        builder: (user) => CommissionSummaryBoardPage(userMeta: widget.userMeta),
-      ),
-      _MenuItem(
-        id: 9,
         label: 'All Withdrawals',
         icon: Icons.account_balance_wallet_outlined,
         visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.viewAllWithdrawals) ),
         builder: (_) => ManageWithdrawalsNew(),
       ),
       _MenuItem(
-        id: 10,
+        id: 9,
         label: 'My Withdrawals',
         icon: Icons.account_balance_wallet,
         visibleFor: (_) => !checkRole('employee'),
@@ -544,81 +532,65 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   }
 
   // Build sidebar item widget
-  Widget _buildSidebarItem(_MenuItem item, bool isActive, bool collapsed, bool isDesktop, {int? badge}) {
+  Widget _buildSidebarItem(_MenuItem item, bool isActive, bool collapsed, bool isDesktop) {
     final hovering = _hovering[item.id] ?? false;
-    final bg = isActive ? Colors.blue.shade700 : (hovering ? Colors.grey.shade200 : Colors.transparent);
+    final bg = isActive
+        ? Colors.blue.shade700
+        : (hovering ? Colors.grey.shade200 : Colors.transparent);
     final fg = isActive ? Colors.white : Colors.black87;
 
-    return Tooltip(
-      message: item.label,
-      waitDuration: const Duration(milliseconds: 600),
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovering[item.id] = true),
-        onExit: (_) => setState(() => _hovering[item.id] = false),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: isActive ? [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2))] : null,
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: () => _onSelectMenu(item, isDesktop),
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 8, horizontal: collapsed ? 8 : 12),
-              child: Row(
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 140),
-                    width: 3, height: 30,
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? Colors.blue.shade700
-                          : (hovering ? Colors.blue.shade50 : Colors.transparent),
-                      borderRadius: BorderRadius.circular(12), // rounder look
-                      border: Border.all(color: isActive ? Colors.blue.shade700 : Colors.transparent),
-                      boxShadow: isActive
-                          ? [BoxShadow(color: Colors.blue.shade200.withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))]
-                          : null,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering[item.id] = true),
+      onExit: (_) => setState(() => _hovering[item.id] = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isActive
+              ? [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 6, offset: const Offset(0, 2))]
+              : null,
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () => _onSelectMenu(item, isDesktop),
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 10, horizontal: collapsed ? 8 : 14),
+            child: Row(
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                // active left indicator
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  width: 4,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: isActive ? Colors.yellow.shade700 : Colors.transparent,
+                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(4)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(item.icon, color: isActive ? Colors.white : Colors.black54),
+                if (!collapsed) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      overflow: TextOverflow.ellipsis, // no overflow
+                      item.label,
+                      style: TextStyle(
+                        color: fg,
+                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Icon(item.icon, color: isActive ? Colors.white : Colors.black54, size: 20),
-                  if (!collapsed) ...[
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        item.label,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: fg, fontWeight: isActive ? FontWeight.w600 : FontWeight.w500),
-                      ),
-                    ),
-                    if (badge != null && badge > 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: isActive
-                              ? Colors.blue.shade700
-                              : (hovering ? Colors.blue.shade50 : Colors.transparent),
-                          borderRadius: BorderRadius.circular(12), // rounder look
-                          border: Border.all(color: isActive ? Colors.blue.shade700 : Colors.transparent),
-                          boxShadow: isActive
-                              ? [BoxShadow(color: Colors.blue.shade200.withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))]
-                              : null,
-                        ),
-                        child: Text(
-                          badge > 99 ? '99+' : '$badge',
-                          style: TextStyle(
-                            color: isActive ? Colors.blue.shade700 : Colors.white,
-                            fontSize: 11, fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                  ],
                 ],
-              ),
+                if (isActive && !collapsed)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 6),
+                    child: Icon(Icons.chevron_right, color: Colors.white, size: 18),
+                  ),
+              ],
             ),
           ),
         ),
@@ -627,21 +599,16 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   }
 
   Widget _buildSidebar(bool collapsed, bool isDesktop) {
-    final bg1 = Theme.of(context).colorScheme.surface;
-    final bg2 = Colors.grey.shade50;
     final items = _visibleMenuItems;
-
     return Container(
-      width: collapsed ? 96 : 248, // tighter
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+      width: collapsed ? 110 : 260,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
-        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [bg1, bg2]),
-        border: Border(
-          right: BorderSide(color: Colors.grey.shade200),
-        ),
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(right: BorderSide(color: Colors.grey.shade200)),
       ),
       child: ListView(
-        children: [
+          children: [
             Column(
               children: [
                 // header (profile + collapse)
@@ -670,17 +637,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                               Text(widget.userMeta.email ?? '',
                                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                             ],
-                          ),
-                        ),
-                        if (!collapsed) Padding(
-                          padding: const EdgeInsets.only(top: 2.0),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.blueGrey.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(widget.userMeta.role.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
                           ),
                         ),
                         if(isDesktop)
@@ -715,8 +671,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                 // menu list (rendered inline so it scrolls with the rest)
                 ...items.map((mi) {
                   final isActive = _activeIndex == mi.id;
-                  // final badge = mi.id == 8 ? AppConfig().pendingWithdrawalsCount : null; // example
-                  return _buildSidebarItem(mi, isActive, collapsed, isDesktop, badge: 0);
+                  return _buildSidebarItem(mi, isActive, collapsed, isDesktop);
                 }),
 
                 if (!collapsed)
@@ -785,23 +740,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                         ),
                       ],
                     ),
-                  ),
-
-                if (collapsed) Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(tooltip: socketConnected ? 'Realtime ON' : 'Realtime OFF',
-                        icon: Icon(socketConnected ? Icons.cloud_done : Icons.cloud_off, color: _statusColor(socketConnected)),
-                        onPressed: null),
-                    IconButton(tooltip: 'Popups', icon: Icon(popUpENABLED ? Icons.notifications : Icons.notifications_off),
-                        onPressed: () => setState(() => popUpENABLED = !popUpENABLED)),
-                    IconButton(tooltip: 'TTS', icon: Icon(ttsENABLED ? Icons.volume_up : Icons.volume_off),
-                        onPressed: () => setState(() => ttsENABLED = !ttsENABLED)),
-                    IconButton(tooltip: 'Logout', icon: Icon(Icons.logout, color: Colors.redAccent,),
-                        onPressed: () => _logout(context)),
-                  ],
-                ),
-
+                  )
               ],
             ),
 
@@ -853,49 +792,30 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
               }
             ),
           const SizedBox(width: 8),
-          // Text(
-          //   '${widget.userMeta.name ?? "Dashboard"}',
-          //   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-          // ),
+          Text(
+            '${widget.userMeta.name ?? "Dashboard"}',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
           const Spacer(),
           // small profile + quick logout
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _statusColor(socketConnected).withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(socketConnected ? Icons.cloud_done : Icons.cloud_off, size: 16, color: _statusColor(socketConnected)),
-                    const SizedBox(width: 6),
-                    Text(socketConnected ? 'Realtime ON' : 'Realtime OFF',
-                        style: TextStyle(fontSize: 12, color: _statusColor(socketConnected))),
-                  ],
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(widget.userMeta.name ?? ''),
+                  Text(widget.userMeta.email ?? '', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                ],
               ),
               const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: Colors.blueGrey.withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
-                child: Text(widget.userMeta.role.toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+              IconButton(
+                tooltip: 'Logout',
+                onPressed: () => _logout(context),
+                icon: const Icon(Icons.logout),
               ),
-              const SizedBox(width: 16),
-              // Column(
-              //   crossAxisAlignment: CrossAxisAlignment.end,
-              //   mainAxisAlignment: MainAxisAlignment.center,
-              //   children: [
-              //     Text(widget.userMeta.name ?? '', overflow: TextOverflow.ellipsis),
-              //     Text(widget.userMeta.email ?? '', style: const TextStyle(fontSize: 12, color: Colors.grey), overflow: TextOverflow.ellipsis),
-              //   ],
-              // ),
-              const SizedBox(width: 12),
-              IconButton(tooltip: 'Logout', onPressed: () => _logout(context), icon: const Icon(Icons.logout)),
             ],
           ),
-
         ],
       ),
     );

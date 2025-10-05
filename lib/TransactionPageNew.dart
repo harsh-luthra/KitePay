@@ -98,6 +98,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   final FlutterTts _tts = FlutterTts();
 
   bool showingFilters = false;
+  bool compactMode = true;
 
   @override
   void initState() {
@@ -250,32 +251,33 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           // final message = '₹$amt received in KitePay';
           // await _tts.stop();                // avoid overlap
           // await _tts.speak(message);        // speak it
+          if (!mounted) return;
           setState(() {
-            transactions.insert(0, txn);
-            // print(transactions[0]);
-            // After duplicate check and successful insert
-            // showDialog(
-            //   context: context,
-            //   barrierDismissible: true, // tap outside to close [1]
-            //   builder: (ctx) =>
-            //       AlertDialog(
-            //         title: const Text('New Payment Received'),
-            //         content: Column(
-            //           mainAxisSize: MainAxisSize.min,
-            //           children: [
-            //             TransactionCard(txn: txn),
-            //           ],
-            //         ),
-            //         actions: [
-            //           TextButton(
-            //             onPressed: () => Navigator.of(ctx).pop(),
-            //             child: const Text('Close'),
-            //           ),
-            //         ],
-            //       ),
-            // );
-          });
-        }
+              transactions.insert(0, txn);
+              // print(transactions[0]);
+              // After duplicate check and successful insert
+              // showDialog(
+              //   context: context,
+              //   barrierDismissible: true, // tap outside to close [1]
+              //   builder: (ctx) =>
+              //       AlertDialog(
+              //         title: const Text('New Payment Received'),
+              //         content: Column(
+              //           mainAxisSize: MainAxisSize.min,
+              //           children: [
+              //             TransactionCard(txn: txn),
+              //           ],
+              //         ),
+              //         actions: [
+              //           TextButton(
+              //             onPressed: () => Navigator.of(ctx).pop(),
+              //             child: const Text('Close'),
+              //           ),
+              //         ],
+              //       ),
+              // );
+            });
+          }
 
         // setState(() {
         //   transactions.insert(0, txn); // or convert to your model then insert
@@ -287,14 +289,17 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   }
 
   Future<void> loadInitialData() async {
+    if (!mounted) return;
+
     setState(() {
-      loading = true;
-      _searchController.clear();
-      transactions.clear();
-      // allTransactions.clear();
-      nextCursor = null; // reset for new load
-      hasMore = true;
-    });
+        loading = true;
+        _searchController.clear();
+        transactions.clear();
+        // allTransactions.clear();
+        nextCursor = null; // reset for new load
+        hasMore = true;
+      });
+
 
     userMeta = (await MyMetaApi.getMyMetaData(
       jwtToken: await AppWriteService().getJWT(),
@@ -331,14 +336,16 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   }
 
   Future<void> refreshTransactionsOnly() async {
+    if (!mounted) return;
+
     setState(() {
-      loading = true;
-      _searchController.clear();
-      transactions.clear();
-      // allTransactions.clear();
-      nextCursor = null; // reset for new load
-      hasMore = true;
-    });
+        loading = true;
+        _searchController.clear();
+        transactions.clear();
+        // allTransactions.clear();
+        nextCursor = null; // reset for new load
+        hasMore = true;
+      });
 
     if (widget.userMode) {
       await fetchUserTransactions();
@@ -442,8 +449,10 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     }
 
     if (firstLoad) {
+      if(mounted)
       setState(() => loading = false);
     } else {
+      if(mounted)
       setState(() => loadingMore = false);
     }
   }
@@ -493,9 +502,11 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     }
 
     if (firstLoad) {
-      setState(() => loading = false);
+      if(mounted)
+        setState(() => loading = false);
     } else {
-      setState(() => loadingMore = false);
+      if(mounted)
+        setState(() => loadingMore = false);
     }
   }
 
@@ -953,7 +964,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TransactionCard(txn: txn),
+                TransactionCard(txn: txn,compactMode: false,),
               ],
             ),
             actions: [
@@ -1050,7 +1061,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TransactionCard(txn: txn), // existing preview [2]
+                  TransactionCard(txn: txn, compactMode: false,), // existing preview [2]
                   const SizedBox(height: 12),
                   DropdownButton<TxnStatus>(
                     value: selected,
@@ -1184,6 +1195,17 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
               ],
             ),
 
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Compact Mode: '),
+                Switch.adaptive(
+                  value: compactMode,
+                  onChanged: (val) => setState(() => compactMode = val),
+                ),
+              ],
+            ),
+
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed:
@@ -1227,12 +1249,17 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                 itemCount: transactions.length + (loadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index < transactions.length) {
-                    return (userMeta.role == 'admin' || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.editTransactions))) ? TransactionCard(
-                        txn: transactions[index],
-                        onEdit: (txn) => editTransaction(context, txn: txn),
-                        onDelete: (txn) => deleteTransaction(context, txn: txn),
-                        onStatus: (txn) => changeTransactionStatus(context, txn: txn))
-                        : TransactionCard(txn: transactions[index]);
+                    // if(compactMode){
+                    //   TransactionCardCompact(txn: transactions[index]);
+                    // }else{
+                      return (userMeta.role == 'admin' || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.editTransactions))) ? TransactionCard(
+                          compactMode: compactMode,
+                          txn: transactions[index],
+                          onEdit: (txn) => editTransaction(context, txn: txn),
+                          onDelete: (txn) => deleteTransaction(context, txn: txn),
+                          onStatus: (txn) => changeTransactionStatus(context, txn: txn))
+                          : TransactionCard(txn: transactions[index], compactMode: compactMode,);
+                    // }
                     // return TransactionCard(txn: transactions[index],onEdit: (txn) => editTransaction(context, txn: txn),onDelete: (txn) => deleteTransaction(context, txn: txn),);
                   }
                   return const TransactionCardShimmer();
@@ -1247,361 +1274,362 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   }
 
   Widget _buildSearchArea() {
-    const searchFields = [
-      'qrCodeId',
-      'paymentId',
-      'rrnNumber',
-      'vpa',
-      'amount',
-    ];
+    const searchFields = ['qrCodeId', 'paymentId', 'rrnNumber', 'vpa', 'amount'];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Search', style: TextStyle(fontWeight: FontWeight.bold)),
-        Row(
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              flex: 2,
-              child: DropdownButtonFormField<String>(
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Field',
+            Row(children: const [
+              Icon(Icons.search, size: 18, color: Colors.blueGrey),
+              SizedBox(width: 8),
+              Text('Search', style: TextStyle(fontWeight: FontWeight.w600)),
+            ]),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                SizedBox(
+                  width: 220,
+                  child: DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Field',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    value: selectedSearchField,
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('Select field')),
+                      ...searchFields.map((f) => DropdownMenuItem(value: f, child: Text(f))),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        selectedSearchField = value;
+                        if ((value == 'amount' || value == 'rrnNumber') && searchText.isNotEmpty) {
+                          searchText = '';
+                          _searchController.clear();
+                        }
+                      });
+                    },
+                  ),
                 ),
-                value: selectedSearchField,
-                items: [
-                  const DropdownMenuItem(
-                      value: null, child: Text('Select field')),
-                  ...searchFields.map((field) =>
-                      DropdownMenuItem(
-                        value: field,
-                        child: Text(field),
-                      )),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    selectedSearchField = value;
-                    // Clear input if needed
-                    if ((value == 'amount' || value == 'rrnNumber') &&
-                        searchText.isNotEmpty) {
-                      searchText = '';
-                      _searchController.clear();
-                    }
-                  });
-                },
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              flex: 3,
-              child: TextField(
-                controller: _searchController,
-                keyboardType: (selectedSearchField == 'amount' ||
-                    selectedSearchField == 'rrnNumber')
-                    ? const TextInputType.numberWithOptions(decimal: false)
-                    : TextInputType.text,
-                inputFormatters: (selectedSearchField == 'amount' ||
-                    selectedSearchField == 'rrnNumber')
-                    ? [FilteringTextInputFormatter.digitsOnly]
-                    : null,
-                decoration: const InputDecoration(
-                  labelText: 'Search text',
+                SizedBox(
+                  width: 320,
+                  child: TextField(
+                    controller: _searchController,
+                    keyboardType: (selectedSearchField == 'amount' || selectedSearchField == 'rrnNumber')
+                        ? const TextInputType.numberWithOptions(decimal: false)
+                        : TextInputType.text,
+                    inputFormatters: (selectedSearchField == 'amount' || selectedSearchField == 'rrnNumber')
+                        ? [FilteringTextInputFormatter.digitsOnly]
+                        : null,
+                    decoration: InputDecoration(
+                      labelText: 'Search text',
+                      isDense: true,
+                      border: const OutlineInputBorder(),
+                      suffixIcon: searchText.isNotEmpty
+                          ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          setState(() {
+                            searchText = '';
+                            _searchController.clear();
+                          });
+                          _refetchWithCurrentFilters();
+                        },
+                      )
+                          : null,
+                    ),
+                    onChanged: (value) => searchText = value,
+                    onSubmitted: (_) => _refetchWithCurrentFilters(),
+                  ),
                 ),
-                onChanged: (value) {
-                  searchText = value;
-                },
-              ),
-            ),
-            const SizedBox(width: 10),
-            ElevatedButton(
-              onPressed: () {
-                // On button tap, execute search
-                FocusScope.of(context).unfocus(); // close keyboard
-                _refetchWithCurrentFilters();
-              },
-              child: const Text("Search"),
+                SizedBox(
+                  height: 40,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.search, size: 18),
+                    label: const Text('Search'),
+                    onPressed: () {
+                      FocusScope.of(context).unfocus();
+                      _refetchWithCurrentFilters();
+                    },
+                  ),
+                ),
+              ],
             ),
           ],
         ),
-        const SizedBox(height: 12),
-      ],
+      ),
     );
   }
 
   Widget _buildFilters(bool userHasQrCodes) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Column(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (!widget.userMode)
-                Expanded(
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: const [
+              Icon(Icons.filter_alt_outlined, size: 18, color: Colors.blueGrey),
+              SizedBox(width: 8),
+              Text('Filters', style: TextStyle(fontWeight: FontWeight.w600)),
+            ]),
+            const SizedBox(height: 12),
+
+            // Top row: User + QR
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                if (!widget.userMode)
+                  SizedBox(
+                    width: 320,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 6),
+                          child: Text('Filter User', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        loadingUsers
+                            ? const LinearProgressIndicator(minHeight: 2)
+                            : DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          value: selectedUserId,
+                          hint: const Text('Select User'),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                          items: [
+                            const DropdownMenuItem(value: null, child: Text('--------')),
+                            ...users.map(
+                                  (u) => DropdownMenuItem(
+                                value: u.id,
+                                child: Text('${u.name} (${u.email})', overflow: TextOverflow.ellipsis),
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              selectedUserId = value;
+                              selectedQrCodeId = null;
+                            });
+                            _refetchWithCurrentFilters();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                SizedBox(
+                  width: 320,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       const Padding(
-                        padding: EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          'Filter User',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                        padding: EdgeInsets.only(bottom: 6),
+                        child: Text('Filter QR Code', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
-                      loadingUsers
-                          ? const CircularProgressIndicator()
+                      loadingQr
+                          ? const LinearProgressIndicator(minHeight: 2)
                           : DropdownButtonFormField<String>(
                         isExpanded: true,
-                        value: selectedUserId,
-                        hint: const Text('Select User'),
+                        value: selectedQrCodeId,
+                        hint: const Text('Select QR Code'),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
                         items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('--------'),
-                          ),
-                          ...users.map(
-                                (user) =>
-                                DropdownMenuItem(
-                                  value: user.id,
-                                  child: Text('${user.name} (${user.email})'),
-                                ),
+                          const DropdownMenuItem(value: null, child: Text('--------')),
+                          ...filteredQrCodes.map(
+                                (qr) => DropdownMenuItem(
+                              value: qr.qrId,
+                              child: Text('${qr.qrId} (${qr.totalTransactions})', overflow: TextOverflow.ellipsis),
+                            ),
                           ),
                         ],
                         onChanged: (value) {
-                          setState(() {
-                            selectedUserId = value;
-                            selectedQrCodeId = null;
-                          });
+                          setState(() => selectedQrCodeId = value);
                           _refetchWithCurrentFilters();
                         },
                       ),
                     ],
                   ),
                 ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        'Filter QR Code',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    loadingQr
-                        ? const CircularProgressIndicator()
-                        : DropdownButtonFormField<String>(
-                      isExpanded: true,
-                      value: selectedQrCodeId,
-                      hint: const Text('Select QR Code'),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('--------'),
-                        ),
-                        ...filteredQrCodes.map(
-                              (qr) =>
-                              DropdownMenuItem(
-                                value: qr.qrId,
-                                child: Text(
-                                    '${qr.qrId} (${qr.totalTransactions})'),
-                              ),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          selectedQrCodeId = value;
-                        });
-                        _refetchWithCurrentFilters();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+              ],
+            ),
 
-          // 📅 Date Filters
-          const SizedBox(height: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+            const SizedBox(height: 16),
+
+            // Date range row
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text("From Date",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextButton(
-                                onPressed: () async {
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: selectedFromDate ??
-                                        DateTime.now(),
-                                    firstDate: DateTime(2020),
-                                    lastDate: DateTime.now(),
-                                  );
-                                  if (picked != null) {
-                                    setState(() {
-                                      selectedFromDate = picked;
-                                    });
-                                    _refetchWithCurrentFilters();
-                                  }
-                                },
-                                child: Text(
-                                  selectedFromDate == null
-                                      ? "Pick Date"
-                                      : "${selectedFromDate!.toLocal()}".split(
-                                      ' ')[0],
-                                ),
-                              ),
-                            ),
-                            if (selectedFromDate != null)
-                              IconButton(
-                                icon: const Icon(Icons.clear, size: 20),
-                                onPressed: () {
-                                  setState(() {
-                                    selectedFromDate = null;
-                                  });
-                                  _refetchWithCurrentFilters();
-                                },
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
+                  _datePickerChip(
+                    label: 'From',
+                    date: selectedFromDate,
+                    onPick: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedFromDate ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null) {
+                        setState(() => selectedFromDate = picked);
+                        _refetchWithCurrentFilters();
+                      }
+                    },
+                    onClear: () {
+                      setState(() => selectedFromDate = null);
+                      _refetchWithCurrentFilters();
+                    },
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text("To Date",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextButton(
-                                onPressed: () async {
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: selectedToDate ??
-                                        DateTime.now(),
-                                    firstDate: DateTime(2020),
-                                    lastDate: DateTime.now(),
-                                  );
-                                  if (picked != null) {
-                                    setState(() {
-                                      selectedToDate = picked;
-                                    });
-                                    _refetchWithCurrentFilters();
-                                  }
-                                },
-                                child: Text(
-                                  selectedToDate == null
-                                      ? "Pick Date"
-                                      : "${selectedToDate!.toLocal()}".split(
-                                      ' ')[0],
-                                ),
-                              ),
-                            ),
-                            if (selectedToDate != null)
-                              IconButton(
-                                icon: const Icon(Icons.clear, size: 20),
-                                onPressed: () {
-                                  setState(() {
-                                    selectedToDate = null;
-                                  });
-                                  _refetchWithCurrentFilters();
-                                },
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
+                  _datePickerChip(
+                    label: 'To',
+                    date: selectedToDate,
+                    onPick: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedToDate ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null) {
+                        setState(() => selectedToDate = picked);
+                        _refetchWithCurrentFilters();
+                      }
+                    },
+                    onClear: () {
+                      setState(() => selectedToDate = null);
+                      _refetchWithCurrentFilters();
+                    },
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.delete_sweep, size: 18),
+                    label: const Text('Clear Dates'),
+                    onPressed: () {
+                      setState(() {
+                        selectedFromDate = null;
+                        selectedToDate = null;
+                      });
+                      _refetchWithCurrentFilters();
+                    },
                   ),
                 ],
               ),
+            ),
 
-              const SizedBox(height: 8),
+            const SizedBox(height: 12),
 
-              // Select Status
-              // buildStatusFilter(),
+            // Status row (optional)
+            // buildStatusFilter(),
 
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.delete_sweep, size: 18),
-                  label: const Text("Clear All Dates"),
+            if (selectedUserId != null && !userHasQrCodes)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('No QR codes assigned to this user.', style: TextStyle(color: Colors.red)),
+                ),
+              ),
+
+            const SizedBox(height: 10),
+            // Footer actions
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Reset'),
                   onPressed: () {
                     setState(() {
+                      selectedUserId = null;
+                      selectedQrCodeId = null;
                       selectedFromDate = null;
                       selectedToDate = null;
+                      selectedStatus = null;
+                      selectedSearchField = null;
+                      searchText = '';
+                      _searchController.clear();
                     });
                     _refetchWithCurrentFilters();
                   },
                 ),
-              ),
-            ],
-          ),
-
-          if (selectedUserId != null && !userHasQrCodes)
-            const Padding(
-              padding: EdgeInsets.only(top: 10),
-              child: Text(
-                'No QR codes assigned to this user.',
-                style: TextStyle(color: Colors.red),
-              ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.filter_alt),
+                  label: const Text('Apply'),
+                  onPressed: () {
+                    FocusScope.of(context).unfocus();
+                    _refetchWithCurrentFilters();
+                  },
+                ),
+              ],
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
+  Widget _datePickerChip({
+    required String label,
+    required DateTime? date,
+    required VoidCallback onPick,
+    required VoidCallback onClear,
+  }) {
+    final text = date == null ? 'Pick $label' : DateFormat('yyyy-MM-dd').format(date.toLocal());
+    return InputChip(
+      label: Text('$label: $text'),
+      avatar: const Icon(Icons.date_range, size: 18),
+      onPressed: onPick,
+      onDeleted: date != null ? onClear : null,
+    );
+  }
+
   Widget buildStatusFilter() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.start,
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final statuses = ['normal', 'cyber', 'refund', 'chargeback'];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: [
-        // Select Status
         const Padding(
-          padding: EdgeInsets.only(bottom: 4),
-          child: Text(
-            'Filter Status',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-        )
-        , loading
-            ? const CircularProgressIndicator() :
-        DropdownButtonFormField<String>(
-          isExpanded: true,
-          value: selectedStatus,
-          hint: const Text('Select Status'),
-          items: [
-            const DropdownMenuItem<String>(
-              value: null, // represents "ALL"
-              child: Text('ALL'),
-            ),
-            ...TxnStatus.values.map(
-                  (s) => DropdownMenuItem<String>(
-                value: s.name,
-                child: Text(s.name), // "normal", "cyber", ...
-              ),
-            ),
-          ],
-          onChanged: (value) {
-            setState(() => selectedStatus = value);
-            print(selectedStatus);
-            _refetchWithCurrentFilters();
-          },
+          padding: EdgeInsets.only(right: 8),
+          child: Text('Filter Status', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
+        ChoiceChip(
+          label: const Text('ALL'),
+          selected: selectedStatus == null,
+          onSelected: (_) => setState(() {
+            selectedStatus = null;
+            _refetchWithCurrentFilters();
+          }),
+        ),
+        ...statuses.map((s) => ChoiceChip(
+          label: Text(s),
+          selected: selectedStatus == s,
+          onSelected: (_) => setState(() {
+            selectedStatus = s;
+            _refetchWithCurrentFilters();
+          }),
+        )),
       ],
     );
   }

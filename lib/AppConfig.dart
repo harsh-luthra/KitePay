@@ -24,7 +24,7 @@ class AppConfig {
     // print("min_withdrawal_amount: $minWithdrawalAmount");
     // print("transaction_fee_percent: $transactionFeePercent");
     // print("max_withdrawal_requests: $maxWithdrawalrequests");
-    print("overhead_balance_required: $overheadBalanceRequired");
+    // print("overhead_balance_required: $overheadBalanceRequired");
 
   }
 

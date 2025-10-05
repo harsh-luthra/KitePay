@@ -1,6 +1,7 @@
 import 'package:admin_qr_manager/AppConfig.dart';
 import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import 'UsersService.dart';
@@ -306,113 +307,227 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
     );
   }
 
-  void _approveRequest(WithdrawalRequest request) async {
-    final TextEditingController _utrController = TextEditingController();
+  Future<void> _approveRequest(WithdrawalRequest request) async {
+    final utrCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    bool submitting = false;
 
-    final result = await showDialog<String>(
+    String rupees(num p) => formatIndianCurrency(p);
+
+    final utr = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Enter UTR Number'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: _utrController,
-            decoration: InputDecoration(labelText: 'UTR Number'),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'UTR number is required';
-              }
-              if (value.trim().length < 8) {
-                return 'UTR number must be at least 8 characters';
-              }
-              return null;
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, null),
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.pop(context, _utrController.text.trim());
-              }
-            },
-            child: Text('Approve'),
-          ),
-        ],
-      ),
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setLocal) {
+          String? validate(String? v) {
+            final s = v?.trim() ?? '';
+            if (s.isEmpty) return 'UTR number is required';
+            if (s.length < 8) return 'UTR must be at least 8 characters';
+            if (!RegExp(r'^[A-Za-z0-9-_/]+$').hasMatch(s)) {
+              return 'Only letters, numbers and - _ / are allowed';
+            }
+            return null;
+          }
+
+          final valid = validate(utrCtrl.text) == null;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: const Text('Approve Withdrawal'),
+            content: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Recap
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Debit: ${rupees(request.amount)}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 4),
+                        Text('QR: ${request.qrId}'),
+                        if (request.userId != null)
+                          Text('Requested By: ${displayUserNameText(request.userId) ?? request.userId}'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  TextFormField(
+                    controller: utrCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: InputDecoration(
+                      labelText: 'UTR Number',
+                      hintText: 'Enter bank UTR',
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.confirmation_number_outlined),
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (utrCtrl.text.isNotEmpty)
+                            IconButton(
+                              tooltip: 'Clear',
+                              icon: const Icon(Icons.clear),
+                              onPressed: () => setLocal(() => utrCtrl.clear()),
+                            ),
+                          IconButton(
+                            tooltip: 'Paste',
+                            icon: const Icon(Icons.content_paste),
+                            onPressed: () async {
+                              final data = await Clipboard.getData(Clipboard.kTextPlain);
+                              if (data?.text != null) {
+                                setLocal(() => utrCtrl.text = data!.text!.trim());
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      helperText: 'Min 8 chars; letters/numbers allowed',
+                    ),
+                    validator: validate,
+                    onChanged: (_) => setLocal(() {}),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: submitting ? null : () => Navigator.pop(ctx, null),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: (!valid || submitting)
+                    ? null
+                    : () async {
+                  if (!formKey.currentState!.validate()) return;
+                  setLocal(() => submitting = true);
+                  try {
+                  final (success, message) = await WithdrawService.approveWithdrawal(
+                  jwtToken: await AppWriteService().getJWT(),
+                  requestId: request.id!,
+                  utrNumber: utrCtrl.text.trim(),
+                  );
+                  if (context.mounted) {
+                  Navigator.pop(ctx, success ? utrCtrl.text.trim() : null);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                  if (success) fetchWithdrawalRequests();
+                  }
+                  } catch (e) {
+                  if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                  } finally {
+                  if (context.mounted) setLocal(() => submitting = false);
+                  }
+                },
+                child: submitting
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Approve'),
+              ),
+            ],
+          );
+        });
+      },
     );
 
-    if (result != null && result.isNotEmpty) {
-
-      final (success, message) = await WithdrawService.approveWithdrawal(
-          jwtToken: await AppWriteService().getJWT(),
-          requestId: request.id!,
-          utrNumber: result,
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-      );
-
-      if (success) fetchWithdrawalRequests();
-
-    }
+    // no-op; handled inside dialog
   }
 
   void _showRejectDialog(BuildContext context, WithdrawalRequest request) {
-    final TextEditingController _reasonController = TextEditingController();
+    final reasonCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    bool submitting = false;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Reject Withdrawal'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: _reasonController,
-            decoration: InputDecoration(labelText: 'Reason for rejection'),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Reason is required';
-              }
-              if (value.trim().length < 4) {
-                return 'Minimum 4 characters required';
-              }
-              return null;
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (formKey.currentState!.validate()) {
-              final (success, message) = await WithdrawService.rejectWithdrawal(
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setLocal) {
+          String? validate(String? v) {
+            final s = v?.trim() ?? '';
+            if (s.isEmpty) return 'Reason is required';
+            if (s.length < 4) return 'Minimum 4 characters required';
+            return null;
+          }
+
+          final valid = validate(reasonCtrl.text) == null;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: const Text('Reject Withdrawal'),
+            content: Form(
+              key: formKey,
+              child: TextFormField(
+                controller: reasonCtrl,
+                maxLines: 3,
+                textInputAction: TextInputAction.newline,
+                decoration: InputDecoration(
+                  labelText: 'Reason for rejection',
+                  hintText: 'Provide a clear reason (will be visible to requester)',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.comment_outlined),
+                  suffixIcon: reasonCtrl.text.isNotEmpty
+                      ? IconButton(
+                    tooltip: 'Clear',
+                    icon: const Icon(Icons.clear),
+                    onPressed: () => setLocal(() => reasonCtrl.clear()),
+                  )
+                      : null,
+                  helperText: 'Minimum 4 characters',
+                ),
+                validator: validate,
+                onChanged: (_) => setLocal(() {}),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: submitting ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
+                onPressed: (!valid || submitting)
+                    ? null
+                    : () async {
+                  if (!formKey.currentState!.validate()) return;
+                  setLocal(() => submitting = true);
+                  try {
+                  final (success, message) = await WithdrawService.rejectWithdrawal(
                   jwtToken: await AppWriteService().getJWT(),
                   requestId: request.id!,
-                  reason: _reasonController.text.trim(),
-                );
-                Navigator.pop(context);
-
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-
-                if (success) fetchWithdrawalRequests();
-
-              }
-            },
-            child: Text('Reject'),
-          ),
-        ],
-      ),
+                  reason: reasonCtrl.text.trim(),
+                  );
+                  if (context.mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                  if (success) fetchWithdrawalRequests();
+                  }
+                  } catch (e) {
+                  if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                  } finally {
+                  if (context.mounted) setLocal(() => submitting = false);
+                  }
+                },
+                child: submitting
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Reject'),
+              ),
+            ],
+          );
+        });
+      },
     );
   }
 
