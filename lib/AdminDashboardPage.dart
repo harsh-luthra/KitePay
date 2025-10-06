@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
+import 'AppConstants.dart';
+import 'AppWriteService.dart';
+
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({super.key});
   @override
@@ -21,16 +24,21 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   }
 
   Future<void> _refresh() async {
+    if (_refreshing) return;
     setState(() => _refreshing = true);
     try {
       final data = await fetchDashboard(force: true);
-      if (mounted) {
-        setState(() => _future = Future.value(data));
-      }
-    } finally {
+      if (!mounted) return;
+      setState(() {
+        _future = Future.value(data);
+        _refreshing = false;
+      });
+    } catch (_) {
       if (mounted) setState(() => _refreshing = false);
+      rethrow;
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -40,8 +48,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         actions: [
           IconButton(
             tooltip: 'Refresh',
-            icon: _refreshing ? const CircularProgressIndicator(strokeWidth: 2) : const Icon(Icons.refresh),
-            onPressed: _refreshing ? null : _refresh,
+            icon: _refreshing
+                ? const SizedBox(
+                width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.refresh),
+            onPressed: _refreshing ? null : () { _refresh(); }, // no async here
           ),
         ],
       ),
@@ -92,7 +103,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   title: 'QR Breakdown',
                   children: [
                     _metricGrid([
-                      _metric('Pinelab QRs', data.totalPinelabQrs, Icons.qr_code_scanner, Colors.green),
+                      _metric('Pinelabs QRs', data.totalPinelabsQrs, Icons.qr_code_scanner, Colors.green),
                       _metric('Paytm QRs', data.totalPaytmQrs, Icons.qr_code_scanner, Colors.blue),
                       _metric('Other QRs', data.totalOtherQrs, Icons.qr_code_scanner, Colors.grey),
                       _metric('QRs Active', data.qrCodesActive, Icons.check_circle, Colors.green.shade700),
@@ -342,10 +353,11 @@ class DashboardData {
   final int totalQrsAssignedToMerchant;
 
   // QR breakdown
-  final int totalPinelabQrs;
+  final int totalPinelabsQrs;
   final int totalPaytmQrs;
   final int totalOtherQrs;
   final int qrCodesActive;
+  final int qrCodesDisabled;
 
   // Transaction types
   final int totalManualTx;
@@ -380,10 +392,11 @@ class DashboardData {
     required this.totalMerchantProfit,
     required this.totalQrsUploaded,
     required this.totalQrsAssignedToMerchant,
-    required this.totalPinelabQrs,
+    required this.totalPinelabsQrs,
     required this.totalPaytmQrs,
     required this.totalOtherQrs,
     required this.qrCodesActive,
+    required this.qrCodesDisabled,
     required this.totalManualTx,
     required this.totalApiTx,
     required this.chargebackCount,
@@ -411,10 +424,11 @@ class DashboardData {
       totalMerchantProfit: j['totalMerchantProfit'],
       totalQrsUploaded: j['totalQrsUploaded'],
       totalQrsAssignedToMerchant: j['totalQrsAssignedToMerchant'],
-      totalPinelabQrs: j['totalPinelabQrs'],
+      totalPinelabsQrs: j['totalPinelabsQrs'],
       totalPaytmQrs: j['totalPaytmQrs'],
       totalOtherQrs: j['totalOtherQrs'],
       qrCodesActive: j['qrCodesActive'],
+      qrCodesDisabled : j['qrCodesDisabled'],
       totalManualTx: j['totalManualTx'],
       totalApiTx: j['totalApiTx'],
       chargebackCount: j['chargebackCount'],
@@ -436,49 +450,118 @@ class DashboardData {
      );
 }
 
-// Change this to your real endpoint later
+DashboardData? _cache;
+DateTime? _cacheAt;
+
 Future<DashboardData> fetchDashboard({bool force = false}) async {
-  await Future.delayed(const Duration(milliseconds: 450)); // simulate latency
+  // if (!force && _cache != null && _cacheAt != null) {
+  //   final age = DateTime.now().difference(_cacheAt!);
+  //   if (age.inSeconds < 30) return _cache!;
+  // }
 
-  // TODO: Switch to real API
-  // final jwt = await AppWriteService.instance.getJwt();
-  // final resp = await http.get(
-  //   Uri.parse('${AppConstants.baseUrl}/admin/dashboard/summary'),
-  //   headers: {'Authorization': 'Bearer $jwt'},
-  // );
-  // if (resp.statusCode != 200) throw Exception(resp.body);
-  // final jsonMap = json.decode(resp.body) as Map<String, dynamic>;
-  // return DashboardData.fromJson(jsonMap);
+  final jwt = await AppWriteService().getJWT();
+  final uri = Uri.parse('${AppConstants.baseApiUrl}/admin/dashboard/counters');
+  final resp = await http.get(uri, headers: {'Authorization': 'Bearer $jwt', 'Accept': 'application/json'});
 
-  // Dummy data (paise for money fields)
-  return DashboardData(
-    totalTxCount: 128_540,
-    totalAmountReceived: 45_75_34_550,       // ₹4,57,53,455.50
-    totalAdminProfit: 1_84_55_430,           // ₹18,455,430.00
-    totalMerchantProfit: 2_42_11_220,        // ₹24,211,220.00
-    totalQrsUploaded: 9_842,
-    totalQrsAssignedToMerchant: 8_130,
-    totalPinelabQrs: 3_420,
-    totalPaytmQrs: 4_100,
-    totalOtherQrs: 2_322,
-    qrCodesActive: 7_950,
-    totalManualTx: 18_250,
-    totalApiTx: 110_290,
-    chargebackCount: 320,
-    chargebackAmount: 12_45_600,
-    cyberCount: 210,
-    cyberAmount: 8_75_900,
-    refundCount: 1_120,
-    refundAmount: 23_40_000,
-    totalAmountPaid: 29_11_400,
-    totalWithdrawalPendingAmount: 7_65_800,
-    activeUsers: 15_420,
-    disabledUsers: 420,
-    merchantActive: 2_310,
-    merchantPending: 185,
-    merchantDisabled: 160,
-    totalUsers: 18_500,
-    totalMembershipPurchased: 1_240,
-    pendingMembershipUsers: 95,
-  );
+  if (resp.statusCode != 200) {
+    throw Exception('Failed to fetch dashboard: ${resp.statusCode} ${resp.body}');
+  }
+
+  print(resp.body);
+
+  final jsonMap = json.decode(resp.body) as Map<String, dynamic>;
+  // final data = DashboardData.fromJson(jsonMap);
+  //
+  // _cache = data;
+  // _cacheAt = DateTime.now();
+  // return data;
+
+  final raw = json.decode(resp.body) as Map<String, dynamic>;
+  final data = {
+    'totalTxCount': raw['totalTxCount'] ?? 0,
+    'totalAmountReceived': raw['totalAmountReceived'] ?? 0,
+    'totalAdminProfit': raw['totalAdminProfit'] ?? 0,
+    'totalMerchantProfit': raw['totalMerchantProfit'] ?? 0,
+    'totalQrsUploaded': raw['totalQrsUploaded'] ?? 0,
+    'totalQrsAssignedToMerchant': raw['totalQrsAssignedToMerchant'] ?? 0,
+    'totalPinelabsQrs': raw['totalPinelabsQrs'] ?? 0,
+    'totalPaytmQrs': raw['totalPaytmQrs'] ?? 0,
+    'totalOtherQrs': raw['totalOtherQrs'] ?? 0,
+    'qrCodesActive': raw['qrCodesActive'] ?? 0,
+    // If you also store disabled in backend, include it; else keep a default:
+    'qrCodesDisabled': raw['qrCodesDisabled'] ?? 0,
+
+    'totalManualTx': raw['totalManualTx'] ?? 0,
+    'totalApiTx': raw['totalApiTx'] ?? 0,
+    'chargebackCount': raw['chargebackCount'] ?? 0,
+    'chargebackAmount': raw['chargebackAmount'] ?? 0,
+    'cyberCount': raw['cyberCount'] ?? 0,
+    'cyberAmount': raw['cyberAmount'] ?? 0,
+    'refundCount': raw['refundCount'] ?? 0,
+    'refundAmount': raw['refundAmount'] ?? 0,
+
+    'totalAmountPaid': raw['totalAmountPaid'] ?? 0,
+    'totalWithdrawalPendingAmount': raw['totalWithdrawalPendingAmount'] ?? 0,
+
+    'activeUsers': raw['activeUsers'] ?? 0,
+    'disabledUsers': raw['disabledUsers'] ?? 0,
+    'merchantActive': raw['merchantActive'] ?? 0,
+    'merchantPending': raw['merchantPending'] ?? 0,
+    'merchantDisabled': raw['merchantDisabled'] ?? 0,
+    'totalUsers': raw['totalUsers'] ?? 0,
+
+    'totalMembershipPurchased': raw['totalMembershipPurchased'] ?? 0,
+    'pendingMembershipUsers': raw['pendingMembershipUsers'] ?? 0,
+  };
+
+  return DashboardData.fromJson(data);
+
 }
+
+// Change this to your real endpoint later
+// Future<DashboardData> fetchDashboard({bool force = false}) async {
+//   await Future.delayed(const Duration(milliseconds: 450)); // simulate latency
+//
+//   // TODO: Switch to real API
+//   // final jwt = await AppWriteService.instance.getJwt();
+//   // final resp = await http.get(
+//   //   Uri.parse('${AppConstants.baseUrl}/admin/dashboard/summary'),
+//   //   headers: {'Authorization': 'Bearer $jwt'},
+//   // );
+//   // if (resp.statusCode != 200) throw Exception(resp.body);
+//   // final jsonMap = json.decode(resp.body) as Map<String, dynamic>;
+//   // return DashboardData.fromJson(jsonMap);
+//
+//   // Dummy data (paise for money fields)
+//   return DashboardData(
+//     totalTxCount: 128_540,
+//     totalAmountReceived: 45_75_34_550,       // ₹4,57,53,455.50
+//     totalAdminProfit: 1_84_55_430,           // ₹18,455,430.00
+//     totalMerchantProfit: 2_42_11_220,        // ₹24,211,220.00
+//     totalQrsUploaded: 9_842,
+//     totalQrsAssignedToMerchant: 8_130,
+//     totalPinelabsQrs: 3_420,
+//     totalPaytmQrs: 4_100,
+//     totalOtherQrs: 2_322,
+//     qrCodesActive: 7_950,
+//     qrCodesDisabled: 520,
+//     totalManualTx: 18_250,
+//     totalApiTx: 110_290,
+//     chargebackCount: 320,
+//     chargebackAmount: 12_45_600,
+//     cyberCount: 210,
+//     cyberAmount: 8_75_900,
+//     refundCount: 1_120,
+//     refundAmount: 23_40_000,
+//     totalAmountPaid: 29_11_400,
+//     totalWithdrawalPendingAmount: 7_65_800,
+//     activeUsers: 15_420,
+//     disabledUsers: 420,
+//     merchantActive: 2_310,
+//     merchantPending: 185,
+//     merchantDisabled: 160,
+//     totalUsers: 18_500,
+//     totalMembershipPurchased: 1_240,
+//     pendingMembershipUsers: 95,
+//   );
+// }
