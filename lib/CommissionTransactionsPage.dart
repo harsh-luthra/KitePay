@@ -5,7 +5,6 @@ import 'package:admin_qr_manager/UsersService.dart';
 import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:admin_qr_manager/widget/CommissionCard.dart';
 import 'package:admin_qr_manager/widget/TransactionCardShimmer.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -73,7 +72,7 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
     setState(() => _loadingSubadmins = true);
     try {
       final jwt = await AppWriteService().getJWT();
-      final list = await UserService.listSubAdmins(jwt);
+      final list = await UsersService.listSubAdmins(jwt);
       setState(() {
         _subadmins = list;
         // If existing userId matches one, preselect:

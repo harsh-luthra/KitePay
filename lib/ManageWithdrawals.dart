@@ -47,7 +47,7 @@ class _ManageWithdrawalsState extends State<ManageWithdrawals> {
     setState(() => loading = true);
     try {
       // users = await AdminUserService.listUsers(jwtToken: await AppWriteService().getJWT());
-      final fetched = await UserService.listUsers(jwtToken: await AppWriteService().getJWT());
+      final fetched = await UsersService.listUsers(jwtToken: await AppWriteService().getJWT());
       users = fetched.appUsers;
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(

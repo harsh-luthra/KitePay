@@ -4,8 +4,12 @@ import 'package:admin_qr_manager/AppConstants.dart';
 import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:admin_qr_manager/MyMetaApi.dart';
 import 'package:admin_qr_manager/widget/TransactionCardShimmer.dart';
+import 'package:admin_qr_manager/widget/UsersCardShimmer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'AppConfig.dart';
+import 'CommissionService.dart';
 import 'TransactionPageNew.dart';
 import 'UsersService.dart';
 import 'models/AppUser.dart';
@@ -22,7 +26,7 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
   // final AdminUserService _userService = AdminUserService();
 
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
-      GlobalKey<ScaffoldMessengerState>();
+  GlobalKey<ScaffoldMessengerState>();
 
   List<AppUser> _users = [];
   bool loading = true;
@@ -39,6 +43,12 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
   bool loadingMore = false;
   final ScrollController _scrollController = ScrollController();
 
+  Map<String, int> _todayPaise = {};
+  String _todayDate = '';
+
+  final minCommissionLimit = AppConfig().minCommission;
+  final maxCommissionLimit = AppConfig().maxCommission;
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +56,11 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
     // loadUserMeta();
     userMeta = MyMetaApi.current!;
     _fetchUsers(firstLoad: true);
+
+    if(userMeta.role == 'admin') {
+      loadTodayCommissions();
+    }
+
   }
 
   @override
@@ -59,6 +74,26 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       _fetchUsers();
+    }
+  }
+
+  String _fmtRupees(int paise) {
+    final rupees = paise / 100.0;
+    return NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(rupees);
+  }
+
+  Future<void> loadTodayCommissions() async {
+    try {
+      final jwt = await AppWriteService().getJWT();
+      final snap = await CommissionService.fetchTodayPerUserCommissions(jwtToken: jwt);
+      setState(() {
+        _todayPaise = snap.paiseByUser;
+        _todayDate = snap.date;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load today commissions: $e')));
+      }
     }
   }
 
@@ -97,7 +132,7 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
                     SizedBox(height: 10),
                     Expanded(
                       child: FutureBuilder<List<AppUser>>(
-                        future: UserService.listSubAdmins(
+                        future: UsersService.listSubAdmins(
                           jwtToken,
                           search: localSearchTerm,
                         ),
@@ -133,11 +168,11 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
                                     barrierDismissible: false,
                                     builder:
                                         (_) => const Center(
-                                          child: CircularProgressIndicator(),
-                                        ),
+                                      child: CircularProgressIndicator(),
+                                    ),
                                   );
                                   try {
-                                    await UserService.assignUserToSubAdmin(
+                                    await UsersService.assignUserToSubAdmin(
                                       subAdminId: subadmin.id,
                                       userId: userId,
                                       jwtToken: jwtToken,
@@ -206,31 +241,31 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
   }
 
   Future<void> unAssignUser(
-    BuildContext context,
-    String userId,
-    String subadminId,
-  ) async {
+      BuildContext context,
+      String userId,
+      String subadminId,
+      ) async {
     final pageContext = context;
 
     final confirm = await showDialog<bool>(
       context: pageContext,
       builder:
           (ctx) => AlertDialog(
-            title: const Text('Un-assign User'),
-            content: const Text(
-              'Are you sure you want to un-assign this user from the sub-admin?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Yes, un-assign'),
-              ),
-            ],
+        title: const Text('Un-assign User'),
+        content: const Text(
+          'Are you sure you want to un-assign this user from the sub-admin?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
           ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Yes, un-assign'),
+          ),
+        ],
+      ),
     );
     if (confirm != true) return;
 
@@ -248,7 +283,7 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
 
     try {
       print("UNsassign call 2");
-      await UserService.assignUserToSubAdmin(
+      await UsersService.assignUserToSubAdmin(
         unAssign: true,
         subAdminId: subadminId,
         userId: userId,
@@ -295,7 +330,7 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
     }
 
     try {
-      final fetched = await UserService.listUsers(
+      final fetched = await UsersService.listUsers(
         cursor: nextCursor,
         jwtToken: await AppWriteService().getJWT(),
       );
@@ -339,149 +374,149 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
     final passController = TextEditingController(text: "");
     final nameController = TextEditingController(text: "");
     String? selectedRole =
-        userMeta.role == "subadmin" ? "user" : null; // store chosen role
+    userMeta.role == "subadmin" ? "user" : null; // store chosen role
 
     showDialog(
       context: context,
       useRootNavigator: true,
       builder:
           (_) => StatefulBuilder(
-            builder: (context, setState) {
-              return AlertDialog(
-                title: const Text("Add New User"),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      obscureText: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Name',
-                        hintText: 'Min 3 characters',
-                      ),
-                    ),
-                    TextField(
-                      controller: emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        hintText: 'e.g. user@example.com',
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    TextField(
-                      controller: passController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                        hintText: 'Min 6 characters',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // --- Role selection ---
-                    const Text(
-                      "Select Role",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    if (userMeta.role == "admin") ...[
-                      RadioListTile<String>(
-                        title: const Text("Sub-Admin"),
-                        value: "subadmin",
-                        groupValue: selectedRole,
-                        onChanged: (value) {
-                          setState(() {
-                            selectedRole = value;
-                          });
-                        },
-                      ),
-                      RadioListTile<String>(
-                        title: const Text("Employee"),
-                        value: "employee",
-                        groupValue: selectedRole,
-                        onChanged: (value) {
-                          setState(() {
-                            selectedRole = value;
-                          });
-                        },
-                      ),
-                    ],
-
-                    RadioListTile<String>(
-                      title: const Text("User"),
-                      value: "user",
-                      groupValue: selectedRole,
-                      onChanged: (value) {
-                        setState(() {
-                          selectedRole = value;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed:
-                        () => Navigator.of(context, rootNavigator: true).pop(),
-                    // closes this dialog
-                    child: const Text("Cancel"),
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text("Add New User"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  obscureText: false,
+                  decoration: const InputDecoration(
+                    labelText: 'Name',
+                    hintText: 'Min 3 characters',
                   ),
-                  ElevatedButton(
-                    onPressed: () async {
-                      // validate...
-                      Navigator.of(
-                        context,
-                        rootNavigator: true,
-                      ).pop(); // close form dialog
+                ),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    hintText: 'e.g. user@example.com',
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                TextField(
+                  controller: passController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Password',
+                    hintText: 'Min 6 characters',
+                  ),
+                ),
+                const SizedBox(height: 16),
 
-                      // show loading on root navigator
-                      showDialog(
-                        context: parentContext,
-                        barrierDismissible: false,
-                        useRootNavigator: true,
-                        builder:
-                            (_) => const Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                      );
-                      final navigator = Navigator.of(
-                        parentContext,
-                        rootNavigator: true,
-                      );
-
-                      try {
-                        final jwt = await AppWriteService().getJWT();
-                        final ok = await UserService.createUser(
-                          emailController.text.trim(),
-                          passController.text.trim(),
-                          nameController.text.trim(),
-                          selectedRole!,
-                          jwt,
-                        );
-                        ScaffoldMessenger.of(parentContext).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              ok
-                                  ? 'User added successfully!'
-                                  : 'Failed to add user',
-                            ),
-                          ),
-                        );
-                        if (ok) await _fetchUsers(firstLoad: true);
-                      } catch (e) {
-                        ScaffoldMessenger.of(parentContext).showSnackBar(
-                          SnackBar(content: Text('Failed to add user: $e')),
-                        );
-                      } finally {
-                        if (navigator.canPop())
-                          navigator.pop(); // close loader exactly once
-                      }
+                // --- Role selection ---
+                const Text(
+                  "Select Role",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                if (userMeta.role == "admin") ...[
+                  RadioListTile<String>(
+                    title: const Text("Sub-Admin"),
+                    value: "subadmin",
+                    groupValue: selectedRole,
+                    onChanged: (value) {
+                      setState(() {
+                        selectedRole = value;
+                      });
                     },
-                    child: const Text("Create"),
+                  ),
+                  RadioListTile<String>(
+                    title: const Text("Employee"),
+                    value: "employee",
+                    groupValue: selectedRole,
+                    onChanged: (value) {
+                      setState(() {
+                        selectedRole = value;
+                      });
+                    },
                   ),
                 ],
-              );
-            },
-          ),
+
+                RadioListTile<String>(
+                  title: const Text("User"),
+                  value: "user",
+                  groupValue: selectedRole,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedRole = value;
+                    });
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed:
+                    () => Navigator.of(context, rootNavigator: true).pop(),
+                // closes this dialog
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  // validate...
+                  Navigator.of(
+                    context,
+                    rootNavigator: true,
+                  ).pop(); // close form dialog
+
+                  // show loading on root navigator
+                  showDialog(
+                    context: parentContext,
+                    barrierDismissible: false,
+                    useRootNavigator: true,
+                    builder:
+                        (_) => const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                  final navigator = Navigator.of(
+                    parentContext,
+                    rootNavigator: true,
+                  );
+
+                  try {
+                    final jwt = await AppWriteService().getJWT();
+                    final ok = await UsersService.createUser(
+                      emailController.text.trim(),
+                      passController.text.trim(),
+                      nameController.text.trim(),
+                      selectedRole!,
+                      jwt,
+                    );
+                    ScaffoldMessenger.of(parentContext).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          ok
+                              ? 'User added successfully!'
+                              : 'Failed to add user',
+                        ),
+                      ),
+                    );
+                    if (ok) await _fetchUsers(firstLoad: true);
+                  } catch (e) {
+                    ScaffoldMessenger.of(parentContext).showSnackBar(
+                      SnackBar(content: Text('Failed to add user: $e')),
+                    );
+                  } finally {
+                    if (navigator.canPop())
+                      navigator.pop(); // close loader exactly once
+                  }
+                },
+                child: const Text("Create"),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -533,7 +568,7 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
 
                 try {
                   final jwt = await AppWriteService().getJWT();
-                  await UserService.resetPassword(
+                  await UsersService.resetPassword(
                     userId,
                     passwordController.text.trim(),
                     jwt,
@@ -563,11 +598,11 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
   }
 
   void _showEditDialog(
-    AppUser user,
-    String currentName,
-    String currentEmail,
-    BuildContext parentContext,
-  ) {
+      AppUser user,
+      String currentName,
+      String currentEmail,
+      BuildContext parentContext,
+      ) {
     final nameController = TextEditingController(text: currentName);
     final emailController = TextEditingController(text: currentEmail);
     final tempLabels = List<String>.from(user.labels); // Clone user labels
@@ -622,34 +657,34 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
                         spacing: 8.0,
                         runSpacing: 8.0,
                         children:
-                            availableLabels.map((label) {
-                              final normalizedLabel = label.trim();
-                              final isSelected = tempLabels.contains(
-                                normalizedLabel,
-                              );
+                        availableLabels.map((label) {
+                          final normalizedLabel = label.trim();
+                          final isSelected = tempLabels.contains(
+                            normalizedLabel,
+                          );
 
-                              return FilterChip(
-                                label: Text(label),
-                                selected: isSelected,
-                                onSelected: (selected) {
-                                  setState(() {
-                                    if (selected) {
-                                      if (!tempLabels.contains(
-                                        normalizedLabel,
-                                      )) {
-                                        tempLabels.add(normalizedLabel);
-                                        // print('✅ Added: $normalizedLabel');
-                                      }
-                                    } else {
-                                      tempLabels.remove(normalizedLabel);
-                                      // print('🗑️ Removed: $normalizedLabel');
-                                    }
-                                  });
-                                },
-                                selectedColor: Colors.blue.shade200,
-                                checkmarkColor: Colors.white,
-                              );
-                            }).toList(),
+                          return FilterChip(
+                            label: Text(label),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                if (selected) {
+                                  if (!tempLabels.contains(
+                                    normalizedLabel,
+                                  )) {
+                                    tempLabels.add(normalizedLabel);
+                                    // print('✅ Added: $normalizedLabel');
+                                  }
+                                } else {
+                                  tempLabels.remove(normalizedLabel);
+                                  // print('🗑️ Removed: $normalizedLabel');
+                                }
+                              });
+                            },
+                            selectedColor: Colors.blue.shade200,
+                            checkmarkColor: Colors.white,
+                          );
+                        }).toList(),
                       ),
                   ],
                 ),
@@ -670,7 +705,7 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
                     final emailChanged = newEmail != currentEmail;
                     final labelsChanged =
                         !Set.from(tempLabels).containsAll(user.labels) ||
-                        !Set.from(user.labels).containsAll(tempLabels);
+                            !Set.from(user.labels).containsAll(tempLabels);
 
                     if (!nameChanged && !emailChanged && !labelsChanged) {
                       Navigator.of(context).pop();
@@ -699,7 +734,7 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
                     try {
                       final jwt = await AppWriteService().getJWT();
                       // print('labelsChanged $tempLabels');
-                      await UserService.editUser(
+                      await UsersService.editUser(
                         user.id,
                         jwt,
                         name: nameChanged ? newName : null,
@@ -801,7 +836,7 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
 
                 try {
                   final jwt = await AppWriteService().getJWT();
-                  await UserService.editUser(
+                  await UsersService.editUser(
                     user.id,
                     jwt,
                     commission: newCommission,
@@ -840,19 +875,19 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
       context: context,
       builder:
           (_) => AlertDialog(
-            title: const Text("Confirm Delete"),
-            content: const Text("Are you sure you want to delete this user?"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text("Cancel"),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text("Delete"),
-              ),
-            ],
+        title: const Text("Confirm Delete"),
+        content: const Text("Are you sure you want to delete this user?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
           ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
     );
 
     if (confirm ?? false) {
@@ -864,7 +899,7 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
       );
 
       try {
-        await UserService.deleteUser(
+        await UsersService.deleteUser(
           userId,
           await AppWriteService().getJWT(),
         );
@@ -903,325 +938,281 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text("Manage Users"),
-          actions:
-              !loading
-                  ? [
-                    if(userMeta.role != "employee")
-                    IconButton(
-                      icon: const Icon(Icons.add),
-                      tooltip: "Add User",
-                      onPressed: () => _showAddUserDialog(context),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.refresh),
-                      tooltip: "Refresh",
-                      onPressed: () {_fetchUsers(firstLoad: true);},
-                    ),
-                  ]
-                  : [],
+          actions: !loading
+              ? [
+            if (userMeta.role != "employee")
+              IconButton(
+                icon: const Icon(Icons.add),
+                tooltip: "Add User",
+                onPressed: () => _showAddUserDialog(context),
+              ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: "Refresh",
+              onPressed: () => _fetchUsers(firstLoad: true),
+            ),
+          ]
+              : [],
         ),
-        body:
-            loading
-                ? const Center(child: CircularProgressIndicator())
-                : _users.isEmpty
-                ? const Center(child: Text("No users found"))
-                : ListView.builder(
-                  controller: _scrollController, // PAGINATION
-                  // itemCount: _users.length + (loadingMore ? 1 : 0),
-                  itemCount: _users.length + (loadingMore && hasMore ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index < _users.length) {
-                      final user = _users[index];
-                      // print(user.toString());
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        elevation: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Name and Email
-                              Row(
-                                children: [
-                                  userRoleIcon(
-                                    role: user.role,
-                                    parentId: user.parentId,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      user.name ?? 'Unnamed',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                  _buildStatusBadge(user.status),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.email,
-                                    size: 16,
-                                    color: Colors.grey,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      user.email ?? '',
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
+        body: loading
+            ? ListView.builder(
+          padding: EdgeInsets.zero,
+          itemCount: 8,
+          itemBuilder: (_, __) => const UsersCardShimmer(),
+        )
+            : _users.isEmpty
+            ? const Center(child: Text("No users found"))
+            : ListView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.only(top: 6, bottom: 12),
+          itemCount: _users.length + (loadingMore && hasMore ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index < _users.length) {
+              final user = _users[index];
 
-                              // Parent Role Label Logic
-                              if (user.role != 'admin')
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 1.5,
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header: avatar, name, role chip, email, status pill
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: Colors.blue.shade50,
+                            child: Text(
+                              (user.name?.isNotEmpty ?? false)
+                                  ? user.name!.substring(0, 1).toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 Row(
                                   children: [
-                                    const Icon(
-                                      Icons.account_tree,
-                                      size: 16,
-                                      color: Colors.grey,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      "Parent: ${(user.parentId == null || user.parentId!.isEmpty) ? 'Admin' : 'Sub-Admin'}",
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.black54,
-                                        fontStyle: FontStyle.italic,
+                                    Flexible(
+                                      child: Text(
+                                        user.name ?? 'Unnamed',
+                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
+                                    _roleChip(user.role),
                                   ],
                                 ),
-
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.account_circle_outlined,
-                                    size: 16,
-                                    color: Colors.grey,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    "Role : ${user.role}",
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.black54,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              if(user.role != 'employee' && user.role != 'admin')
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.payments,
-                                    size: 16,
-                                    color: Colors.grey,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    "Commission : ${user.commission} %",
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.black54,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              // Labels
-                              if (user.labels != null && user.labels.isNotEmpty && userMeta.role == "admin")
-                                Wrap(
-                                  spacing: 6,
-                                  children:
-                                  user.labels
-                                      .map(
-                                        (label) => Chip(
-                                      label: Text(label),
-                                      backgroundColor:
-                                      Colors.blue.shade50,
-                                      labelStyle: const TextStyle(
-                                        color: Colors.blue,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                    ),
-                                  )
-                                      .toList(),
-                                ),
-
-                              const SizedBox(height: 12),
-
-                              // Action Buttons
-                                if (userMeta.role == 'admin' || userMeta.role == 'employee' || userMeta.role == 'subadmin')
-                                  Row(
-                                  mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                                const SizedBox(height: 4),
+                                Row(
                                   children: [
-                                    // Status switch
-                                    Row(
-                                      children: [
-                                        if (user.role != 'admin')
-                                          if(userMeta.role != "employee")...[
-                                            const Text("Status:"),
-                                            const SizedBox(width: 6),
-                                            Switch(
-                                              value: user.status ?? false,
-                                              onChanged:
-                                                  (newStatus) =>
-                                                  _confirmAndToggleUserStatus(
-                                                    context,
-                                                    user,
-                                                    newStatus,
-                                                  ),
-                                            ),
-                                          ]
-                                      ],
-                                    ),
-
-                                    // Right side actions
-                                    if (user.role != 'admin')
-                                      Row(
-                                        children: [
-                                          if (user.role == 'user' && user.parentId == null && userMeta.role != "employee")
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.no_accounts_outlined,
-                                                color: Colors.blue,
-                                              ),
-                                              tooltip: "Assign User to Sub-Admin",
-                                              onPressed:
-                                                  () => assignUserToSubAdmin(
-                                                context,
-                                                user.id,
-                                              ),
-                                            ),
-                                          if (user.role == 'user' && user.parentId != null && userMeta.role != "employee")
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.account_circle,
-                                                color: Colors.blue,
-                                              ),
-                                              tooltip: "Un-Assign User",
-                                              onPressed:
-                                                  () => unAssignUser(
-                                                context,
-                                                user.id,
-                                                user.parentId!,
-                                              ),
-                                            ),
-                                          if(userMeta.role != "employee")
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.edit,
-                                              color: Colors.blue,
-                                            ),
-                                            tooltip: "Edit User",
-                                            onPressed: () => _showEditDialog(
-                                              user,
-                                              user.name,
-                                              user.email,
-                                              context,
-                                            ),
-                                          ),
-                                          if(userMeta.role != "employee")
-                                            if(user.role != "employee")
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.percent_sharp,
-                                                color: Colors.blue,
-                                              ),
-                                              tooltip: 'Set Commission %',
-                                              onPressed: () => showCommissionEditDialog(
-                                                minCommission: 1.0,
-                                                maxCommission: 2.0,
-                                                parentContext: context, user: user,
-                                              ),
-                                            ),
-                                          if(userMeta.role != "employee")
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.lock_reset,
-                                              color: Colors.orange,
-                                            ),
-                                            tooltip: "Reset Password",
-                                            onPressed:
-                                                () => _showResetPasswordDialog(
-                                              context,
-                                              user.id,
-                                            ),
-                                          ),
-                                          if(userMeta.role != "employee")
-                                            IconButton(
-                                            icon: const Icon(
-                                              Icons.delete,
-                                              color: Colors.red,
-                                            ),
-                                            tooltip: "Delete User",
-                                            onPressed:
-                                                () => _deleteUser(
-                                              user.id,
-                                              user.name,
-                                              user.email,
-                                            ),
-                                          ),
-                                          if(userMeta.role == 'admin' || userMeta.role == 'subadmin' || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.viewAllTransactions)))
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.receipt_long,
-                                              color: Colors.teal,
-                                            ),
-                                            tooltip: "View Transactions",
-                                            onPressed: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder:
-                                                      (_) => TransactionPageNew(
-                                                    filterUserId: user.id,
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ],
+                                    const Icon(Icons.email, size: 14, color: Colors.grey),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        user.email ?? '',
+                                        style: const TextStyle(fontSize: 13, color: Colors.black87),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
+                                    ),
                                   ],
                                 ),
-                            ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _statusPill(user.status ?? false),
+                        ],
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Info tokens
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (user.role != 'admin')
+                            _infoToken(
+                              Icons.account_tree,
+                              'Parent',
+                              (user.parentId == null || user.parentId!.isEmpty) ? 'Admin' : 'Sub-Admin',
+                            ),
+                          _infoToken(Icons.badge_outlined, 'Role', user.role),
+                          if (user.role != 'employee' && user.role != 'admin')
+                            _infoToken(Icons.percent, 'Commission', '${user.commission ?? 0} %'),
+                          if (user.role == 'admin' || user.role == 'subadmin')
+                            _infoToken(Icons.currency_rupee, 'Today Commission', _fmtRupees(_todayPaise[user.id] ?? 0)),
+                        ],
+                      ),
+
+                      // Labels stripe
+                      if (user.labels != null && user.labels.isNotEmpty && userMeta.role == "admin") ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blueGrey.withOpacity(0.04),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: user.labels
+                                .map<Widget>(
+                                  (label) => Chip(
+                                label: Text(label, overflow: TextOverflow.ellipsis),
+                                backgroundColor: Colors.blue.shade50,
+                                labelStyle: const TextStyle(color: Colors.blue),
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            )
+                                .toList(),
                           ),
                         ),
-                      );
-                    }else{
-                      // Loader at bottom
-                      return const TransactionCardShimmer();
-                    }
-                  },
+                      ],
+
+                      const SizedBox(height: 10),
+
+                      // Action toolbar
+                      if (userMeta.role == 'admin' || userMeta.role == 'employee' || userMeta.role == 'subadmin')
+                        Row(
+                          children: [
+                            if (user.role != 'admin' && userMeta.role != "employee") ...[
+                              const Text('Status:', style: TextStyle(fontWeight: FontWeight.w600)),
+                              const SizedBox(width: 6),
+                              Switch(
+                                value: user.status ?? false,
+                                onChanged: (newStatus) =>
+                                    _confirmAndToggleUserStatus(context, user, newStatus),
+                              ),
+                            ],
+                            const Spacer(),
+                            if (user.role != 'admin')
+                              Wrap(
+                                spacing: 6,
+                                children: [
+                                  if (user.role == 'user' &&
+                                      user.parentId == null &&
+                                      userMeta.role != "employee")
+                                    _iconBtn(Icons.no_accounts_outlined, 'Assign to Sub-Admin',
+                                            () => assignUserToSubAdmin(context, user.id)),
+                                  if (user.role == 'user' &&
+                                      user.parentId != null &&
+                                      userMeta.role != "employee")
+                                    _iconBtn(Icons.account_circle, 'Un-Assign',
+                                            () => unAssignUser(context, user.id, user.parentId!)),
+                                  if (userMeta.role != "employee")
+                                    _iconBtn(Icons.edit, 'Edit',
+                                            () => _showEditDialog(user, user.name, user.email, context)),
+                                  if (userMeta.role != "employee" && user.role != "employee")
+                                    _iconBtn(Icons.percent_sharp, 'Commission %',
+                                            () => showCommissionEditDialog(
+                                          minCommission: minCommissionLimit,
+                                          maxCommission: maxCommissionLimit,
+                                          parentContext: context,
+                                          user: user,
+                                        )),
+                                  if (userMeta.role != "employee")
+                                    _iconBtn(Icons.lock_reset, 'Reset Password',
+                                            () => _showResetPasswordDialog(context, user.id),
+                                        color: Colors.orange),
+                                  if (userMeta.role != "employee")
+                                    _iconBtn(Icons.delete, 'Delete',
+                                            () => _deleteUser(user.id, user.name, user.email),
+                                        color: Colors.red),
+                                  if (userMeta.role == 'admin' ||
+                                      userMeta.role == 'subadmin' ||
+                                      (userMeta.role == 'employee' &&
+                                          userMeta.labels.contains(AppConstants.viewAllTransactions)))
+                                    _iconBtn(Icons.receipt_long, 'View Transactions', () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => TransactionPageNew(filterUserId: user.id),
+                                        ),
+                                      );
+                                    }, color: Colors.teal),
+                                ],
+                              ),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
+              );
+            }
+
+            // loading more sentinel
+            return const TransactionCardShimmer();
+          },
+        ),
       ),
+    );
+  }
+
+  Widget _roleChip(String role) {
+    final r = role.toUpperCase();
+    Color c; String t;
+    switch (r) {
+      case 'ADMIN':
+        c = Colors.red; t = 'ADMIN'; break;
+      case 'SUBADMIN':
+        c = Colors.orange; t = 'SUBADMIN'; break;
+      default:
+        c = Colors.blue; t = r; break;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(color: c.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+      child: Text(t, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c)),
+    );
+  }
+
+  Widget _statusPill(bool status) {
+    final color = status ? Colors.green : Colors.red;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
+      child: Text(status ? 'Active' : 'Inactive', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+    );
+  }
+
+  Widget _infoToken(IconData icon, String k, String v) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.blueGrey),
+          const SizedBox(width: 6),
+          Text('$k: ', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+          Text(v, style: const TextStyle(fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _iconBtn(IconData icon, String tip, VoidCallback onTap, {Color? color}) {
+    return IconButton(
+      tooltip: tip,
+      onPressed: onTap,
+      icon: Icon(icon, size: 20, color: color ?? Colors.blue),
+      splashRadius: 20,
     );
   }
 
@@ -1272,29 +1263,29 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
   }
 
   void _confirmAndToggleUserStatus(
-    BuildContext context,
-    AppUser user,
-    bool newStatus,
-  ) async {
+      BuildContext context,
+      AppUser user,
+      bool newStatus,
+      ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: Text(newStatus ? 'Enable User' : 'Disable User'),
-            content: Text(
-              'Are you sure you want to ${newStatus ? 'enable' : 'disable'} this user?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Yes'),
-              ),
-            ],
+        title: Text(newStatus ? 'Enable User' : 'Disable User'),
+        content: Text(
+          'Are you sure you want to ${newStatus ? 'enable' : 'disable'} this user?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
           ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Yes'),
+          ),
+        ],
+      ),
     );
 
     if (confirm != true) return;
@@ -1306,7 +1297,7 @@ class _ManageUsersScreenBkupState extends State<ManageUsersScreenBkup> {
     );
 
     final jwt = await AppWriteService().getJWT();
-    final success = await UserService.updateUserStatus(
+    final success = await UsersService.updateUserStatus(
       userId: user.id,
       jwtToken: jwt,
       status: newStatus,

@@ -109,7 +109,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
   Future<void> _fetchUsers() async {
     setState(() => loadingUsers = true);
     try {
-      final fetched = await UserService.listUsers(
+      final fetched = await UsersService.listUsers(
         jwtToken: await AppWriteService().getJWT(),
       );
       users = fetched.appUsers;

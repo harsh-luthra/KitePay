@@ -6,10 +6,12 @@ import 'package:admin_qr_manager/ManualTransactionForm.dart';
 import 'package:admin_qr_manager/QRService.dart';
 import 'package:admin_qr_manager/SocketTest.dart';
 import 'package:admin_qr_manager/models/AppUser.dart';
+import 'package:admin_qr_manager/utils/NotificationSystemForQr.dart';
 import 'package:admin_qr_manager/widget/TransactionCard.dart';
 import 'package:flutter/material.dart';
 import 'package:appwrite/models.dart' show User;
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:intl/intl.dart';
 import 'package:number_to_indian_words/number_to_indian_words.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'AdminDashboardPage.dart';
@@ -19,6 +21,7 @@ import 'AppWriteService.dart';
 import 'CommissionSummaryBoardPage.dart';
 import 'ManageUsersScreen.dart';
 import 'ManageQrScreen.dart';
+import 'ManageUsersScreenRefactor.dart';
 import 'ManageWithdrawalsNew.dart';
 import 'MemberShipPlansScreen.dart';
 import 'MyMetaApi.dart';
@@ -102,40 +105,49 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     'नब्बे','इक्यानबे','बानवे','तििरानवे','चौरानवे','पचानवे','छियानवे','सतानवे','अट्ठानवे','निन्यानवे'
   ];
 
+  late final NotificationStore _notifStore = NotificationStore();
+  int _unread = 0;
+
   @override
   void initState() {
 
     super.initState();
 
-    // loadUserMeta();
-    // print(widget.userMeta);
-    loadConfig();
+    _notifStore.load().then((_) {
+      setState(() {
+        _unread = _notifStore.count; // or maintain separately
+      });
+    });
+
     _activeIndex = 0;
-    // if(checkRole("admin")){
-    //   _activeIndex = 0;
-    // }else if( checkRole("subadmin") && checkLabel("users") ){
-    //   _activeIndex = 0;
-    // }else if(checkRole("employee")){
-    //   _activeIndex = 0;
-    // }
-    // else{
-    //   _activeIndex = 2;
-    // }
+
+    if(widget.userMeta.role == "admin"){
+      _activeIndex = 0; // Dashboard
+    }else if(widget.userMeta.role == "subadmin"){
+      _activeIndex = 1; // Manage Users
+    }else if(widget.userMeta.role == "user"){
+      _activeIndex = 3; //My QR Codes
+    }else{
+
+    }
+
+    loadConfig();
+
 
     _allMenuItems = [
       _MenuItem(
         id: 0,
         label: 'Dashboard',
         icon: Icons.person,
-        visibleFor: (_) => true,
+        visibleFor: (_) => checkRole('admin'),
         builder: (_) => AdminDashboardPage(),
       ),
       _MenuItem(
         id: 1,
         label: 'Manage Users',
         icon: Icons.person,
-        visibleFor: (labels) => checkRole('admin') || (checkRole("subadmin")  && checkLabel("users") || (checkRole("employee") && checkLabel(AppConstants.viewAllUsers))  ),
-        builder: (_) => const ManageUsersScreen(),
+        visibleFor: (labels) => checkRole('admin') || (checkRole("subadmin") && checkLabel("users") || (checkRole("employee") && checkLabel(AppConstants.viewAllUsers))  ),
+        builder: (_) => ManageUsersScreen(),
       ),
       _MenuItem(
         id: 2,
@@ -450,27 +462,123 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
 
     });
 
-      _qrAlertSub = SocketManager.instance.qrAlertController.listen((event) async {
-      // event: { id, qrCodeId, amountPaise, createdAtIso, ... }
-      QrCode qr = QrCode.fromJson(event);
+    _qrAlertSub = SocketManager.instance.qrAlertController.listen((event) async {
+      final qr = QrCode.fromJson(event);
 
-      if(ttsENABLED){
+      // Add to notifications
+      final item = NotificationItem(
+        id: qr.qrId, // if not unique, use '${qr.qrId}-${DateTime.now().millisecondsSinceEpoch}'
+        title: 'QR Work Started',
+        subtitle: qr.qrId,
+        at: DateTime.now(),
+      );
+      await _notifStore.add(item);
+      if (mounted) setState(() => _unread = (_unread + 1));
+
+      if (ttsENABLED) {
         speakQrAlert();
       }
-
-      if(popUpENABLED){
+      if (popUpENABLED) {
         await DialogSingleton.showReplacing(
           builder: (ctx) => AlertDialog(
-            title: const Text('Qr Work Started'),
+            title: const Text('QR Work Started'),
             content: Column(mainAxisSize: MainAxisSize.min, children: [Text(qr.qrId)]),
             actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close'))],
           ),
         );
       }
-
     });
 
   }
+
+  Widget _bellIcon(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.notifications_outlined),
+          tooltip: 'Notifications',
+          onPressed: () => _openNotifications(context),
+        ),
+        if (_unread > 0)
+          Positioned(
+            right: 6,
+            top: 6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red, borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                _unread > 99 ? '99+' : '$_unread',
+                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _openNotifications(BuildContext context) async {
+    setState(() => _unread = 0); // mark as read on open
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final items = _notifStore.items;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.notifications),
+                title: const Text('QR Alerts'),
+                trailing: TextButton.icon(
+                  onPressed: () async {
+                    await _notifStore.clear();
+                    if (mounted) setState(() {});
+                    Navigator.of(ctx).pop();
+                  },
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Clear'),
+                ),
+              ),
+              const Divider(height: 1),
+              Flexible(
+                child: items.isEmpty
+                    ? const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text('No notifications'),
+                )
+                    : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, i) {
+                    final it = items[i];
+                    final time = DateFormat('yyyy-MM-dd HH:mm').format(it.at);
+                    return ListTile(
+                      leading: const Icon(Icons.qr_code_2),
+                      title: Text(it.title),
+                      subtitle: Text('${it.subtitle}\n$time'),
+                      isThreeLine: true,
+                      onTap: () {
+                        // Navigate to details if needed
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
 
   // Future<void> loadUserMeta() async {
   //   String jwtToken = await AppWriteService().getJWT();
@@ -892,6 +1000,10 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
               //   ],
               // ),
               const SizedBox(width: 12),
+              if(widget.userMeta.role == 'admin' || widget.userMeta.role == 'employee' )
+              _bellIcon(context),
+              const SizedBox(width: 12),
+
               IconButton(tooltip: 'Logout', onPressed: () => _logout(context), icon: const Icon(Icons.logout)),
             ],
           ),

@@ -8,6 +8,7 @@ import 'package:admin_qr_manager/widget/UsersCardShimmer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'AppConfig.dart';
 import 'CommissionService.dart';
 import 'TransactionPageNew.dart';
 import 'UsersService.dart';
@@ -21,9 +22,14 @@ class ManageUsersScreen extends StatefulWidget {
 
 }
 
-class _ManageUsersScreenState extends State<ManageUsersScreen> {
-  // final AdminUserService _userService = AdminUserService();
+// Filters for the list
+enum RoleFilter { all, subadmins, users , employees }
 
+RoleFilter _roleFilter = RoleFilter.all;
+// Track expanded groups by id: 'admin-root' for admin bucket, subadmin.id for each subadmin section
+final Set<String> _expandedGroupIds = {};
+
+class _ManageUsersScreenState extends State<ManageUsersScreen> {
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
 
@@ -45,12 +51,27 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   Map<String, int> _todayPaise = {};
   String _todayDate = '';
 
+  double minCommissionLimit = 1.0; // Loading it from AppConfig when using it
+  double maxCommissionLimit = 2.0; // Loading it from AppConfig when using it
+
+  int get _totalAll => _users.length;
+  int get _totalSubadmins => _users.where((u) => u.role.toLowerCase() == 'subadmin').length;
+  int get _totalUsers => _users.where((u) => u.role.toLowerCase() == 'user').length;
+  int get _totalEmployees => _users.where((u) => u.role.toLowerCase() == 'employee').length;
+
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll); // PAGINATION listener
     // loadUserMeta();
     userMeta = MyMetaApi.current!;
+
+    if (userMeta.role.toLowerCase() == 'subadmin') {
+      _roleFilter = RoleFilter.users; // default to Users
+    } else {
+      _roleFilter = RoleFilter.all;   // keep default for others
+    }
+
     _fetchUsers(firstLoad: true);
 
     if(userMeta.role == 'admin') {
@@ -128,7 +149,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     SizedBox(height: 10),
                     Expanded(
                       child: FutureBuilder<List<AppUser>>(
-                        future: UserService.listSubAdmins(
+                        future: UsersService.listSubAdmins(
                           jwtToken,
                           search: localSearchTerm,
                         ),
@@ -168,7 +189,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                         ),
                                   );
                                   try {
-                                    await UserService.assignUserToSubAdmin(
+                                    await UsersService.assignUserToSubAdmin(
                                       subAdminId: subadmin.id,
                                       userId: userId,
                                       jwtToken: jwtToken,
@@ -279,7 +300,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
     try {
       print("UNsassign call 2");
-      await UserService.assignUserToSubAdmin(
+      await UsersService.assignUserToSubAdmin(
         unAssign: true,
         subAdminId: subadminId,
         userId: userId,
@@ -326,7 +347,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     }
 
     try {
-      final fetched = await UserService.listUsers(
+      final fetched = await UsersService.listUsers(
         cursor: nextCursor,
         jwtToken: await AppWriteService().getJWT(),
       );
@@ -369,8 +390,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     final emailController = TextEditingController(text: "");
     final passController = TextEditingController(text: "");
     final nameController = TextEditingController(text: "");
-    String? selectedRole =
-        userMeta.role == "subadmin" ? "user" : null; // store chosen role
+    String? selectedRole = userMeta.role == "subadmin" ? "user" : null; // store chosen role
 
     showDialog(
       context: context,
@@ -481,7 +501,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
                       try {
                         final jwt = await AppWriteService().getJWT();
-                        final ok = await UserService.createUser(
+                        final ok = await UsersService.createUser(
                           emailController.text.trim(),
                           passController.text.trim(),
                           nameController.text.trim(),
@@ -564,7 +584,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
                 try {
                   final jwt = await AppWriteService().getJWT();
-                  await UserService.resetPassword(
+                  await UsersService.resetPassword(
                     userId,
                     passwordController.text.trim(),
                     jwt,
@@ -730,7 +750,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     try {
                       final jwt = await AppWriteService().getJWT();
                       // print('labelsChanged $tempLabels');
-                      await UserService.editUser(
+                      await UsersService.editUser(
                         user.id,
                         jwt,
                         name: nameChanged ? newName : null,
@@ -741,7 +761,14 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                       if (dialogContext != null)
                         Navigator.of(dialogContext!).pop();
 
-                      _fetchUsers();
+                      _fetchUsers(firstLoad: true);
+
+                      if (parentContext.mounted) {
+                        ScaffoldMessenger.of(parentContext).showSnackBar(
+                          SnackBar(content: Text('User Edited Successfully')),
+                        );
+                      }
+
                     } catch (e) {
                       if (dialogContext != null)
                         Navigator.of(dialogContext!).pop();
@@ -832,7 +859,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
                 try {
                   final jwt = await AppWriteService().getJWT();
-                  await UserService.editUser(
+                  await UsersService.editUser(
                     user.id,
                     jwt,
                     commission: newCommission,
@@ -895,7 +922,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       );
 
       try {
-        await UserService.deleteUser(
+        await UsersService.deleteUser(
           userId,
           await AppWriteService().getJWT(),
         );
@@ -905,7 +932,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           ),
         );
         Navigator.of(context).pop(); // Dismiss the loading dialog
-        _fetchUsers(); // Refresh user list
+        _fetchUsers(firstLoad: true); // Refresh user list
       } catch (e) {
         Navigator.of(context).pop(); // Dismiss loading dialog on error too
         ScaffoldMessenger.of(
@@ -927,8 +954,29 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     return 'Subadmin'; // Has parentId means parent is subadmin
   }
 
+  List<AppUser> _applyRoleFilter(List<AppUser> all) {
+    switch (_roleFilter) {
+      case RoleFilter.subadmins:
+        return all.where((u) => u.role.toLowerCase() == 'subadmin').toList();
+      case RoleFilter.users:
+        return all.where((u) => u.role.toLowerCase() == 'user').toList();
+      case RoleFilter.employees:
+        return all.where((u) => u.role.toLowerCase() == 'employee').toList();
+      case RoleFilter.all:
+      default:
+        return all;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final adminBucket = _rootUsers(_users);   // users under admin (no parent)
+    final employees = _employeesOnly(_users); // all employees
+    final adminUsersCount = adminBucket.length;
+    final employeesCount = employees.length;
+
+    final adminTitle = 'Admin — Unassigned-Users: $adminUsersCount';
+
     return ScaffoldMessenger(
       key: _scaffoldMessengerKey,
       child: Scaffold(
@@ -950,207 +998,369 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           ]
               : [],
         ),
-        body: loading
-            ? ListView.builder(
-          padding: EdgeInsets.zero,
-          itemCount: 8,
-          itemBuilder: (_, __) => const UsersCardShimmer(),
-        )
-            : _users.isEmpty
-            ? const Center(child: Text("No users found"))
-            : ListView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.only(top: 6, bottom: 12),
-          itemCount: _users.length + (loadingMore && hasMore ? 1 : 0),
-          itemBuilder: (context, index) {
-            if (index < _users.length) {
-              final user = _users[index];
+        body: Column(
+          children: [
+            // Filter chips row
+            if (userMeta.role.toLowerCase() != 'subadmin')
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: Text('All (${_totalAll})'),
+                    selected: _roleFilter == RoleFilter.all,
+                    onSelected: (_) => setState(() => _roleFilter = RoleFilter.all),
+                  ),
+                  ChoiceChip(
+                    label: Text('Subadmins (${_totalSubadmins})'),
+                    selected: _roleFilter == RoleFilter.subadmins,
+                    onSelected: (_) => setState(() => _roleFilter = RoleFilter.subadmins),
+                  ),
+                  ChoiceChip(
+                    label: Text('Users (${_totalUsers})'),
+                    selected: _roleFilter == RoleFilter.users,
+                    onSelected: (_) => setState(() => _roleFilter = RoleFilter.users),
+                  ),
+                  ChoiceChip(
+                    label: Text('Employees (${_totalEmployees})'),
+                    selected: _roleFilter == RoleFilter.employees,
+                    onSelected: (_) => setState(() => _roleFilter = RoleFilter.employees),
+                  ),
+                ],
+              ),
+            ),
 
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                elevation: 1.5,
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
+            // Existing list area
+            Expanded(
+              child: loading
+                  ? ListView.builder(
+                padding: EdgeInsets.zero,
+                itemCount: 8,
+                itemBuilder: (_, __) => const UsersCardShimmer(),
+              )
+                  : _users.isEmpty
+                  ? const Center(child: Text("No users found"))
+                  : (_roleFilter == RoleFilter.all
+              // Grouped "All": Admin -> Subadmins -> Employees
+                  ? RefreshIndicator(
+                onRefresh: () async => _fetchUsers(firstLoad: true),
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.only(top: 6, bottom: 12),
+                  itemCount: (() {
+                    final adminBucket = _rootUsers(_users);
+                    final sas = _subadminsOf(_users);
+                    final employees = _employeesOnly(_users);
+                    // groups count = 1 admin + sas.length + (employees.isNotEmpty ? 1 : 0) + sentinel(optional)
+                    return 1 + sas.length + (employees.isNotEmpty ? 1 : 0) + (loadingMore && hasMore ? 1 : 0);
+                  })(),
+                  itemBuilder: (context, index) {
+                    final adminBucket = _rootUsers(_users);
+                    final sas = _subadminsOf(_users);
+                    final employees = _employeesOnly(_users);
+
+                    // index 0 -> Admin group
+                    if (index == 0) {
+                      return _makeGroupTile(
+                        id: 'admin-root',
+                        title: adminTitle,
+                        icon: Icons.admin_panel_settings_outlined,
+                        children: adminBucket,
+                      );
+                    }
+
+                    // next sas.length entries -> each subadmin
+                    if (index >= 1 && index < 1 + sas.length) {
+                      final sa = sas[index - 1];
+                      final kids = _usersUnder(sa.id, _users);
+                      final subCount = kids.length;
+                      final subTitle = 'Subadmin — ${sa.name} : ${sa.email} • Users: $subCount';
+                      return _makeGroupTile(
+                        id: sa.id,
+                        title: subTitle,
+                        icon: Icons.supervisor_account_outlined,
+                        children: kids,
+                      );
+                    }
+
+                    // Optional employees block if present
+                    final employeesStart = 1 + sas.length;
+                    final employeesExists = employees.isNotEmpty;
+                    final sentinelIndex = employeesStart + (employeesExists ? 1 : 0);
+
+                    if (employeesExists && index == employeesStart) {
+                      return Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        child: ExpansionTile(
+                          initiallyExpanded: _expandedGroupIds.contains('employees'),
+                          onExpansionChanged: (val) {
+                            setState(() {
+                              if (val) {
+                                _expandedGroupIds.add('employees');
+                              } else {
+                                _expandedGroupIds.remove('employees');
+                              }
+                            });
+                          },
+                          leading: const Icon(Icons.badge_outlined),
+                          title: Text('Employees : $employeesCount', style: Theme.of(context).textTheme.titleMedium),
+                          children: employees
+                              .map((e) => Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: _buildUserItemCard(context, e),
+                          ))
+                              .toList(),
+                        ),
+                      );
+                    }
+
+                    // loading-more sentinel at last
+                    if ((loadingMore && hasMore) && index == sentinelIndex) {
+                      return const TransactionCardShimmer();
+                    }
+
+                    return const SizedBox.shrink();
+                  },
+                ),
+              )
+              // Non-All: flat filtered list
+                  : ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.only(top: 6, bottom: 12),
+                itemCount: _applyRoleFilter(_users).length + (loadingMore && hasMore ? 1 : 0),
+                itemBuilder: (context, index) {
+                  final filtered = _applyRoleFilter(_users);
+                  if (index < filtered.length) {
+                    final user = filtered[index];
+                    return _buildUserItemCard(context, user);
+                  }
+                  return const TransactionCardShimmer();
+                },
+              )),
+            ),
+
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<AppUser> _usersOnly(List<AppUser> xs) =>
+      xs.where((u) => u.role == 'user').toList();
+
+  List<AppUser> _rootUsers(List<AppUser> xs) =>
+      _usersOnly(xs).where((u) => (u.parentId == null || u.parentId!.isEmpty)).toList();
+
+  List<AppUser> _subadminsOf(List<AppUser> xs) =>
+      xs.where((u) => u.role == 'subadmin').toList();
+
+  List<AppUser> _employeesOnly(List<AppUser> xs) =>
+      xs.where((u) => u.role == 'employee').toList();
+
+  List<AppUser> _usersUnder(String subadminId, List<AppUser> xs) =>
+      _usersOnly(xs).where((u) => u.parentId == subadminId).toList();
+
+  Widget buildUserTile(AppUser u) => _buildUserItemCard(context, u);
+  Widget buildSubadminTile(AppUser sa) => _buildUserItemCard(context, sa);
+
+  Widget _makeGroupTile({
+    required String id,
+    required String title,
+    required IconData icon,
+    required List<AppUser> children,
+  }) {
+    final expanded = _expandedGroupIds.contains(id);
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: ExpansionTile(
+        initiallyExpanded: expanded,
+        onExpansionChanged: (val) {
+          setState(() {
+            if (val) {
+              _expandedGroupIds.add(id);
+            } else {
+              _expandedGroupIds.remove(id);
+            }
+          });
+        },
+        leading: Icon(icon),
+        title: Text(title, style: Theme.of(context).textTheme.titleMedium),
+        children: children.isEmpty
+            ? [const Padding(padding: EdgeInsets.all(12), child: Text('No users'))]
+            : children
+            .map((u) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: _buildUserItemCard(context, u),
+        ))
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildUserItemCard(BuildContext context, AppUser user) {
+    // Move your entire Card UI here, replacing occurrences of `_users[index]` with `user`.
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      elevation: 1.5,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Colors.blue.shade50,
+                  child: Text(
+                    (user.name?.isNotEmpty ?? false)
+                        ? user.name!.substring(0, 1).toUpperCase()
+                        : 'U',
+                    style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header: avatar, name, role chip, email, status pill
                       Row(
                         children: [
-                          CircleAvatar(
-                            radius: 16,
-                            backgroundColor: Colors.blue.shade50,
+                          Flexible(
                             child: Text(
-                              (user.name?.isNotEmpty ?? false)
-                                  ? user.name!.substring(0, 1).toUpperCase()
-                                  : 'U',
-                              style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        user.name ?? 'Unnamed',
-                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    _roleChip(user.role),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.email, size: 14, color: Colors.grey),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        user.email ?? '',
-                                        style: const TextStyle(fontSize: 13, color: Colors.black87),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                              user.name ?? 'Unnamed',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 8),
-                          _statusPill(user.status ?? false),
+                          _roleChip(user.role),
                         ],
                       ),
-
-                      const SizedBox(height: 10),
-
-                      // Info tokens
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
+                      const SizedBox(height: 4),
+                      Row(
                         children: [
-                          if (user.role != 'admin')
-                            _infoToken(
-                              Icons.account_tree,
-                              'Parent',
-                              (user.parentId == null || user.parentId!.isEmpty) ? 'Admin' : 'Sub-Admin',
+                          const Icon(Icons.email, size: 14, color: Colors.grey),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              user.email ?? '',
+                              style: const TextStyle(fontSize: 13, color: Colors.black87),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          _infoToken(Icons.badge_outlined, 'Role', user.role),
-                          if (user.role != 'employee' && user.role != 'admin')
-                            _infoToken(Icons.percent, 'Commission', '${user.commission ?? 0} %'),
-                          if (user.role == 'admin' || user.role == 'subadmin')
-                            _infoToken(Icons.currency_rupee, 'Today Commission', _fmtRupees(_todayPaise[user.id] ?? 0)),
+                          ),
                         ],
                       ),
-
-                      // Labels stripe
-                      if (user.labels != null && user.labels.isNotEmpty && userMeta.role == "admin") ...[
-                        const SizedBox(height: 10),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.blueGrey.withOpacity(0.04),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: user.labels
-                                .map<Widget>(
-                                  (label) => Chip(
-                                label: Text(label, overflow: TextOverflow.ellipsis),
-                                backgroundColor: Colors.blue.shade50,
-                                labelStyle: const TextStyle(color: Colors.blue),
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            )
-                                .toList(),
-                          ),
-                        ),
-                      ],
-
-                      const SizedBox(height: 10),
-
-                      // Action toolbar
-                      if (userMeta.role == 'admin' || userMeta.role == 'employee' || userMeta.role == 'subadmin')
-                        Row(
-                          children: [
-                            if (user.role != 'admin' && userMeta.role != "employee") ...[
-                              const Text('Status:', style: TextStyle(fontWeight: FontWeight.w600)),
-                              const SizedBox(width: 6),
-                              Switch(
-                                value: user.status ?? false,
-                                onChanged: (newStatus) =>
-                                    _confirmAndToggleUserStatus(context, user, newStatus),
-                              ),
-                            ],
-                            const Spacer(),
-                            if (user.role != 'admin')
-                              Wrap(
-                                spacing: 6,
-                                children: [
-                                  if (user.role == 'user' &&
-                                      user.parentId == null &&
-                                      userMeta.role != "employee")
-                                    _iconBtn(Icons.no_accounts_outlined, 'Assign to Sub-Admin',
-                                            () => assignUserToSubAdmin(context, user.id)),
-                                  if (user.role == 'user' &&
-                                      user.parentId != null &&
-                                      userMeta.role != "employee")
-                                    _iconBtn(Icons.account_circle, 'Un-Assign',
-                                            () => unAssignUser(context, user.id, user.parentId!)),
-                                  if (userMeta.role != "employee")
-                                    _iconBtn(Icons.edit, 'Edit',
-                                            () => _showEditDialog(user, user.name, user.email, context)),
-                                  if (userMeta.role != "employee" && user.role != "employee")
-                                    _iconBtn(Icons.percent_sharp, 'Commission %',
-                                            () => showCommissionEditDialog(
-                                          minCommission: 1.0,
-                                          maxCommission: 2.0,
-                                          parentContext: context,
-                                          user: user,
-                                        )),
-                                  if (userMeta.role != "employee")
-                                    _iconBtn(Icons.lock_reset, 'Reset Password',
-                                            () => _showResetPasswordDialog(context, user.id),
-                                        color: Colors.orange),
-                                  if (userMeta.role != "employee")
-                                    _iconBtn(Icons.delete, 'Delete',
-                                            () => _deleteUser(user.id, user.name, user.email),
-                                        color: Colors.red),
-                                  if (userMeta.role == 'admin' ||
-                                      userMeta.role == 'subadmin' ||
-                                      (userMeta.role == 'employee' &&
-                                          userMeta.labels.contains(AppConstants.viewAllTransactions)))
-                                    _iconBtn(Icons.receipt_long, 'View Transactions', () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => TransactionPageNew(filterUserId: user.id),
-                                        ),
-                                      );
-                                    }, color: Colors.teal),
-                                ],
-                              ),
-                          ],
-                        ),
                     ],
                   ),
                 ),
-              );
-            }
-
-            // loading more sentinel
-            return const TransactionCardShimmer();
-          },
+                const SizedBox(width: 8),
+                _statusPill(user.status ?? false),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (user.role != 'admin')
+                  _infoToken(
+                    Icons.account_tree,
+                    'Parent',
+                    (user.parentId == null || user.parentId!.isEmpty) ? 'Admin' : 'Sub-Admin',
+                  ),
+                _infoToken(Icons.badge_outlined, 'Role', user.role),
+                if (user.role != 'employee' && user.role != 'admin')
+                  _infoToken(Icons.percent, 'Commission', '${user.commission ?? 0} %'),
+                if (user.role == 'admin' || user.role == 'subadmin')
+                  _infoToken(Icons.currency_rupee, 'Today Commission', _fmtRupees(_todayPaise[user.id] ?? 0)),
+              ],
+            ),
+            if (user.labels != null && user.labels.isNotEmpty && userMeta.role == "admin") ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blueGrey.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: user.labels
+                      .map<Widget>(
+                        (label) => Chip(
+                      label: Text(label, overflow: TextOverflow.ellipsis),
+                      backgroundColor: Colors.blue.shade50,
+                      labelStyle: const TextStyle(color: Colors.blue),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  )
+                      .toList(),
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            if (userMeta.role == 'admin' || userMeta.role == 'employee' || userMeta.role == 'subadmin')
+              Row(
+                children: [
+                  if (user.role != 'admin' && userMeta.role != "employee") ...[
+                    const Text('Status:', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 6),
+                    Switch(
+                      value: (user.status ?? false),
+                      onChanged: (newStatus) => _confirmAndToggleUserStatus(context, user, newStatus),
+                    ),
+                  ],
+                  const Spacer(),
+                  if (user.role != 'admin')
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        if (user.role == 'user' && user.parentId == null && userMeta.role != "employee")
+                          _iconBtn(Icons.no_accounts_outlined, 'Assign to Sub-Admin',
+                                  () => assignUserToSubAdmin(context, user.id)),
+                        if (user.role == 'user' && user.parentId != null && userMeta.role != "employee")
+                          _iconBtn(Icons.account_circle, 'Un-Assign',
+                                  () => unAssignUser(context, user.id, user.parentId!)),
+                        if (userMeta.role != "employee")
+                          _iconBtn(Icons.edit, 'Edit',
+                                  () => _showEditDialog(user, user.name, user.email, context)),
+                        if (userMeta.role != "employee" && user.role != "employee")
+                          _iconBtn(Icons.percent_sharp, 'Commission %',
+                                  () => showCommissionEditDialog(
+                                minCommission: AppConfig().minCommission,
+                                maxCommission: AppConfig().maxCommission,
+                                parentContext: context,
+                                user: user,
+                              )),
+                        if (userMeta.role != "employee")
+                          _iconBtn(Icons.lock_reset, 'Reset Password',
+                                  () => _showResetPasswordDialog(context, user.id),
+                              color: Colors.orange),
+                        if (userMeta.role != "employee")
+                          _iconBtn(Icons.delete, 'Delete',
+                                  () => _deleteUser(user.id, user.name, user.email),
+                              color: Colors.red),
+                        if (userMeta.role == 'admin' ||
+                            userMeta.role == 'subadmin' ||
+                            (userMeta.role == 'employee' &&
+                                userMeta.labels.contains(AppConstants.viewAllTransactions)))
+                          _iconBtn(Icons.receipt_long, 'View Transactions', () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => TransactionPageNew(filterUserId: user.id)),
+                            );
+                          }, color: Colors.teal),
+                      ],
+                    ),
+                ],
+              ),
+          ],
         ),
       ),
     );
@@ -1293,7 +1503,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     );
 
     final jwt = await AppWriteService().getJWT();
-    final success = await UserService.updateUserStatus(
+    final success = await UsersService.updateUserStatus(
       userId: user.id,
       jwtToken: jwt,
       status: newStatus,

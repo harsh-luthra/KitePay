@@ -86,7 +86,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   Future<void> _fetchUsers() async {
     setState(() => _isProcessing = true);
     try {
-      final fetched = await UserService.listUsers(jwtToken: await AppWriteService().getJWT());
+      final fetched = await UsersService.listUsers(jwtToken: await AppWriteService().getJWT());
       users = fetched.appUsers;
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
@@ -245,44 +245,114 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   // The main function for the floating action button now shows a dialog
   Future<void> _showUploadQrDialog() async {
     if (_jwtToken == null) return;
-    return showDialog(
+
+    final qrIdCtl = _qrIdController; // reuse existing controller
+    String? qrType; // 'paytm' | 'pinelabs' | 'cashfree' | 'razorpay' | 'other'
+
+    final formKey = GlobalKey<FormState>();
+
+    await showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
           title: const Text('Upload New QR Code'),
-          content: TextField(
-            controller: _qrIdController,
-            decoration: const InputDecoration(labelText: 'Enter QR ID'),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: qrIdCtl,
+                    decoration: const InputDecoration(labelText: 'Enter QR ID'),
+                    validator: (v) {
+                      final t = (v ?? '').trim();
+                      if (t.isEmpty) return 'Please enter a QR ID';
+                      if (t.length < 4) return 'QR ID must be at least 4 characters';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('QR Type', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(height: 6),
+
+                  // Radio options
+                  RadioListTile<String>(
+                    dense: true,
+                    title: const Text('Paytm'),
+                    value: 'paytm',
+                    groupValue: qrType,
+                    onChanged: (val) => setState(() => qrType = val),
+                  ),
+                  RadioListTile<String>(
+                    dense: true,
+                    title: const Text('Pinelabs'),
+                    value: 'pinelabs',
+                    groupValue: qrType,
+                    onChanged: (val) => setState(() => qrType = val),
+                  ),
+                  RadioListTile<String>(
+                    dense: true,
+                    title: const Text('Cashfree'),
+                    value: 'cashfree',
+                    groupValue: qrType,
+                    onChanged: (val) => setState(() => qrType = val),
+                  ),
+                  RadioListTile<String>(
+                    dense: true,
+                    title: const Text('Razorpay'),
+                    value: 'razorpay',
+                    groupValue: qrType,
+                    onChanged: (val) => setState(() => qrType = val),
+                  ),
+                  RadioListTile<String>(
+                    dense: true,
+                    title: const Text('Other'),
+                    value: 'other',
+                    groupValue: qrType,
+                    onChanged: (val) => setState(() => qrType = val),
+                  ),
+                ],
+              ),
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () {
-                _qrIdController.clear();
-                Navigator.of(context).pop();
+                qrIdCtl.clear();
+                Navigator.of(ctx).pop();
               },
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
-                if (_qrIdController.text.isNotEmpty) {
-                  Navigator.of(context).pop();
-                  _uploadQrCode(_qrIdController.text);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter a QR ID.')),
+              onPressed: () async {
+                final ok = formKey.currentState?.validate() ?? false;
+                if (!ok) return;
+                if (qrType == null) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text('Please select a QR type.')),
                   );
+                  return;
                 }
+                Navigator.of(ctx).pop();
+
+                final id = qrIdCtl.text.trim();
+                // Call upload with both args; adapt signature as needed
+                await _uploadQrCode(id, qrType!); // e.g., _uploadQrCode(String id, String type)
               },
               child: const Text('Select File'),
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 
   // This is the updated function that takes the QR ID and handles the file upload
-  Future<void> _uploadQrCode(String qrId) async {
+  Future<void> _uploadQrCode(String qrId, String qrType) async {
     if (_jwtToken == null) return;
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       withData: true,
@@ -291,7 +361,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
     if (result != null) {
       PlatformFile file = result.files.first;
-      bool success = await _qrCodeService.uploadQrCode(file, qrId, _jwtToken!);
+      bool success = await _qrCodeService.uploadQrCode(file, qrId, qrType, _jwtToken!);
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('QR Code uploaded successfully!')),
@@ -919,8 +989,8 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                 _buildQrLeftSection(qrCode),      // image, status chip, download/zoom
                 const SizedBox(height: 16),
                 _rightMetricsBlock(qrCode, formattedDate), // metrics + ledger + created
-                const Divider(height: 20),
-                _buildActionButtons(qrCode),
+                // const Divider(height: 20),
+                // _buildActionButtons(qrCode),
               ],
             )
                 : Row(
@@ -972,7 +1042,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       ),
     );
   }
-// Header with QR ID and assignment chip
+  // Header with QR ID and assignment chip
   Widget _qrHeader(QrCode qrCode) {
     final String? assignedId = qrCode.assignedUserId;
     final bool isSelf = assignedId != null && assignedId == widget.userMeta.id;

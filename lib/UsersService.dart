@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'AppConstants.dart';
 import 'models/AppUser.dart';
 
-class UserService {
+class UsersService {
   static final String _baseUrl = AppConstants.baseApiUrl;
 
   static Future<PaginatedAppUsers> listUsers({String? cursor,

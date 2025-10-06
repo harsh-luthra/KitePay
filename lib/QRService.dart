@@ -36,6 +36,7 @@ class QrCodeService {
 // Function to create the QR code entry in the database via the Node.js server
   Future<bool> _createQrEntryOnServer({
     required String qrId,
+    required String qrType,
     required String fileId,
     required String imageUrl,
     required String jwtToken,
@@ -50,6 +51,7 @@ class QrCodeService {
         },
         body: jsonEncode({
           'qrId': qrId,
+          'qrType': qrType,
           'fileId': fileId,
           'imageUrl': imageUrl,
           'createdAt': DateTime.now().toIso8601String(), // New field for creation time
@@ -78,7 +80,7 @@ class QrCodeService {
 
   // The main function to orchestrate the two-step upload and creation process
   // This now handles both file upload and database entry creation.
-  Future<bool> uploadQrCode(PlatformFile file, String qrId, String jwtToken) async {
+  Future<bool> uploadQrCode(PlatformFile file, String qrId, String qrType, String jwtToken) async {
     try {
       // print('Attempting to upload file: ${file.name} to Appwrite...');
       // print('Using bucketId: $bucketId');
@@ -115,6 +117,7 @@ class QrCodeService {
       // Step 3: Send the QR entry details to the Node.js server
       return await _createQrEntryOnServer(
         qrId: qrId,
+        qrType: qrType,
         fileId: fileId,
         imageUrl: imageUrl,
         jwtToken: jwtToken,
