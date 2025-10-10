@@ -28,6 +28,7 @@ import 'MemberShipPlansScreen.dart';
 import 'MyMetaApi.dart';
 import 'SocketManager.dart';
 import 'TransactionPageNew.dart';
+import 'UserDashboardPage.dart';
 import 'UserDashboardScreen.dart';
 import 'WithdrawalFormPage.dart';
 import 'adminLoginPage.dart';
@@ -127,7 +128,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     }else if(widget.userMeta.role == "subadmin"){
       _activeIndex = 1; // Manage Users
     }else if(widget.userMeta.role == "user"){
-      _activeIndex = 3; //My QR Codes
+      _activeIndex = 2; //My QR Codes
     }else{
 
     }
@@ -152,48 +153,55 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       ),
       _MenuItem(
         id: 2,
+        label: 'User Dashboard',
+        icon: Icons.dashboard,
+        visibleFor: (_) => checkRole('user'),
+        builder: (_) => UserDashboardPage(userMeta: widget.userMeta,),
+      ),
+      _MenuItem(
+        id: 3,
         label: 'Manage Users',
         icon: Icons.person,
         visibleFor: (labels) => checkRole('admin') || (checkRole("subadmin") && checkLabel("users") || (checkRole("employee") && checkLabel(AppConstants.viewAllUsers))  ),
         builder: (_) => ManageUsersScreen(),
       ),
       _MenuItem(
-        id: 3,
+        id: 4,
         label: 'Manage All QR Codes',
         icon: Icons.qr_code,
         visibleFor: (labels) => checkRole('admin'),
         builder: (_) => ManageQrScreen(userMeta: widget.userMeta,),
       ),
       _MenuItem(
-        id: 4,
+        id: 5,
         label: 'My QR Codes',
         icon: Icons.qr_code_scanner,
         visibleFor: (_) => !checkRole('employee'),
         builder: (user) => ManageQrScreen(userMode: true, userModeUserid: user.$id, userMeta: widget.userMeta,),
       ),
       _MenuItem(
-        id: 5,
+        id: 6,
         label: 'Manual TXN',
         icon: Icons.add_box_outlined,
         visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.manualTransactions)),
         builder: (_) => ManualTransactionForm(),
       ),
       _MenuItem(
-        id: 6,
+        id: 7,
         label: 'View All TXNs',
         icon: Icons.receipt_long,
         visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
         builder: (_) => const TransactionPageNew(),
       ),
       _MenuItem(
-        id: 7,
+        id: 8,
         label: 'View My TXNs',
         icon: Icons.receipt,
         visibleFor: (_) => !checkRole('employee'),
         builder: (user) => TransactionPageNew(userMode: true, userModeUserid: user.$id),
       ),
       _MenuItem(
-        id: 8,
+        id: 9,
         label: 'View Commission TXNs',
         icon: Icons.receipt,
         visibleFor: (labels) => checkRole('admin') || checkRole('subadmin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
@@ -204,21 +212,21 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       ),
       // CommissionSummaryBoardPage
       _MenuItem(
-        id: 9,
+        id: 10,
         label: 'View Commission Summary',
         icon: Icons.receipt,
         visibleFor: (labels) => checkRole('admin') || checkRole('subadmin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
         builder: (user) => CommissionSummaryBoardPage(userMeta: widget.userMeta),
       ),
       _MenuItem(
-        id: 10,
+        id: 11,
         label: 'All Withdrawals',
         icon: Icons.account_balance_wallet_outlined,
         visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.viewAllWithdrawals) ),
         builder: (_) => ManageWithdrawalsNew(),
       ),
       _MenuItem(
-        id: 11,
+        id: 12,
         label: 'My Withdrawals',
         icon: Icons.account_balance_wallet,
         visibleFor: (_) => !checkRole('employee'),
