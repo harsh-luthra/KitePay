@@ -218,7 +218,6 @@ class QrCodeService {
     }
   }
 
-
   // Function to toggle the 'isActive' status
   // Your server will handle updating the boolean field in the Appwrite database.
   Future<bool> toggleQrCodeStatus(String qrId, bool newStatus, String jwtToken) async {
@@ -244,26 +243,66 @@ class QrCodeService {
 
   // Function to assign a user to a QR code
   // This uses a PUT request, which is semantically correct for updating a resource.
-  Future<bool> assignQrCode(String qrId, String fileId, String userId, String jwtToken) async {
+  Future<bool> assignQrCodeToUser({
+    required String qrId,
+    required String assignedUserId, // can be '' for null
+    required String fileId,
+    required String jwtToken,
+  }) async {
     try {
-      final response = await http.put(
-        Uri.parse('$_baseUrl/assign-qr/$qrId'),
+      final body = <String, dynamic>{
+        'assignedUserId': assignedUserId,
+        'fileId': fileId,
+      };
+
+      final response = await http
+          .put(
+        Uri.parse('$_baseUrl/assign-qr-user/$qrId'),
         headers: {
           'Authorization': 'Bearer $jwtToken',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({'assignedUserId': userId,
-          'fileId' : fileId
-        }),
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 25));
 
-      ).timeout(Duration(seconds: 10));
       return response.statusCode == 200;
     } on TimeoutException {
-      // 🔌 API took too long
-      throw Exception(
-          'Request timed out. Please check your connection or try again later.');
+      throw Exception('Request timed out. Please check the connection and try again.'); // unchanged UX
     } catch (e) {
-      print('Error assigning user: $e');
+      print('Error assigning QR: $e');
+      return false;
+    }
+  }
+
+  Future<bool> assignQrCodeManager({
+    required String qrId,
+    String? managedByUserId,        // pass merchantId only for admin->merchant transfer/assignment
+    required String fileId,
+    required String jwtToken,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'managedByUserId': managedByUserId,
+        'fileId': fileId,
+      };
+
+      final response = await http
+          .put(
+        Uri.parse('$_baseUrl/assign-qr-manager/$qrId'),
+        headers: {
+          'Authorization': 'Bearer $jwtToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(body),
+      )
+          .timeout(const Duration(seconds: 10));
+
+      print(response.body);
+      return response.statusCode == 200;
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check the connection and try again.'); // unchanged UX
+    } catch (e) {
+      print('Error assigning QR: $e');
       return false;
     }
   }

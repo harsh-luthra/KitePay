@@ -473,6 +473,22 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
               itemCount: 8,
               itemBuilder: (_, __) => const TransactionCardShimmer(),
             )
+                : (_items.isEmpty
+                ? RefreshIndicator(
+              onRefresh: () => _fetch(firstLoad: true),
+              child: ListView(
+                padding: const EdgeInsets.only(top: 80),
+                children: const [
+                  Center(
+                    child: Text(
+                      'No commission transactions',
+                      style: TextStyle(color: Colors.black54),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+            )
                 : RefreshIndicator(
               onRefresh: () => _fetch(firstLoad: true),
               child: ListView.separated(
@@ -492,7 +508,7 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
                   );
                 },
               ),
-            ),
+            )),
           ),
         ],
       ),

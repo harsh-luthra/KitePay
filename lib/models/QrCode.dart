@@ -3,6 +3,8 @@ class QrCode {
   final String fileId;
   final String imageUrl;
   final String? assignedUserId;
+  final String? managedByUserId;
+
   final bool isActive;
   final String? createdAt;
   final int? totalTransactions;
@@ -24,6 +26,7 @@ class QrCode {
     required this.fileId,
     required this.imageUrl,
     this.assignedUserId,
+    this.managedByUserId,
     required this.isActive,
     this.createdAt,
     this.totalTransactions,
@@ -43,6 +46,7 @@ class QrCode {
       fileId: json['fileId'] as String? ?? '',
       imageUrl: json['imageUrl'] as String? ?? '',
       assignedUserId: json['assignedUserId'] as String?,
+      managedByUserId : json['managedByUserId'] as String?,
       createdAt: json['createdAt'] as String?,
       isActive: json['isActive'] ?? true,
       totalTransactions: json['totalTransactions'] as int? ?? 0,
@@ -63,6 +67,7 @@ class QrCode {
       'fileId': fileId,
       'imageUrl': imageUrl,
       'assignedUserId': assignedUserId,
+      'managedByUserId' : managedByUserId,
       'createdAt': createdAt, // already a String in your model
       'isActive': isActive,
       'totalTransactions': totalTransactions,
@@ -79,6 +84,7 @@ class QrCode {
 
   @override
   String toString() {
-    return 'QrCode{qrId: $qrId, fileId: $fileId, imageUrl: $imageUrl, assignedUserId: $assignedUserId, isActive: $isActive, createdAt: $createdAt, totalTransactions: $totalTransactions, totalPayInAmount: $totalPayInAmount, withdrawalRequestedAmount: $withdrawalRequestedAmount, withdrawalApprovedAmount: $withdrawalApprovedAmount, amountAvailableForWithdrawal: $amountAvailableForWithdrawal, commissionOnHold: $commissionOnHold, commissionPaid: $commissionPaid, amountOnHold: $amountOnHold, todayTotalPayIn: $todayTotalPayIn}';
+    return 'QrCode{qrId: $qrId, fileId: $fileId, imageUrl: $imageUrl, assignedUserId: $assignedUserId, managedByUserId: $managedByUserId, isActive: $isActive, createdAt: $createdAt, totalTransactions: $totalTransactions, totalPayInAmount: $totalPayInAmount, withdrawalRequestedAmount: $withdrawalRequestedAmount, withdrawalApprovedAmount: $withdrawalApprovedAmount, amountAvailableForWithdrawal: $amountAvailableForWithdrawal, commissionOnHold: $commissionOnHold, commissionPaid: $commissionPaid, amountOnHold: $amountOnHold, todayTotalPayIn: $todayTotalPayIn}';
   }
+
 }

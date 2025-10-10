@@ -1,70 +1,81 @@
-import 'package:admin_qr_manager/adminLoginPage.dart';
 import 'package:admin_qr_manager/splashScreen.dart';
 import 'package:flutter/material.dart';
-import 'package:admin_qr_manager/login_page.dart';
-import 'package:web/web.dart' as web;
-import 'dart:js_interop';
+import 'package:pwa_update_listener/pwa_update_listener.dart';
+import 'dart:html' as html;
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
-// Create <style> element
-//   final style = web.document.createElement('style') as web.HTMLStyleElement;
-//
-//   style.innerHTML = '''
-//     body {
-//       cursor: url("assets/my_cursor.png") 8 8, auto !important;
-//     }
-//   '''.toJS; // ✅ convert Dart String to JS string
-//
-//   // Append to document head
-//   web.document.head?.appendChild(style);
-//
-//   // Append to document head
-//   web.document.head?.appendChild(style);
-
   runApp(const MyApp());
+}
+
+// A shell that listens for PWA updates and prompts reload
+class AppShell extends StatelessWidget {
+  final Widget child;
+  const AppShell({super.key, required this.child});
+
+  void _showUpdateSnack(BuildContext context) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Expanded(child: Text('A new version is available')),
+            TextButton(
+              onPressed: () => html.window.location.reload(),
+              child: const Text('UPDATE'),
+            ),
+          ],
+        ),
+        duration: const Duration(days: 365), // persistent until user decides
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PwaUpdateListener(
+      onReady: () => _showUpdateSnack(rootNavigatorKey.currentContext!),
+      // onInit, onUpdate, onError can be handled if needed
+      child: child,
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // Define light and dark themes
-  ThemeData _lightTheme() {
-    return ThemeData(
+  ThemeData _lightTheme() => ThemeData(
+    brightness: Brightness.light,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: Colors.blueAccent,
       brightness: Brightness.light,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.blueAccent,
-        brightness: Brightness.light,
-      ),
-      useMaterial3: true,
-    );
-  }
+    ),
+    useMaterial3: true,
+  );
 
-  ThemeData _darkTheme() {
-    return ThemeData(
+  ThemeData _darkTheme() => ThemeData(
+    brightness: Brightness.dark,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: Colors.blueAccent,
       brightness: Brightness.dark,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.blueAccent,
-        brightness: Brightness.dark,
-      ),
-      useMaterial3: true,
-    );
-  }
+    ),
+    useMaterial3: true,
+  );
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: rootNavigatorKey,
-      debugShowCheckedModeBanner: false,
-      title: 'KitePay',
-      // theme: ThemeData(
-      //   colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      // ),
-      darkTheme: _darkTheme(),
-      themeMode: ThemeMode.light, // auto switch based on system theme
-      home: SplashScreen(),
+    return AppShell(
+      child: MaterialApp(
+        navigatorKey: rootNavigatorKey,
+        debugShowCheckedModeBanner: false,
+        title: 'KitePay',
+        darkTheme: _darkTheme(),
+        themeMode: ThemeMode.light,
+        home: SplashScreen(),
+      ),
     );
   }
 }

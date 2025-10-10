@@ -54,6 +54,7 @@ dependencies:
   audioplayers: ^6.5.1
   flutter_tts: ^4.2.3
   number_to_indian_words: ^1.0.1
+  pwa_update_listener: ^0.1.0
 
 dev_dependencies:
   flutter_test:

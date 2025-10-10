@@ -513,14 +513,14 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
   void _submitFormNew() async {
     if (!_formKey.currentState!.validate()) return;
 
+    setState(() => _isSubmitting = true);
+
     final user = await AppWriteService().account.get();
     String userId = user.$id;
 
     String name = _mode == 'upi' ? _upiHolderNameController.text.trim() : _bankHolderNameController.text.trim();
 
     final int requestedAmount = int.tryParse(_amountController.text.trim()) ?? 0;
-
-    setState(() => _isSubmitting = true);
 
     try {
       final preview = await WithdrawService.fetchWithdrawCommissionPreview(

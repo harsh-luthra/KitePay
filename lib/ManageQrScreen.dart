@@ -51,6 +51,11 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   int activeUserQrCount = 0;
   // late AppUser userMeta;
 
+  String _managerScope = 'ALL'; // 'ALL' | 'SUBADMIN'
+  AppUser? _selectedSubadmin;   // chosen subadmin for filtering (if scope == SUBADMIN)
+
+  bool showingFilters = false;
+
   @override
   void initState() {
     super.initState();
@@ -105,7 +110,23 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     }
   }
 
-  String? displayUserNameText(String? appUserId){
+  // Helper: map role to a friendly label
+  String roleLabel(String? role) {
+    switch (role) {
+      case 'subadmin':
+        return 'Subadmin';
+      case 'merchant':
+        return 'Merchant';
+      case 'employee':
+        return 'Employee';
+      case 'user':
+        return 'User';
+      default:
+        return role ?? 'Unknown';
+    }
+  }
+
+  String displayUserNameText(String appUserId){
     if(appUserId == null){
       return "Unassigned";
     }
@@ -116,65 +137,232 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     return displayText;
   }
 
-  Future<void> _assignUser(String? qrId, String? fileId) async {
-    if (_jwtToken == null || qrId == null || fileId == null || _isProcessing) return;
-    //
-    // setState(() => _isProcessing = true);
-    // List<AppUser> users = [];
-    //
-    // try {
-    //   users = await AdminUserService.listUsers(await AppwriteService().getJWT());
-    // } catch (e) {
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     SnackBar(content: Text("Failed to load users: $e")),
-    //   );
-    //   setState(() => _isProcessing = false);
-    //   return;
-    // }
-    // setState(() => _isProcessing = false);
+  // All subadmins derived from local cache
+  List<AppUser> get _subadminList =>
+      users.where((u) => u.role == 'subadmin').toList();
 
-    AppUser? selectedUser = await showDialog<AppUser>(
+// Apply local filter to qrCodes according to current dropdown state
+  List<QrCode> get _visibleQrCodes {
+    switch (_managerScope) {
+      case 'ALL':
+        return _qrCodes;
+      case 'UNASSIGNED':
+        return _qrCodes.where((q) => q.assignedUserId == null || q.managedByUserId == null).toList();
+      case 'SUBADMIN':
+        if (_selectedSubadmin == null) return const <QrCode>[];
+        return _qrCodes.where((q) => q.managedByUserId == _selectedSubadmin!.id).toList();
+      default:
+        return _qrCodes;
+    }
+  }
+
+  Future<void> _assignUser(String? qrId, String? fileId, {QrCode? qr}) async {
+    if (_jwtToken == null || qrId == null || fileId == null || _isProcessing) return;
+
+    // Determine manager scope (if any)
+    final String? managerId = qr?.managedByUserId;
+
+    // Base role filter: only end users
+    Iterable<AppUser> base = users.where((u) => u.role == 'user');
+
+    // If QR has a manager, restrict to users under that manager
+    final List<AppUser> filtered = managerId == null
+        ? base.toList()
+        : base.where((u) => u.parentId == managerId).toList();
+
+    // Optional: early UX for empty list
+    if (filtered.isEmpty) {
+      // Show info and return, or proceed to dialog with disabled state
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No eligible users under this manager.')),
+      );
+      return;
+    }
+
+    final AppUser? selectedUser = await showDialog<AppUser>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text("Select User"),
+          title: Text(managerId == null ? 'Select User' : 'Select User (under ${displayUserNameText(managerId)})'),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
               shrinkWrap: true,
-              itemCount: users.length,
+              itemCount: filtered.length,
               itemBuilder: (context, index) {
-                final user = users[index];
+                final user = filtered[index];
                 return ListTile(
+                  leading: const Icon(Icons.person_outline),
                   title: Text(user.name),
-                  subtitle: Text(user.email),
+                  subtitle: Text('${user.email} · ${user.parentId ?? "no-parent"}'),
                   onTap: () => Navigator.of(context).pop(user),
                 );
               },
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+          ],
         );
       },
     );
 
-    if (selectedUser != null) {
-      setState(() => _isProcessing = true);
-      bool success = await _qrCodeService.assignQrCode(qrId, fileId, selectedUser.id, _jwtToken!);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(success ? 'User assigned!' : 'Failed to assign user.')),
-      );
-      if(success){
-        if(widget.userMeta.role == "subadmin"){
-          _fetchOnlyUserQrCodes();
-        }else{
-          _fetchQrCodes();
-        }
+    if (selectedUser == null) return;
+
+    setState(() => _isProcessing = true);
+    final bool success = await _qrCodeService.assignQrCodeToUser(
+      qrId: qrId,
+      fileId: fileId,
+      assignedUserId: selectedUser.id,
+      jwtToken: _jwtToken!,
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(success ? 'User assigned!' : 'Failed to assign user.')),
+    );
+    if (success) {
+      if (widget.userMeta.role == 'subadmin') {
+        _fetchOnlyUserQrCodes();
+      } else {
+        _fetchQrCodes();
       }
-      setState(() => _isProcessing = false);
     }
+    setState(() => _isProcessing = false);
   }
 
-  // Fetches QR codes from the server and updates the UI
+  Future<void> _assignSubAdmin(String? qrId, String? fileId, {QrCode? qr}) async {
+    if (_jwtToken == null || qrId == null || fileId == null || _isProcessing) return;
+
+    // Resolve the current assigned user (if any)
+    final String? assignedId = qr?.assignedUserId;
+    final AppUser? assignedUser =
+    assignedId == null ? null : users.firstWhere((u) => u.id == assignedId, orElse: () => null as AppUser);
+
+    // Base: subadmins only
+    final Iterable<AppUser> allSubs = users.where((u) => u.role == 'subadmin');
+
+    // If QR has an assigned user with a parent, restrict to that parent subadmin; also ensure that subadmin is included even if filters change later.
+    List<AppUser> filtered;
+    if (assignedUser != null) {
+      final String? parentId = assignedUser.parentId;
+      if (parentId == null) {
+        // Assigned user has no parent → no eligible subadmins by rule
+        filtered = <AppUser>[];
+      } else {
+        // Only the parent subadmin
+        filtered = allSubs.where((s) => s.id == parentId).toList();
+      }
+    } else {
+      // No assigned user → show all subadmins
+      filtered = allSubs.toList();
+    }
+
+    // Optional: if required, deduplicate and ensure the parent subadmin (if exists) is present
+    if (assignedUser?.parentId != null) {
+      final AppUser? parentSub = users.firstWhere(
+            (u) => u.id == assignedUser!.parentId && u.role == 'subadmin',
+        orElse: () => null as AppUser,
+      );
+      if (parentSub != null && !filtered.any((s) => s.id == parentSub.id)) {
+        filtered.insert(0, parentSub);
+      }
+    }
+
+    // Guard: empty list UX
+    if (filtered.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            assignedUser == null
+                ? 'No subadmins available.'
+                : 'Assigned user has no parent subadmin; cannot assign manager.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Highlight the parent subadmin in the list (if any)
+    final String? highlightId = assignedUser?.parentId;
+
+    final AppUser? selectedUser = await showDialog<AppUser>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(
+            assignedUser == null
+                ? 'Select Subadmin as QR Manager'
+                : 'Select Assigned User’s Subadmin',
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: filtered.length,
+              itemBuilder: (context, index) {
+                final sub = filtered[index];
+                final bool isParent = sub.id == highlightId;
+                return ListTile(
+                  leading: Icon(
+                    Icons.admin_panel_settings,
+                    color: isParent ? Colors.deepPurple : Colors.blueGrey,
+                  ),
+                  title: Row(
+                    children: [
+                      Expanded(child: Text(sub.name)),
+                      if (isParent)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.deepPurple.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Assigned user’s subadmin',
+                            style: TextStyle(fontSize: 12, color: Colors.deepPurple),
+                          ),
+                        ),
+                    ],
+                  ),
+                  subtitle: Text(sub.email),
+                  onTap: () => Navigator.of(context).pop(sub),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          ],
+        );
+      },
+    );
+
+    if (selectedUser == null) return;
+
+    setState(() => _isProcessing = true);
+    final bool success = await _qrCodeService.assignQrCodeManager(
+      qrId: qrId,
+      fileId: fileId,
+      managedByUserId: selectedUser.id,
+      jwtToken: _jwtToken!,
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(success ? 'Subadmin assigned!' : 'Failed to assign subadmin.')),
+    );
+
+    if (success) {
+      if (widget.userMeta.role == 'subadmin') {
+        _fetchOnlyUserQrCodes();
+      } else {
+        _fetchQrCodes();
+      }
+    }
+    setState(() => _isProcessing = false);
+  }
+
   Future<void> _fetchQrCodes() async {
     _jwtToken = await AppWriteService().getJWT();
     if (_jwtToken == null) {
@@ -189,6 +377,8 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       final codes = await _qrCodeService.getQrCodes(_jwtToken);
       setState(() {
         _qrCodes = codes.reversed.toList(); // Reversed so New Codes comes on top;
+        // _qrCodes.clear();
+        // _qrCodes = codes.where((q) => q.qrId == 'qr_R9jZFGVNtKDQRc').toList();
       });
     } catch (e) {
         _scaffoldMessengerKey.currentState?.showSnackBar(
@@ -502,147 +692,147 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
   }
 
-  // Dialog to assign a user to a QR code with a confirmation dialog and progress indicator
-  Future<void> _assignUserOld(String? qrId, String? fileId) async {
-    if (_jwtToken == null || qrId == null || fileId == null || _isProcessing) return;
-
-    final bool? shouldAssign = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirm Assignment'),
-          content: const Text('Are you sure you want to assign a user to this QR code?'),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(false),
-            ),
-            TextButton(
-              child: const Text('Proceed'),
-              onPressed: () => Navigator.of(context).pop(true),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (shouldAssign == true) {
-      TextEditingController userIdController = TextEditingController();
-      final bool? shouldConfirmAssignment = await showDialog<bool>(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text('Assign QR Code to User'),
-            content: TextField(
-              controller: userIdController,
-              decoration: const InputDecoration(labelText: 'Enter User ID'),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  userIdController.clear();
-                  Navigator.of(context).pop(false);
-                },
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  if (userIdController.text.isNotEmpty) {
-                    Navigator.of(context).pop(true);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please enter a user ID.')),
-                    );
-                  }
-                },
-                child: const Text('Assign'),
-              ),
-            ],
-          );
-        },
-      );
-
-      if (shouldConfirmAssignment == true) {
-        setState(() {
-          _isProcessing = true;
-        });
-        String userId = userIdController.text;
-        bool success = await _qrCodeService.assignQrCode(qrId, fileId, userId, _jwtToken!);
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('User assigned successfully!')),
-          );
-          _fetchQrCodes();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to assign user.')),
-          );
-        }
-        setState(() {
-          _isProcessing = false;
-        });
-      }
-    }
-  }
-
-  // Function to prompt for a new user ID and assign it
-  Future<void> _promptForNewUser(String qrId, String fileId) async {
-    TextEditingController userIdController = TextEditingController();
-    final bool? shouldConfirmAssignment = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Assign QR Code to User'),
-          content: TextField(
-            controller: userIdController,
-            decoration: const InputDecoration(labelText: 'Enter User ID'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                userIdController.clear();
-                Navigator.of(context).pop(false);
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (userIdController.text.isNotEmpty) {
-                  Navigator.of(context).pop(true);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter a user ID.')),
-                  );
-                }
-              },
-              child: const Text('Assign'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (shouldConfirmAssignment == true) {
-      setState(() {
-        _isProcessing = true;
-      });
-      String userId = userIdController.text;
-      bool success = await _qrCodeService.assignQrCode(qrId, fileId, userId, _jwtToken!);
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User assigned successfully!')),
-        );
-        _fetchQrCodes();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to assign user.')),
-        );
-      }
-      setState(() {
-        _isProcessing = false;
-      });
-    }
-  }
+  // // Dialog to assign a user to a QR code with a confirmation dialog and progress indicator
+  // Future<void> _assignUserOld(String? qrId, String? fileId) async {
+  //   if (_jwtToken == null || qrId == null || fileId == null || _isProcessing) return;
+  //
+  //   final bool? shouldAssign = await showDialog<bool>(
+  //     context: context,
+  //     builder: (BuildContext context) {
+  //       return AlertDialog(
+  //         title: const Text('Confirm Assignment'),
+  //         content: const Text('Are you sure you want to assign a user to this QR code?'),
+  //         actions: <Widget>[
+  //           TextButton(
+  //             child: const Text('Cancel'),
+  //             onPressed: () => Navigator.of(context).pop(false),
+  //           ),
+  //           TextButton(
+  //             child: const Text('Proceed'),
+  //             onPressed: () => Navigator.of(context).pop(true),
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   );
+  //
+  //   if (shouldAssign == true) {
+  //     TextEditingController userIdController = TextEditingController();
+  //     final bool? shouldConfirmAssignment = await showDialog<bool>(
+  //       context: context,
+  //       builder: (context) {
+  //         return AlertDialog(
+  //           title: const Text('Assign QR Code to User'),
+  //           content: TextField(
+  //             controller: userIdController,
+  //             decoration: const InputDecoration(labelText: 'Enter User ID'),
+  //           ),
+  //           actions: [
+  //             TextButton(
+  //               onPressed: () {
+  //                 userIdController.clear();
+  //                 Navigator.of(context).pop(false);
+  //               },
+  //               child: const Text('Cancel'),
+  //             ),
+  //             ElevatedButton(
+  //               onPressed: () {
+  //                 if (userIdController.text.isNotEmpty) {
+  //                   Navigator.of(context).pop(true);
+  //                 } else {
+  //                   ScaffoldMessenger.of(context).showSnackBar(
+  //                     const SnackBar(content: Text('Please enter a user ID.')),
+  //                   );
+  //                 }
+  //               },
+  //               child: const Text('Assign'),
+  //             ),
+  //           ],
+  //         );
+  //       },
+  //     );
+  //
+  //     if (shouldConfirmAssignment == true) {
+  //       setState(() {
+  //         _isProcessing = true;
+  //       });
+  //       String userId = userIdController.text;
+  //       bool success = await _qrCodeService.assignQrCode(qrId: qrId, fileId:  fileId, assignedUserId:  userId, jwtToken: _jwtToken!);
+  //       if (success) {
+  //         ScaffoldMessenger.of(context).showSnackBar(
+  //           const SnackBar(content: Text('User assigned successfully!')),
+  //         );
+  //         _fetchQrCodes();
+  //       } else {
+  //         ScaffoldMessenger.of(context).showSnackBar(
+  //           const SnackBar(content: Text('Failed to assign user.')),
+  //         );
+  //       }
+  //       setState(() {
+  //         _isProcessing = false;
+  //       });
+  //     }
+  //   }
+  // }
+  //
+  // // Function to prompt for a new user ID and assign it
+  // Future<void> _promptForNewUser(String qrId, String fileId) async {
+  //   TextEditingController userIdController = TextEditingController();
+  //   final bool? shouldConfirmAssignment = await showDialog<bool>(
+  //     context: context,
+  //     builder: (context) {
+  //       return AlertDialog(
+  //         title: const Text('Assign QR Code to User'),
+  //         content: TextField(
+  //           controller: userIdController,
+  //           decoration: const InputDecoration(labelText: 'Enter User ID'),
+  //         ),
+  //         actions: [
+  //           TextButton(
+  //             onPressed: () {
+  //               userIdController.clear();
+  //               Navigator.of(context).pop(false);
+  //             },
+  //             child: const Text('Cancel'),
+  //           ),
+  //           ElevatedButton(
+  //             onPressed: () {
+  //               if (userIdController.text.isNotEmpty) {
+  //                 Navigator.of(context).pop(true);
+  //               } else {
+  //                 ScaffoldMessenger.of(context).showSnackBar(
+  //                   const SnackBar(content: Text('Please enter a user ID.')),
+  //                 );
+  //               }
+  //             },
+  //             child: const Text('Assign'),
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   );
+  //
+  //   if (shouldConfirmAssignment == true) {
+  //     setState(() {
+  //       _isProcessing = true;
+  //     });
+  //     String userId = userIdController.text;
+  //     bool success = await _qrCodeService.assignQrCode(qrId: qrId, fileId:  fileId, assignedUserId:  userId, jwtToken: _jwtToken!);
+  //     if (success) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text('User assigned successfully!')),
+  //       );
+  //       _fetchQrCodes();
+  //     } else {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text('Failed to assign user.')),
+  //       );
+  //     }
+  //     setState(() {
+  //       _isProcessing = false;
+  //     });
+  //   }
+  // }
 
   // Function to handle unlinking a user from a QR code
   Future<void> _unlinkUser(String qrId, String fileId) async {
@@ -673,7 +863,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
         _isProcessing = true;
       });
       // The assignQrCode function can handle a null userId for unlinking
-      bool success = await _qrCodeService.assignQrCode(qrId, fileId, '', _jwtToken!);
+      bool success = await _qrCodeService.assignQrCodeToUser(qrId: qrId, fileId:  fileId, assignedUserId: '', jwtToken: _jwtToken!);
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User unlinked successfully!')),
@@ -694,16 +884,123 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     }
   }
 
-  // New function to show the options for an assigned QR code
-  Future<void> _showAssignOptions(QrCode qrCode) async {
+  Future<void> _unlinkManager(String qrId, String fileId) async {
     if (_jwtToken == null || _isProcessing) return;
+
+    final bool? shouldUnlink = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Unlinking'),
+          content: const Text('Are you sure you want to unlink this Manager from the QR code?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            TextButton(
+              child: const Text('Unlink'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldUnlink == true) {
+      setState(() {
+        _isProcessing = true;
+      });
+      // The assignQrCode function can handle a null userId for unlinking
+      bool success = await _qrCodeService.assignQrCodeManager(qrId: qrId, fileId:  fileId, managedByUserId: '', jwtToken: _jwtToken!);
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Manager unlinked successfully!')),
+        );
+        if(widget.userMeta.role == "subadmin"){
+          _fetchOnlyUserQrCodes();
+        }else{
+          _fetchQrCodes();
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to unlink Manager.')),
+        );
+      }
+      setState(() {
+        _isProcessing = false;
+      });
+    }
+  }
+
+  // Optional: build a rich subtitle line from available data
+  String buildAssigneeSubtitle({
+    required String? userId,
+    required AppUser? user,
+  }) {
+    if (userId == null) return 'Not assigned';
+    final label = roleLabel(user?.role);
+    final name = user?.name; // you mentioned this helper exists
+    final email = user?.email;
+    if (email != null && email.isNotEmpty) {
+      return 'Currently assigned to $label\n$name · $email';
+    }
+    return 'Currently assigned to $label\n$name';
+  }
+
+// Updated dialog using the helpers above
+  Future<void> _showAssignOptionsUser(QrCode qrCode) async {
+    if (_jwtToken == null || _isProcessing) return;
+
+    final AppUser? assignee = getUserById(qrCode.assignedUserId!);
+    final String subtitle = buildAssigneeSubtitle(
+      userId: qrCode.assignedUserId,
+      user: assignee, // inject your helper
+    );
 
     return showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Manage User Assignment'),
-          content: Text('This QR code is currently assigned to user: ${qrCode.assignedUserId}. What would you like to do?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Current assignment details
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    assignee?.role == 'subadmin'
+                        ? Icons.admin_panel_settings
+                        : Icons.person_outline,
+                    color: assignee?.role == 'subadmin'
+                        ? Colors.deepPurple
+                        : Colors.blueGrey,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(subtitle)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // if (qrCode.managedByUserId != null && assignee != null && assignee.parentId != qrCode.managedByUserId)
+              //   Row(
+              //     children: [
+              //       const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              //       const SizedBox(width: 6),
+              //       Expanded(
+              //         child: Text(
+              //           'Warning: Assigned user is not under the current manager.',
+              //           style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              //             color: Colors.orange[800],
+              //           ),
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+            ],
+          ),
           actions: <Widget>[
             TextButton(
               child: const Text('Cancel'),
@@ -712,15 +1009,87 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             TextButton(
               child: const Text('Unlink User'),
               onPressed: () {
-                Navigator.of(context).pop(); // Close the current dialog
+                Navigator.of(context).pop(); // Close dialog
                 _unlinkUser(qrCode.qrId, qrCode.fileId);
               },
             ),
             TextButton(
               child: const Text('Assign to Other User'),
               onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                _assignUser(qrCode.qrId, qrCode.fileId, qr: qrCode);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String buildManagerSubtitle({
+    required String? managerId,
+    required AppUser? manager,
+    required String Function(String) displayUserNameText,
+  }) {
+    if (managerId == null) return 'No manager assigned';
+    final label = roleLabel(manager?.role);
+    final name = manager?.name;
+    final email = manager?.email;
+    if (email != null && email.isNotEmpty) {
+      return 'Currently managed by $label\n$name · $email';
+    }
+    return 'Currently managed by $label\n$name';
+  }
+
+  // New function to show the options for an assigned QR code
+  Future<void> _showAssignOptionsManager(QrCode qrCode) async {
+    if (_jwtToken == null || _isProcessing) return;
+
+    final String? managerId = qrCode.managedByUserId;         // Only merchant/subadmin id
+      final AppUser? manager = getUserById(managerId!);          // May be null
+      final String managerSubtitle = buildManagerSubtitle(
+        managerId: managerId,
+        manager: manager,
+        displayUserNameText: displayUserNameText,
+      );
+
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Manage Manager Assignment'),
+          // content: Text('This QR code is currently assigned to Manager : ${qrCode.assignedUserId}. What would you like to do?'),
+          content:
+          Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.admin_panel_settings, color: Colors.deepPurple),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                managerSubtitle,
+                // Ensure no null interpolation
+              ),
+            ),
+          ],
+        ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: const Text('Unlink Manager'),
+              onPressed: () {
                 Navigator.of(context).pop(); // Close the current dialog
-                _assignUser(qrCode.qrId, qrCode.fileId);
+                _unlinkManager(qrCode.qrId, qrCode.fileId);
+              },
+            ),
+            TextButton(
+              child: const Text('Assign to Other Manager'),
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the current dialog
+                _assignSubAdmin(qrCode.qrId, qrCode.fileId, qr: qrCode);
               },
             ),
           ],
@@ -849,105 +1218,152 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     bool success = await _qrCodeService.createAdminQrCode(widget.userModeUserid!, _jwtToken!);
   }
 
-  void assignmentOptionForAdminSubAdmin(QrCode qrCode){
+  void assignmentOptionForAdminSubAdminUser(QrCode qrCode){
     // !widget.userMode ? _showAssignOptions(qrCode) : _showCannotAssign(qrCode);
     if(widget.userMeta.role.contains("subadmin")){
       // IF QR ASSIGNED TO SUB ADMIN THEN HE CAN ASSIGN TO OTHER USER
       if(qrCode.assignedUserId == widget.userMeta.id){
-        _showAssignOptions(qrCode);
+        _showAssignOptionsUser(qrCode);
       }else{
         _showCannotAssign(qrCode);
       }
       return;
     }
     // IF IS ADMIN THEN SHOW ALL OPTIONS
-    _showAssignOptions(qrCode);
+    _showAssignOptionsUser(qrCode);
+  }
+
+  void assignmentOptionForAdminManager(QrCode qrCode){
+    _showAssignOptionsManager(qrCode);
   }
 
   @override
   Widget build(BuildContext context) {
+    final list = _visibleQrCodes; // filtered locally
+
     return ScaffoldMessenger(
       key: _scaffoldMessengerKey,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.userMode ? "My QR Codes" : 'Manage All QR Codes'),
+          title: Text(widget.userMode ? 'My QR Codes' : 'Manage All QR Codes'),
           actions: [
-            if(!widget.userMode)
-              IconButton(onPressed: _jwtToken != null && !_isProcessing ? _showUploadQrDialog : null, icon: Icon(Icons.add)),
-            // if(widget.userMode && widget.userMeta.role != "user")
-              // NewFeatureCornerButton(onPressed: !_isProcessing ? _createAssignUserQR : null, icon: Icon(Icons.add_box_rounded), label: Text('Create QR Code'),),
-            // if(widget.userMode)
-            //   NewFeatureCornerButton(
-            //     onPressed: () {
-            //       // call your create-qr API here
-            //       _createAssignUserQR();
-            //     },
-            //   ),
-            if(!widget.userMode)
-              IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _jwtToken != null && !_isProcessing ? _fetchQrCodes : null,
+            if(widget.userMeta.role == 'admin')
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Toggle Filters: '),
+                Switch.adaptive(
+                  value: showingFilters,
+                  onChanged: (val) => setState(() => showingFilters = val),
+                ),
+              ],
             ),
-            if(widget.userMode)
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: !_isProcessing ? _fetchOnlyUserQrCodes : null,
-              ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: (_jwtToken != null && !_isProcessing)
+                  ? (widget.userMode ? _fetchOnlyUserQrCodes : _fetchQrCodes)
+                  : null,
+            ),
           ],
         ),
         body: _isLoading
-            ?  ListView.builder(
-          padding: EdgeInsets.zero,
-          itemCount: 5,
-          itemBuilder: (_, __) => const QrCardShimmer(),
-        )
-            : _isProcessing
             ? ListView.builder(
           padding: EdgeInsets.zero,
           itemCount: 5,
           itemBuilder: (_, __) => const QrCardShimmer(),
         )
-            : _qrCodes.isEmpty
-            ? const Center(child: Text('No QR codes found.'))
-            : Stack(
+            : Column(
           children: [
-            ListView.builder(
-              itemCount: _qrCodes.length,
-              itemBuilder: (context, index) {
-                final qrCode = _qrCodes[index];
-                final createdAt = qrCode.createdAt;
-                String formattedDate = 'N/A';
-                if (createdAt != null) {
-                  try {
-                    formattedDate = DateFormat.yMd()
-                        .add_Hms()
-                        .format(DateTime.parse(createdAt));
-                  } catch (e) {
-                    print('Error parsing date: $e');
-                  }
-                }
-
-                return buildQrCodeCard(qrCode, formattedDate);
-              },
+            // Filters row
+            if (showingFilters && (widget.userMeta.role == 'admin'))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+              child: _buildManagerFilters(),
             ),
-            if (_isProcessing) ...[
-              const Opacity(
-                opacity: 0.8,
-                child:
-                ModalBarrier(dismissible: false, color: Colors.black),
+            // Results
+            Expanded(
+              child: list.isEmpty
+                  ? const Center(child: Text('No QR codes found.'))
+                  : ListView.builder(
+                padding: EdgeInsets.zero,
+                itemCount: list.length,
+                itemBuilder: (context, index) {
+                  final qr = list[index];
+                  // compute formatted date as you already do
+                  String formattedDate = 'NA';
+                  final createdAt = qr.createdAt;
+                  if (createdAt != null) {
+                    try {
+                      formattedDate = DateFormat.yMd().add_Hms().format(DateTime.parse(createdAt));
+                    } catch (_) {}
+                  }
+                  return buildQrCodeCard(qr, formattedDate);
+                },
               ),
-              const Center(child: CircularProgressIndicator()),
-            ]
+            ),
           ],
         ),
-
-        // floatingActionButton: FloatingActionButton(
-        //   onPressed: _jwtToken != null && !_isProcessing ? _showUploadQrDialog : null,
-        //   tooltip: 'Upload QR Code',
-        //   backgroundColor: _jwtToken != null ? Theme.of(context).floatingActionButtonTheme.backgroundColor : Colors.grey,
+        // floatingActionButton: (_jwtToken != null && !_isProcessing && !widget.userMode)
+        //     ? FloatingActionButton(
+        //   onPressed: showUploadQrDialog,
         //   child: const Icon(Icons.add),
-        // ),
+        // )
+        //     : null,
       ),
+    );
+  }
+
+  Widget _buildManagerFilters() {
+    final subs = users.where((u) => u.role == 'subadmin').toList();
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 200,
+          child: DropdownButtonFormField<String>(
+            value: _managerScope,
+            decoration: const InputDecoration(
+              labelText: 'Manager Scope',
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            items: const [
+              DropdownMenuItem(value: 'ALL', child: Text('ALL')),
+              DropdownMenuItem(value: 'SUBADMIN', child: Text('Subadmin')),
+              DropdownMenuItem(value: 'UNASSIGNED', child: Text('UNASSIGNED')),
+            ],
+            onChanged: (val) {
+              if (val == null) return;
+              setState(() {
+                _managerScope = val;
+                if (_managerScope != 'SUBADMIN') {
+                  _selectedSubadmin = null;
+                }
+              });
+            },
+          ),
+        ),
+        if (_managerScope == 'SUBADMIN')
+          SizedBox(
+            width: 330,
+            child: DropdownButtonFormField<AppUser>(
+              value: _selectedSubadmin,
+              decoration: const InputDecoration(
+                labelText: 'Select Subadmin',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              items: subs.map((s) {
+                final label = s.name.isNotEmpty ? '${s.name} • ${s.email}' : s.email;
+                return DropdownMenuItem(value: s, child: Text(label, overflow: TextOverflow.ellipsis));
+              }).toList(),
+              onChanged: (val) => setState(() => _selectedSubadmin = val),
+            ),
+          ),
+      ],
     );
   }
 
@@ -955,15 +1371,26 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     final w = MediaQuery.of(context).size.width;
     final isMobile = w < 720;
 
-    final String? assignedId = qrCode.assignedUserId;
-    final bool isSelf = assignedId != null && assignedId == widget.userMeta.id;
-    final String assignedName = displayUserNameText(assignedId) ?? '';
+    final String assignedId = qrCode.assignedUserId ?? '';
+    final String managerId = qrCode.managedByUserId ?? '';
+
+    final bool isSelf = assignedId == widget.userMeta.id;
+    final String assignedName =  displayUserNameText(assignedId) ?? '';
     // final String assignedEmail = displayUserNameText?.call(assignedId) ?? ''; // if you have this helper
-    final String assigneeLine = assignedId == null
+    final String assigneeLine = assignedId == ''
         ? 'Unassigned'
         : (isSelf
         ? 'Self'
         : [assignedName].where((s) => s.isNotEmpty).join(' • '));
+
+    final String managerName = displayUserNameText(managerId!) ?? '';
+    final bool isSelfManager = managerId == widget.userMeta.id;
+    // final String assignedEmail = displayUserNameText?.call(assignedId) ?? ''; // if you have this helper
+    final String managerLine = managerId == ''
+        ? 'Unassigned'
+        : (isSelfManager
+        ? 'Self'
+        : [managerName].where((s) => s.isNotEmpty).join(' • '));
 
     return Card(
       elevation: 3,
@@ -1009,11 +1436,30 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             // Always show name & email at the bottom
             Row(
               children: [
+                SizedBox(width: 70, child: Text("User:")),
                 const Icon(Icons.person, size: 18, color: Colors.blueGrey),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     assigneeLine.isEmpty ? (assignedId ?? 'Unassigned') : assigneeLine,
+                    style: const TextStyle(fontSize: 13, color: Colors.black87),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            if(!widget.userMode)
+            Row(
+              children: [
+                SizedBox(width: 70, child: Text("Manager:")),
+                const Icon(Icons.admin_panel_settings, size: 18, color: Colors.blueGrey),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    managerLine.isEmpty ? (managerId ?? 'Unassigned') : managerLine,
                     style: const TextStyle(fontSize: 13, color: Colors.black87),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1202,117 +1648,10 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     }
   }
 
-  /// Right: details and metrics
-  Widget _buildQrRightSection(QrCode qrCode, String formattedDate) {
-    final bool isAdmin = widget.userMeta.role == "admin";
-    final assignedId = qrCode.assignedUserId;
-
-    Widget metric(String label, String value, {IconData? icon, Color? color}) {
-      return Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          border: Border.all(color: Colors.grey.shade200),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 18, color: color ?? Colors.blueGrey),
-              const SizedBox(width: 8),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  const SizedBox(height: 2),
-                  Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    String inr(num p) => CurrencyUtils.formatIndianCurrency(p / 100);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Quick metrics grid
-        LayoutBuilder(
-          builder: (ctx, cts) {
-            final cols = cts.maxWidth > 900 ? 4 : cts.maxWidth > 600 ? 3 : 2;
-            final metrics = <Widget>[
-              metric('Today Pay-In', inr(qrCode.todayTotalPayIn ?? 0), icon: Icons.today, color: Colors.indigo),
-              metric('Transactions', CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions ?? 0),
-                  icon: Icons.receipt_long, color: Colors.teal),
-              if (isAdmin) metric('Amount Received', inr(qrCode.totalPayInAmount ?? 0), icon: Icons.account_balance_wallet),
-              metric('Avail. Withdrawal', inr(qrCode.amountAvailableForWithdrawal ?? 0), icon: Icons.savings, color: Colors.green),
-            ];
-
-            return GridView.count(
-              crossAxisCount: cols,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 2.8,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              children: metrics,
-            );
-          },
-        ),
-        const SizedBox(height: 12),
-        // Ledger block
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.blueGrey.shade50,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Wrap(
-            spacing: 16,
-            runSpacing: 8,
-            children: [
-              _kv('Requested', inr(qrCode.withdrawalRequestedAmount ?? 0)),
-              _kv('Approved', inr(qrCode.withdrawalApprovedAmount ?? 0)),
-              _kv('Commission On-Hold', inr(qrCode.commissionOnHold ?? 0)),
-              _kv('Commission Paid', inr(qrCode.commissionPaid ?? 0)),
-              _kv('Amount On-Hold', inr(qrCode.amountOnHold ?? 0)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            const Icon(Icons.access_time, size: 16, color: Colors.grey),
-            const SizedBox(width: 6),
-            Text('Created: $formattedDate', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            const Spacer(),
-            if (!widget.userMode)
-              Row(
-                children: [
-                  const Icon(Icons.person_outline, size: 16, color: Colors.grey),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Assigned: ${displayUserNameText(assignedId) ?? (assignedId ?? 'Unassigned')}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-
 // Right: metrics + ledger + created line + actions (actions can stay at bottom of card if preferred)
   Widget _rightMetricsBlock(QrCode qrCode, String formattedDate) {
     final bool isAdmin = widget.userMeta.role == "admin";
+    final bool isSubAdmin = widget.userMeta.role == "subadmin";
     String inr(num p) => CurrencyUtils.formatIndianCurrency(p / 100);
 
     Widget metric(String label, String value, {IconData? icon, Color? color}) {
@@ -1412,7 +1751,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
               metricTile('Transactions',
                   CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions ?? 0),
                   icon: Icons.receipt_long, color: Colors.teal),
-              if (isAdmin)
+              if (isAdmin || isSubAdmin)
                 metricTile('Amount Received', inr(qrCode.totalPayInAmount ?? 0),
                     icon: Icons.account_balance_wallet, color: Colors.deepPurple),
               metricTile('Avail. Withdrawal', inr(qrCode.amountAvailableForWithdrawal ?? 0),
@@ -1511,10 +1850,19 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
         if (widget.userMeta.role != "employee" && canUserActions)
           action(
             icon: qrCode.assignedUserId == null ? Icons.person_add_alt_1 : Icons.person_outline,
-            tip: qrCode.assignedUserId == null ? 'Assign User' : 'Change Assignment',
+            tip: qrCode.assignedUserId == null ? 'Assign User' : 'Change User Assignment',
             onTap: () => qrCode.assignedUserId == null
-                ? _assignUser(qrCode.qrId, qrCode.fileId)
-                : assignmentOptionForAdminSubAdmin(qrCode),
+                ? _assignUser(qrCode.qrId, qrCode.fileId, qr: qrCode)
+                : assignmentOptionForAdminSubAdminUser(qrCode),
+            color: Colors.blueAccent,
+          ),
+        if (widget.userMeta.role != "employee" && canUserActions && widget.userMeta.role == 'admin')
+          action(
+            icon: qrCode.managedByUserId == null ? Icons.admin_panel_settings_outlined : Icons.admin_panel_settings,
+            tip: qrCode.managedByUserId == null ? 'Assign to Merchant' : 'Change Merchant Assignment',
+            onTap: () => qrCode.managedByUserId == null
+                ? _assignSubAdmin(qrCode.qrId, qrCode.fileId, qr: qrCode)
+                : assignmentOptionForAdminManager(qrCode),
             color: Colors.blueAccent,
           ),
         if (canViewTx)
@@ -1550,218 +1898,218 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   }
 
 
-  Widget buildQrCodeCardOld(QrCode qrCode, String formattedDate) {
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Left: QR Image or Icon
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Column(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                          builder: (_) => Dialog(
-                            child: Stack(
-                              children: [
-                                // 🔍 Zoomable QR Image
-                                InteractiveViewer(
-                                  child: qrCode.imageUrl.isNotEmpty
-                                      ? CachedNetworkImage(
-                                    imageUrl: qrCode.imageUrl,
-                                    fit: BoxFit.contain,
-                                    placeholder: (context, url) => const Padding(
-                                      padding: EdgeInsets.all(20),
-                                      child: Center(child: CircularProgressIndicator()),
-                                    ),
-                                    errorWidget: (context, url, error) =>
-                                    const Icon(Icons.error, size: 100),
-                                  )
-                                      : const Icon(Icons.qr_code, size: 100),
-                                ),
-
-                                // ⬇️ Download Button
-                                Positioned(
-                                  top: 8,
-                                  right: 8,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.download, size: 28, color: Colors.blue),
-                                    onPressed: () {
-                                      final anchor = html.AnchorElement(href: qrCode.imageUrl)
-                                        ..download = "qr_${DateTime.now().millisecondsSinceEpoch}.png"
-                                        ..target = 'blank';
-                                      anchor.click();
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      );
-                    },
-                    child: SizedBox(
-                      width: 100,
-                      height: 100,
-                      child: qrCode.imageUrl.isNotEmpty
-                          ? CachedNetworkImage(
-                        imageUrl: qrCode.imageUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => const Center(
-                          child: CircularProgressIndicator(),
-                        ),
-                        errorWidget: (context, url, error) => const Center(
-                          child: Icon(Icons.error),
-                        ),
-                      )
-                          : const Icon(Icons.qr_code, size: 80),
-                    ),
-                  ),
-
-                  const SizedBox(height: 15),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: qrCode.isActive ? Colors.green.shade100 : Colors.red.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      qrCode.isActive ? 'ACTIVE' : 'INACTIVE',
-                      style: TextStyle(
-                        color: qrCode.isActive ? Colors.green.shade800 : Colors.red.shade800,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-                  // Action buttons
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      if(!widget.userMode)
-                        IconButton(
-                          icon: Icon(
-                            qrCode.isActive ? Icons.toggle_on : Icons.toggle_off,
-                            color: qrCode.isActive ? Colors.green : Colors.grey,
-                          ),
-                          tooltip: 'Toggle Status',
-                          onPressed: _isProcessing ? null : () => _toggleStatus(qrCode),
-                        ),
-                      if(!widget.userMode)
-                        IconButton(
-                          icon: Icon(
-                            qrCode.assignedUserId == null
-                                ? Icons.person_add_alt_1
-                                : Icons.person_outline,
-                            color: Colors.blueAccent,
-                          ),
-                          tooltip: qrCode.assignedUserId == null ? 'Assign User' : 'Change Assignment',
-                          onPressed: _isProcessing
-                              ? null
-                              : () => qrCode.assignedUserId == null
-                              ? _assignUser(qrCode.qrId, qrCode.fileId)
-                              : _showAssignOptions(qrCode),
-                        ),
-                      IconButton(
-                        icon: const Icon(Icons.article_outlined, color: Colors.deepPurple),
-                        tooltip: 'View Transactions',
-                        onPressed: _isProcessing
-                            ? null
-                            : () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) {
-                              if (widget.userMode) {
-                                return TransactionPageNew(
-                                  filterQrCodeId: qrCode.qrId,
-                                  userMode: true,
-                                  userModeUserid: widget.userModeUserid,
-                                );
-                              } else {
-                                return TransactionPageNew(
-                                  filterQrCodeId: qrCode.qrId,
-                                );
-                              }
-                            },
-                          ),
-                        ),
-                      ),
-                      if(!widget.userMode && widget.userMeta.role == "admin")
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                          tooltip: 'Delete QR Code',
-                          onPressed:
-                          _isProcessing ? null : () => _deleteQrCode(qrCode.qrId),
-                        ),
-                    ],
-                  )
-
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-
-            // Right: Info + Actions
-            Expanded(
-              child: SizedBox(
-                height: 200,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // QR ID
-                    Text(
-                      'ID: ${qrCode.qrId}',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    // QR ID
-                    Text(
-                      'Transactions: ${CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions!)}',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-
-                    // QR ID
-                    Text(
-                      'Amount Received: ${CurrencyUtils.formatIndianCurrency(qrCode.totalPayInAmount! / 100)}',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    if(!widget.userMode)
-                    Text(
-                      'Assigned to: ${displayUserNameText(qrCode.assignedUserId) ?? 'Unassigned'}',
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                    Text(
-                      'Created: $formattedDate',
-                      style: const TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                  ],
-                ),
-              ),
-            ),
-
-          ],
-        ),
-      ),
-    );
-  }
+  // Widget buildQrCodeCardOld(QrCode qrCode, String formattedDate) {
+  //   return Card(
+  //     elevation: 4,
+  //     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+  //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+  //     child: Padding(
+  //       padding: const EdgeInsets.all(12.0),
+  //       child: Row(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           // Left: QR Image or Icon
+  //           ClipRRect(
+  //             borderRadius: BorderRadius.circular(12),
+  //             child: Column(
+  //               children: [
+  //                 GestureDetector(
+  //                   onTap: () {
+  //                     showDialog(
+  //                       context: context,
+  //                         builder: (_) => Dialog(
+  //                           child: Stack(
+  //                             children: [
+  //                               // 🔍 Zoomable QR Image
+  //                               InteractiveViewer(
+  //                                 child: qrCode.imageUrl.isNotEmpty
+  //                                     ? CachedNetworkImage(
+  //                                   imageUrl: qrCode.imageUrl,
+  //                                   fit: BoxFit.contain,
+  //                                   placeholder: (context, url) => const Padding(
+  //                                     padding: EdgeInsets.all(20),
+  //                                     child: Center(child: CircularProgressIndicator()),
+  //                                   ),
+  //                                   errorWidget: (context, url, error) =>
+  //                                   const Icon(Icons.error, size: 100),
+  //                                 )
+  //                                     : const Icon(Icons.qr_code, size: 100),
+  //                               ),
+  //
+  //                               // ⬇️ Download Button
+  //                               Positioned(
+  //                                 top: 8,
+  //                                 right: 8,
+  //                                 child: IconButton(
+  //                                   icon: const Icon(Icons.download, size: 28, color: Colors.blue),
+  //                                   onPressed: () {
+  //                                     final anchor = html.AnchorElement(href: qrCode.imageUrl)
+  //                                       ..download = "qr_${DateTime.now().millisecondsSinceEpoch}.png"
+  //                                       ..target = 'blank';
+  //                                     anchor.click();
+  //                                   },
+  //                                 ),
+  //                               ),
+  //                             ],
+  //                           ),
+  //                         ),
+  //                     );
+  //                   },
+  //                   child: SizedBox(
+  //                     width: 100,
+  //                     height: 100,
+  //                     child: qrCode.imageUrl.isNotEmpty
+  //                         ? CachedNetworkImage(
+  //                       imageUrl: qrCode.imageUrl,
+  //                       fit: BoxFit.cover,
+  //                       placeholder: (context, url) => const Center(
+  //                         child: CircularProgressIndicator(),
+  //                       ),
+  //                       errorWidget: (context, url, error) => const Center(
+  //                         child: Icon(Icons.error),
+  //                       ),
+  //                     )
+  //                         : const Icon(Icons.qr_code, size: 80),
+  //                   ),
+  //                 ),
+  //
+  //                 const SizedBox(height: 15),
+  //                 Container(
+  //                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+  //                   decoration: BoxDecoration(
+  //                     color: qrCode.isActive ? Colors.green.shade100 : Colors.red.shade100,
+  //                     borderRadius: BorderRadius.circular(12),
+  //                   ),
+  //                   child: Text(
+  //                     qrCode.isActive ? 'ACTIVE' : 'INACTIVE',
+  //                     style: TextStyle(
+  //                       color: qrCode.isActive ? Colors.green.shade800 : Colors.red.shade800,
+  //                       fontWeight: FontWeight.bold,
+  //                       fontSize: 12,
+  //                     ),
+  //                   ),
+  //                 ),
+  //
+  //                 const SizedBox(height: 20),
+  //                 // Action buttons
+  //                 Wrap(
+  //                   spacing: 8,
+  //                   runSpacing: 8,
+  //                   children: [
+  //                     if(!widget.userMode)
+  //                       IconButton(
+  //                         icon: Icon(
+  //                           qrCode.isActive ? Icons.toggle_on : Icons.toggle_off,
+  //                           color: qrCode.isActive ? Colors.green : Colors.grey,
+  //                         ),
+  //                         tooltip: 'Toggle Status',
+  //                         onPressed: _isProcessing ? null : () => _toggleStatus(qrCode),
+  //                       ),
+  //                     if(!widget.userMode)
+  //                       IconButton(
+  //                         icon: Icon(
+  //                           qrCode.assignedUserId == null
+  //                               ? Icons.person_add_alt_1
+  //                               : Icons.person_outline,
+  //                           color: Colors.blueAccent,
+  //                         ),
+  //                         tooltip: qrCode.assignedUserId == null ? 'Assign User' : 'Change Assignment',
+  //                         onPressed: _isProcessing
+  //                             ? null
+  //                             : () => qrCode.assignedUserId == null
+  //                             ? _assignUser(qrCode.qrId, qrCode.fileId)
+  //                             : _showAssignOptions(qrCode),
+  //                       ),
+  //                     IconButton(
+  //                       icon: const Icon(Icons.article_outlined, color: Colors.deepPurple),
+  //                       tooltip: 'View Transactions',
+  //                       onPressed: _isProcessing
+  //                           ? null
+  //                           : () => Navigator.push(
+  //                         context,
+  //                         MaterialPageRoute(
+  //                           builder: (_) {
+  //                             if (widget.userMode) {
+  //                               return TransactionPageNew(
+  //                                 filterQrCodeId: qrCode.qrId,
+  //                                 userMode: true,
+  //                                 userModeUserid: widget.userModeUserid,
+  //                               );
+  //                             } else {
+  //                               return TransactionPageNew(
+  //                                 filterQrCodeId: qrCode.qrId,
+  //                               );
+  //                             }
+  //                           },
+  //                         ),
+  //                       ),
+  //                     ),
+  //                     if(!widget.userMode && widget.userMeta.role == "admin")
+  //                       IconButton(
+  //                         icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+  //                         tooltip: 'Delete QR Code',
+  //                         onPressed:
+  //                         _isProcessing ? null : () => _deleteQrCode(qrCode.qrId),
+  //                       ),
+  //                   ],
+  //                 )
+  //
+  //               ],
+  //             ),
+  //           ),
+  //           const SizedBox(width: 16),
+  //
+  //           // Right: Info + Actions
+  //           Expanded(
+  //             child: SizedBox(
+  //               height: 200,
+  //               child: Column(
+  //                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+  //                 crossAxisAlignment: CrossAxisAlignment.start,
+  //                 children: [
+  //                   // QR ID
+  //                   Text(
+  //                     'ID: ${qrCode.qrId}',
+  //                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+  //                   ),
+  //
+  //                   const SizedBox(height: 6),
+  //
+  //                   // QR ID
+  //                   Text(
+  //                     'Transactions: ${CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions!)}',
+  //                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+  //                   ),
+  //
+  //                   // QR ID
+  //                   Text(
+  //                     'Amount Received: ${CurrencyUtils.formatIndianCurrency(qrCode.totalPayInAmount! / 100)}',
+  //                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+  //                   ),
+  //
+  //                   const SizedBox(height: 6),
+  //
+  //                   if(!widget.userMode)
+  //                   Text(
+  //                     'Assigned to: ${displayUserNameText(qrCode.assignedUserId) ?? 'Unassigned'}',
+  //                     style: const TextStyle(fontSize: 14),
+  //                   ),
+  //                   Text(
+  //                     'Created: $formattedDate',
+  //                     style: const TextStyle(fontSize: 13, color: Colors.grey),
+  //                   ),
+  //
+  //                   const SizedBox(height: 10),
+  //
+  //                 ],
+  //               ),
+  //             ),
+  //           ),
+  //
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
 
 }

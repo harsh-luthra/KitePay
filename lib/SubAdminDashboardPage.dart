@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -7,27 +8,29 @@ import 'package:intl/intl.dart';
 import 'AppConstants.dart';
 import 'AppWriteService.dart';
 
-class AdminDashboardPage extends StatefulWidget {
-  const AdminDashboardPage({super.key});
+class SubAdminDashboardPage extends StatefulWidget {
+  final AppUser userMeta; // keep nullable if not always provided
+
+  const SubAdminDashboardPage({super.key, required this.userMeta});
   @override
-  State<AdminDashboardPage> createState() => _AdminDashboardPageState();
+  State<SubAdminDashboardPage> createState() => _SubAdminDashboardPageState();
 }
 
-class _AdminDashboardPageState extends State<AdminDashboardPage> {
-  late Future<DashboardData> _future;
+class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
+  late Future<SubAdminDashboardData> _future;
   bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
-    _future = fetchDashboard();
+    _future = fetchSubadminDashboard(merchantId: widget.userMeta.id);
   }
 
   Future<void> _refresh() async {
     if (_refreshing) return;
     setState(() => _refreshing = true);
     try {
-      final data = await fetchDashboard(force: true);
+      final data = await fetchSubadminDashboard(force: true, merchantId: widget.userMeta.id);
       if (!mounted) return;
       setState(() {
         _future = Future.value(data);
@@ -43,7 +46,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Dashboard'),
+        title: const Text('Merchant Dashboard'),
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -55,11 +58,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           ),
         ],
       ),
-      body: FutureBuilder<DashboardData>(
+      body: FutureBuilder<SubAdminDashboardData>(
         future: _future,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
-            return const _DashboardSkeleton();
+            return const _SubadminDashboardSkeleton();
           }
           if (snap.hasError) {
             return Center(
@@ -91,9 +94,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     _metricGrid([
                       _metric('Total Transactions', data.totalTxCount, Icons.swap_horiz, Colors.indigo),
                       _money('Total Received', data.totalAmountReceived, Icons.account_balance_wallet, Colors.teal),
-                      _money('Admin Profit', data.totalAdminProfit, Icons.leaderboard, Colors.deepPurple),
                       _money('Merchant Profit', data.totalMerchantProfit, Icons.wallet, Colors.orange),
-                      _metric('QR Codes Uploaded', data.totalQrsUploaded, Icons.qr_code_2, Colors.blueGrey),
                       _metric('QRs Assigned to Merchant', data.totalQrsAssignedToMerchant, Icons.assignment_ind, Colors.cyan),
                     ]),
                   ],
@@ -102,32 +103,29 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   title: 'QR Breakdown',
                   children: [
                     _metricGrid([
-                      _metric('Pinelabs QRs', data.totalPinelabsQrs, Icons.qr_code_scanner, Colors.green),
-                      _metric('Paytm QRs', data.totalPaytmQrs, Icons.qr_code_scanner, Colors.blue),
-                      _metric('Other QRs', data.totalOtherQrs, Icons.qr_code_scanner, Colors.grey),
                       _metric('QRs Active', data.qrCodesActive, Icons.check_circle, Colors.green.shade700),
                       _metric('QRs Disabled', data.qrCodesDisabled, Icons.disabled_by_default, Colors.red.shade700),
                     ]),
                   ],
                 ),
-                _Section(
-                  title: 'Transaction Types',
-                  children: [
-                    _metricGrid([
-                      _metric('Manual Txns', data.totalManualTx, Icons.edit_note, Colors.amber.shade800),
-                      _metric('API Txns', data.totalApiTx, Icons.cloud_done, Colors.lightBlue),
-                      _moneyPair('Chargebacks', data.chargebackCount, data.chargebackAmount, Colors.red.shade600, Icons.report),
-                      _moneyPair('Cyber', data.cyberCount, data.cyberAmount, Colors.pink.shade600, Icons.warning_amber),
-                      _moneyPair('Refunds', data.refundCount, data.refundAmount, Colors.orange.shade700, Icons.undo),
-                    ]),
-                  ],
-                ),
+                // _Section(
+                //   title: 'Transaction Types',
+                //   children: [
+                //     _metricGrid([
+                //       _moneyPair('Chargebacks', data.chargebackCount, data.chargebackAmount, Colors.red.shade600, Icons.report),
+                //       _moneyPair('Cyber', data.cyberCount, data.cyberAmount, Colors.pink.shade600, Icons.warning_amber),
+                //       _moneyPair('Refunds', data.refundCount, data.refundAmount, Colors.orange.shade700, Icons.undo),
+                //     ]),
+                //   ],
+                // ),
                 _Section(
                   title: 'Payouts',
                   children: [
                     _metricGrid([
                       _money('Amount Paid', data.totalAmountPaid, Icons.outbox, Colors.green),
                       _money('Pending Withdrawals', data.totalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
+                      _money('Available Amount', data.totalAvailableAmount, Icons.pending_actions, Colors.deepOrangeAccent),
+                      _money('Amount OnHold', data.totalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
                     ]),
                   ],
                 ),
@@ -137,9 +135,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     _metricGrid([
                       _metric('Active Users', data.activeUsers, Icons.people_alt, Colors.green),
                       _metric('Disabled Users', data.disabledUsers, Icons.person_off, Colors.red),
-                      _metric('Merchant Active', data.merchantActive, Icons.store, Colors.teal),
-                      _metric('Merchant Pending', data.merchantPending, Icons.hourglass_bottom, Colors.amber),
-                      _metric('Merchant Disabled', data.merchantDisabled, Icons.storefront_outlined, Colors.red.shade700),
                       _metric('Total Users', data.totalUsers, Icons.groups_2, Colors.indigo),
                     ]),
                   ],
@@ -305,8 +300,8 @@ class _Section extends StatelessWidget {
   }
 }
 
-class _DashboardSkeleton extends StatelessWidget {
-  const _DashboardSkeleton();
+class _SubadminDashboardSkeleton extends StatelessWidget {
+  const _SubadminDashboardSkeleton();
 
   @override
   Widget build(BuildContext context) {
@@ -343,117 +338,169 @@ class _DashboardSkeleton extends StatelessWidget {
 
 // ===== Data model + API (mock now) =====
 
-class DashboardData {
+class SubAdminDashboardData {
   // Overview
   final int totalTxCount;
   final int totalAmountReceived;
-  final int totalAdminProfit;
+  final int totalAvailableAmount;
   final int totalMerchantProfit;
-  final int totalQrsUploaded;
   final int totalQrsAssignedToMerchant;
 
   // QR breakdown
-  final int totalPinelabsQrs;
-  final int totalPaytmQrs;
-  final int totalOtherQrs;
   final int qrCodesActive;
   final int qrCodesDisabled;
 
   // Transaction types
-  final int totalManualTx;
-  final int totalApiTx;
-  final int chargebackCount;
-  final int chargebackAmount;
-  final int cyberCount;
-  final int cyberAmount;
-  final int refundCount;
-  final int refundAmount;
+  // final int chargebackCount;
+  // final int chargebackAmount;
+  // final int cyberCount;
+  // final int cyberAmount;
+  // final int refundCount;
+  // final int refundAmount;
 
   // Payouts
   final int totalAmountPaid;
   final int totalWithdrawalPendingAmount;
+  final int totalAmountOnHold;
 
   // Users/Merchants
   final int activeUsers;
   final int disabledUsers;
-  final int merchantActive;
-  final int merchantPending;
-  final int merchantDisabled;
   final int totalUsers;
 
   // Memberships
   final int totalMembershipPurchased;
   final int pendingMembershipUsers;
 
-  const DashboardData({
+  const SubAdminDashboardData({
     required this.totalTxCount,
     required this.totalAmountReceived,
-    required this.totalAdminProfit,
+    required this.totalAvailableAmount,
     required this.totalMerchantProfit,
-    required this.totalQrsUploaded,
     required this.totalQrsAssignedToMerchant,
-    required this.totalPinelabsQrs,
-    required this.totalPaytmQrs,
-    required this.totalOtherQrs,
     required this.qrCodesActive,
     required this.qrCodesDisabled,
-    required this.totalManualTx,
-    required this.totalApiTx,
-    required this.chargebackCount,
-    required this.chargebackAmount,
-    required this.cyberCount,
-    required this.cyberAmount,
-    required this.refundCount,
-    required this.refundAmount,
+    // required this.chargebackCount,
+    // required this.chargebackAmount,
+    // required this.cyberCount,
+    // required this.cyberAmount,
+    // required this.refundCount,
+    // required this.refundAmount,
     required this.totalAmountPaid,
     required this.totalWithdrawalPendingAmount,
+    required this.totalAmountOnHold,
     required this.activeUsers,
     required this.disabledUsers,
-    required this.merchantActive,
-    required this.merchantPending,
-    required this.merchantDisabled,
     required this.totalUsers,
     required this.totalMembershipPurchased,
     required this.pendingMembershipUsers,
   });
 
-  factory DashboardData.fromJson(Map<String, dynamic> j) => DashboardData(
+  factory SubAdminDashboardData.fromJson(Map<String, dynamic> j) => SubAdminDashboardData(
       totalTxCount: j['totalTxCount'],
       totalAmountReceived: j['totalAmountReceived'],
-      totalAdminProfit: j['totalAdminProfit'],
+      totalAvailableAmount: j['totalAvailableAmount'],
       totalMerchantProfit: j['totalMerchantProfit'],
-      totalQrsUploaded: j['totalQrsUploaded'],
       totalQrsAssignedToMerchant: j['totalQrsAssignedToMerchant'],
-      totalPinelabsQrs: j['totalPinelabsQrs'],
-      totalPaytmQrs: j['totalPaytmQrs'],
-      totalOtherQrs: j['totalOtherQrs'],
       qrCodesActive: j['qrCodesActive'],
       qrCodesDisabled : j['qrCodesDisabled'],
-      totalManualTx: j['totalManualTx'],
-      totalApiTx: j['totalApiTx'],
-      chargebackCount: j['chargebackCount'],
-      chargebackAmount: j['chargebackAmount'],
-      cyberCount: j['cyberCount'],
-      cyberAmount: j['cyberAmount'],
-      refundCount: j['refundCount'],
-      refundAmount: j['refundAmount'],
+      // chargebackCount: j['chargebackCount'],
+      // chargebackAmount: j['chargebackAmount'],
+      // cyberCount: j['cyberCount'],
+      // cyberAmount: j['cyberAmount'],
+      // refundCount: j['refundCount'],
+      // refundAmount: j['refundAmount'],
       totalAmountPaid: j['totalAmountPaid'],
       totalWithdrawalPendingAmount: j['totalWithdrawalPendingAmount'],
+      totalAmountOnHold : j['totalAmountOnHold'],
       activeUsers: j['activeUsers'],
       disabledUsers: j['disabledUsers'],
-      merchantActive: j['merchantActive'],
-      merchantPending: j['merchantPending'],
-      merchantDisabled: j['merchantDisabled'],
       totalUsers: j['totalUsers'],
       totalMembershipPurchased: j['totalMembershipPurchased'],
       pendingMembershipUsers: j['pendingMembershipUsers'],
      );
 }
 
-DashboardData? _cache;
+SubAdminDashboardData? _cache;
 DateTime? _cacheAt;
 
-Future<DashboardData> fetchDashboard({bool force = false}) async {
+// Fetch API with fallback to dummy
+Future<SubAdminDashboardData> fetchSubadminDashboard({
+  required String merchantId,
+  bool force = false,
+}) async {
+  try {
+    final jwt = await AppWriteService().getJWT();
+    final uri = Uri.parse('${AppConstants.baseApiUrl}/admin/dashboard/subadmin/$merchantId');
+    final resp = await http.get(
+      uri,
+      headers: {'Authorization': 'Bearer $jwt', 'Accept': 'application/json'},
+    );
+
+    if (resp.statusCode != 200) {
+      // Fallback to dummy
+      throw Exception('Failed to fetch dashboard: ${resp.statusCode} ${resp.body}');
+    }
+
+    final Map<String, dynamic> raw = json.decode(resp.body) as Map<String, dynamic>;
+    // Normalize any nulls
+    final normalized = <String, dynamic>{
+      'totalTxCount': raw['totalTxCount'] ?? 0,
+      'totalAmountReceived': raw['totalAmountReceived'] ?? 0,
+      'totalAvailableAmount': raw['totalAvailableAmount'] ?? 0,
+      'totalMerchantProfit': raw['totalMerchantProfit'] ?? 0,
+      'totalQrsAssignedToMerchant': raw['totalQrsAssignedToMerchant'] ?? 0,
+      'qrCodesActive': raw['qrCodesActive'] ?? 0,
+      'qrCodesDisabled': raw['qrCodesDisabled'] ?? 0,
+      'totalAmountPaid': raw['totalAmountPaid'] ?? 0,
+      'totalWithdrawalPendingAmount': raw['totalWithdrawalPendingAmount'] ?? 0,
+      'totalAmountOnHold': raw['totalAmountOnHold'] ?? 0,
+      'activeUsers': raw['activeUsers'] ?? 0,
+      'disabledUsers': raw['disabledUsers'] ?? 0,
+      'totalUsers': raw['totalUsers'] ?? 0,
+      'totalMembershipPurchased': raw['totalMembershipPurchased'] ?? 0,
+      'pendingMembershipUsers': raw['pendingMembershipUsers'] ?? 0,
+    };
+
+    return SubAdminDashboardData.fromJson(normalized);
+  } catch (e) {
+    // Network or parsing error → fallback
+    throw Exception('Failed to fetch dashboard');
+  }
+}
+
+Future<SubAdminDashboardData> fetchDashboardDummy({bool force = false}) async {
+  final data = {
+    'totalTxCount': 1250,
+    'totalAmountReceived': 15235200,
+    'totalMerchantProfit': 250000,
+    'totalQrsAssignedToMerchant': 10,
+    'qrCodesActive': 9,
+    // If you also store disabled in backend, include it; else keep a default:
+    'qrCodesDisabled': 1,
+
+    // 'chargebackCount': raw['chargebackCount'] ?? 0,
+    // 'chargebackAmount': raw['chargebackAmount'] ?? 0,
+    // 'cyberCount': raw['cyberCount'] ?? 0,
+    // 'cyberAmount': raw['cyberAmount'] ?? 0,
+    // 'refundCount': raw['refundCount'] ?? 0,
+    // 'refundAmount': raw['refundAmount'] ?? 0,
+
+    'totalAmountPaid': 10235200,
+    'totalWithdrawalPendingAmount': 5235200,
+
+    'activeUsers': 5,
+    'disabledUsers': 1,
+    'totalUsers': 6,
+
+    'totalMembershipPurchased': 5,
+    'pendingMembershipUsers': 1,
+  };
+
+  return SubAdminDashboardData.fromJson(data);
+}
+
+Future<SubAdminDashboardData> fetchDashboard({bool force = false}) async {
   // if (!force && _cache != null && _cacheAt != null) {
   //   final age = DateTime.now().difference(_cacheAt!);
   //   if (age.inSeconds < 30) return _cache!;
@@ -514,54 +561,6 @@ Future<DashboardData> fetchDashboard({bool force = false}) async {
     'pendingMembershipUsers': raw['pendingMembershipUsers'] ?? 0,
   };
 
-  return DashboardData.fromJson(data);
+  return SubAdminDashboardData.fromJson(data);
 
 }
-
-// Change this to your real endpoint later
-// Future<DashboardData> fetchDashboard({bool force = false}) async {
-//   await Future.delayed(const Duration(milliseconds: 450)); // simulate latency
-//
-//   // TODO: Switch to real API
-//   // final jwt = await AppWriteService.instance.getJwt();
-//   // final resp = await http.get(
-//   //   Uri.parse('${AppConstants.baseUrl}/admin/dashboard/summary'),
-//   //   headers: {'Authorization': 'Bearer $jwt'},
-//   // );
-//   // if (resp.statusCode != 200) throw Exception(resp.body);
-//   // final jsonMap = json.decode(resp.body) as Map<String, dynamic>;
-//   // return DashboardData.fromJson(jsonMap);
-//
-//   // Dummy data (paise for money fields)
-//   return DashboardData(
-//     totalTxCount: 128_540,
-//     totalAmountReceived: 45_75_34_550,       // ₹4,57,53,455.50
-//     totalAdminProfit: 1_84_55_430,           // ₹18,455,430.00
-//     totalMerchantProfit: 2_42_11_220,        // ₹24,211,220.00
-//     totalQrsUploaded: 9_842,
-//     totalQrsAssignedToMerchant: 8_130,
-//     totalPinelabsQrs: 3_420,
-//     totalPaytmQrs: 4_100,
-//     totalOtherQrs: 2_322,
-//     qrCodesActive: 7_950,
-//     qrCodesDisabled: 520,
-//     totalManualTx: 18_250,
-//     totalApiTx: 110_290,
-//     chargebackCount: 320,
-//     chargebackAmount: 12_45_600,
-//     cyberCount: 210,
-//     cyberAmount: 8_75_900,
-//     refundCount: 1_120,
-//     refundAmount: 23_40_000,
-//     totalAmountPaid: 29_11_400,
-//     totalWithdrawalPendingAmount: 7_65_800,
-//     activeUsers: 15_420,
-//     disabledUsers: 420,
-//     merchantActive: 2_310,
-//     merchantPending: 185,
-//     merchantDisabled: 160,
-//     totalUsers: 18_500,
-//     totalMembershipPurchased: 1_240,
-//     pendingMembershipUsers: 95,
-//   );
-// }
