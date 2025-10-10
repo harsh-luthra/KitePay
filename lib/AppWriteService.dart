@@ -58,7 +58,6 @@ class AppWriteService {
   Future<String> getJWT() async {
     try {
       // SharedPreferences.setMockInitialValues({});
-
       final prefs = await SharedPreferences.getInstance();
       final cachedJwt = prefs.getString(jwtKey);
 
@@ -82,16 +81,6 @@ class AppWriteService {
       // clear the old token and throw an exception.
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(jwtKey);
-      throw Exception('JWT creation failed: $e');
-    }
-  }
-
-  /// Get JWT if already logged in
-  Future<String> getJWT_Old() async {
-    try {
-      final jwt = await account.createJWT();
-      return jwt.jwt;
-    } catch (e) {
       throw Exception('JWT creation failed: $e');
     }
   }

@@ -213,6 +213,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     if (selectedUser == null) return;
 
     setState(() => _isProcessing = true);
+    _jwtToken = await AppWriteService().getJWT();
     final bool success = await _qrCodeService.assignQrCodeToUser(
       qrId: qrId,
       fileId: fileId,
@@ -342,6 +343,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     if (selectedUser == null) return;
 
     setState(() => _isProcessing = true);
+    _jwtToken = await AppWriteService().getJWT();
     final bool success = await _qrCodeService.assignQrCodeManager(
       qrId: qrId,
       fileId: fileId,
@@ -374,6 +376,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     });
 
     try{
+      _jwtToken = await AppWriteService().getJWT();
       final codes = await _qrCodeService.getQrCodes(_jwtToken);
       setState(() {
         _qrCodes = codes.reversed.toList(); // Reversed so New Codes comes on top;
@@ -551,6 +554,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
     if (result != null) {
       PlatformFile file = result.files.first;
+      _jwtToken = await AppWriteService().getJWT();
       bool success = await _qrCodeService.uploadQrCode(file, qrId, qrType, _jwtToken!);
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -594,6 +598,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       setState(() {
         _isProcessing = true;
       });
+      _jwtToken = await AppWriteService().getJWT();
       bool success = await _qrCodeService.deleteQrCode(qrId, _jwtToken!);
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -670,6 +675,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       setState(() {
         _isProcessing = true;
       });
+      _jwtToken = await AppWriteService().getJWT();
       bool success = await _qrCodeService.toggleQrCodeStatus(qrCode.qrId, newStatus, _jwtToken!);
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -863,6 +869,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
         _isProcessing = true;
       });
       // The assignQrCode function can handle a null userId for unlinking
+      _jwtToken = await AppWriteService().getJWT();
       bool success = await _qrCodeService.assignQrCodeToUser(qrId: qrId, fileId:  fileId, assignedUserId: '', jwtToken: _jwtToken!);
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -912,6 +919,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
         _isProcessing = true;
       });
       // The assignQrCode function can handle a null userId for unlinking
+      _jwtToken = await AppWriteService().getJWT();
       bool success = await _qrCodeService.assignQrCodeManager(qrId: qrId, fileId:  fileId, managedByUserId: '', jwtToken: _jwtToken!);
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(

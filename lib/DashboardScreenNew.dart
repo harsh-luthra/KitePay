@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:admin_qr_manager/CommissionTransactionsPage.dart';
 import 'package:admin_qr_manager/ManualTransactionForm.dart';
 import 'package:admin_qr_manager/QRService.dart';
-import 'package:admin_qr_manager/SocketTest.dart';
 import 'package:admin_qr_manager/SubAdminDashboardPage.dart';
 import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:admin_qr_manager/utils/NotificationSystemForQr.dart';
@@ -29,7 +28,6 @@ import 'MyMetaApi.dart';
 import 'SocketManager.dart';
 import 'TransactionPageNew.dart';
 import 'UserDashboardPage.dart';
-import 'UserDashboardScreen.dart';
 import 'WithdrawalFormPage.dart';
 import 'adminLoginPage.dart';
 import 'package:http/http.dart' as http;
@@ -440,6 +438,17 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       }
     }
 
+    _connSub = SocketManager.instance.connectionStream.listen((status) {
+      final connected = status == SocketStatus.connected || status == SocketStatus.reconnected;
+      if (socketConnected != connected && mounted) {
+        setState(() => socketConnected = connected);
+      }
+      if(status == SocketStatus.connected){
+        print("Connected");
+        // speakQrAlert('रीयल-टाइम ट्रांज़ैक्शन्स सर्वर कनेक्ट हो गया है');
+      }
+    });
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('✅ Realtime Transactions Connected')),
@@ -461,19 +470,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
             actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close'))],
           ),
         );
-      }
-
-    });
-
-    _connSub = SocketManager.instance.connectionStream.listen((status) {
-      final connected = status == SocketStatus.connected || status == SocketStatus.reconnected;
-      if (socketConnected != connected && mounted) {
-        setState(() => socketConnected = connected);
-      }
-
-      if(status == SocketStatus.connected){
-        print("Connected");
-        // speakQrAlert('रीयल-टाइम ट्रांज़ैक्शन्स सर्वर कनेक्ट हो गया है');
       }
 
     });

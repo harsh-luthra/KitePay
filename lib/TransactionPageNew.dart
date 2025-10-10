@@ -397,6 +397,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   }
 
   Future<void> fetchTransactions({bool firstLoad = false}) async {
+    _jwtToken = await AppWriteService().getJWT();
     if ((loadingMore && !firstLoad) || !hasMore) return;
 
     if (firstLoad) {
@@ -458,6 +459,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   }
 
   Future<void> fetchUserTransactions({bool firstLoad = false}) async {
+    _jwtToken = await AppWriteService().getJWT();
     if ((loadingMore && !firstLoad) || !hasMore) return;
 
     if (firstLoad) {
@@ -511,6 +513,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   }
 
   Future<void> _refetchWithCurrentFilters() async {
+    _jwtToken = await AppWriteService().getJWT();
     // reset pagination
     setState(() {
       transactions.clear();

@@ -59,11 +59,9 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
     if(mounted) {
       setState(() => loading = true);
     }
-    _jwtToken = await AppWriteService().getJWT();
-
     final fetched = await UsersService.listUsers(jwtToken: await AppWriteService().getJWT());
     users = fetched.appUsers;
-    qrCodes = await _qrCodeService.getQrCodes(_jwtToken);
+    qrCodes = await _qrCodeService.getQrCodes(await AppWriteService().getJWT());
 
     // print(users.toString());
     // print(qrCodes.toString());
@@ -127,7 +125,7 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
           rrnNumber: rrnController.text.trim(),
           amount: double.tryParse(amountController.text.trim()) ?? 0.0,
           isoDate: timeDateValue!,
-          jwtToken: _jwtToken!,
+          jwtToken: await AppWriteService().getJWT(),
         );
 
         if (!mounted) return;

@@ -20,6 +20,7 @@ class UserDashboardPage extends StatefulWidget {
 class _UserDashboardPageState extends State<UserDashboardPage> {
   late Future<UserDashboardData> _future;
   bool _refreshing = false;
+  bool _showFullNumbers = false; // NEW
 
   @override
   void initState() {
@@ -49,6 +50,11 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
       appBar: AppBar(
         title: const Text('User Dashboard'),
         actions: [
+          IconButton(
+            tooltip: _showFullNumbers ? 'Show compact numbers' : 'Show full numbers',
+            icon: Icon(_showFullNumbers ? Icons.filter_9_plus : Icons.filter_list),
+            onPressed: () => setState(() => _showFullNumbers = !_showFullNumbers),
+          ),
           IconButton(
             tooltip: 'Refresh',
             icon: _refreshing
@@ -165,24 +171,24 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     return _metricCard(
       title: title,
       leading: Icon(icon, color: color),
-      value: NumberFormat.compact().format(value),
+      value: formatCount(value),
       color: color,
     );
   }
 
   Widget _money(String title, int paise, IconData icon, Color color) {
-    final rupees = paise / 100.0;
-    final formatted = NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹').format(rupees);
+    final formatted = formatMoneyPaise(paise);
     return _metricCard(title: title, leading: Icon(icon, color: color), value: formatted, color: color);
   }
 
+  // Optional: for count + amount combos
   Widget _moneyPair(String title, int count, int paise, Color color, IconData icon) {
-    final rupees = paise / 100.0;
-    final amt = NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹').format(rupees);
+    final amt = formatMoneyPaise(paise);
+    final cnt = formatCount(count);
     return _metricCard(
       title: title,
       leading: Icon(icon, color: color),
-      value: '$count • $amt',
+      value: '$cnt • $amt',
       color: color,
     );
   }
@@ -242,6 +248,23 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
         ),
       ),
     );
+  }
+
+  String formatCount(num value) {
+    if (_showFullNumbers) {
+      return NumberFormat.decimalPattern('en_IN').format(value);
+    }
+    return NumberFormat.compact(locale: 'en_IN').format(value);
+  }
+
+  String formatMoneyPaise(int paise) {
+    final rupees = paise / 100.0;
+    if (_showFullNumbers) {
+      // Full: ₹12,34,567.89
+      return NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(rupees);
+    }
+    // Compact: ₹12.3L, ₹1.2Cr
+    return NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹').format(rupees);
   }
 
 }
