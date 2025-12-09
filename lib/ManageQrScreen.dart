@@ -1311,12 +1311,12 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             ),
           ],
         ),
-        // floatingActionButton: (_jwtToken != null && !_isProcessing && !widget.userMode)
-        //     ? FloatingActionButton(
-        //   onPressed: showUploadQrDialog,
-        //   child: const Icon(Icons.add),
-        // )
-        //     : null,
+        floatingActionButton: (_jwtToken != null && !_isProcessing && !widget.userMode)
+            ? FloatingActionButton(
+          onPressed: _showUploadQrDialog,
+          child: const Icon(Icons.add),
+        )
+            : null,
       ),
     );
   }
