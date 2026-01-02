@@ -15,6 +15,9 @@ class MyMetaApi {
     _inMemory = await _loadFromCache();
   }
 
+  // ✅ NEW: Sync cached data access for other classes
+  static AppUser? get cached => _inMemory;
+
   static AppUser? get current => _inMemory; // sync access everywhere [web:80]
 
   static Future<AppUser?> getMyMetaData({

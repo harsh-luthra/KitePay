@@ -554,21 +554,196 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
     if (result != null) {
       PlatformFile file = result.files.first;
-      _jwtToken = await AppWriteService().getJWT();
-      bool success = await _qrCodeService.uploadQrCode(file, qrId, qrType, _jwtToken!);
-      if (success) {
+
+      // 2. Show progress during entire operation
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Material(
+          color: Colors.transparent,
+          child: Center(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 320),
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 40,
+                    spreadRadius: -10,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.qr_code,
+                    size: 48,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Uploading QR Code File',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Processing your file upload...',
+                    style: TextStyle(fontSize: 15),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 4,
+                    child: LinearProgressIndicator(
+                      value: null,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+
+      try {
+        _jwtToken = await AppWriteService().getJWT();
+        bool success = await _qrCodeService.uploadQrCode(
+            file, qrId, qrType, _jwtToken!);
+        Navigator.pop(context); // Close loader
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('QR Code uploaded successfully!')),
+          );
+          _fetchQrCodes(); // Refresh the list
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to upload QR Code.')),
+          );
+        }
+      } catch (e) {
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('QR Code uploaded successfully!')),
-        );
-        _fetchQrCodes(); // Refresh the list
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to upload QR Code.')),
+          SnackBar(content: Text('Error: $e')),
         );
       }
     }
     _qrIdController.clear();
   }
+
+  // This is the updated function that takes the QR ID and handles the file upload
+  Future<void> _editQrCode(String qrId) async {
+    if (_jwtToken == null) return;
+
+    // 1. File picker
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      withData: true,
+      type: FileType.image,
+    );
+
+    if (result != null) {
+      PlatformFile file = result.files.first;
+
+      // 2. Show progress during entire operation
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Material(
+          color: Colors.transparent,
+          child: Center(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 320),
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 40,
+                    spreadRadius: -10,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.qr_code,
+                    size: 48,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Updating QR Code File',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Processing your file upload...',
+                    style: TextStyle(fontSize: 15),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 4,
+                    child: LinearProgressIndicator(
+                      value: null,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      try {
+        _jwtToken = await AppWriteService().getJWT();
+        bool success = await _qrCodeService.editQrCodeFile(file, qrId, _jwtToken!);
+
+        Navigator.pop(context); // Close loader
+
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('QR Code updated successfully!')),
+          );
+          _fetchQrCodes();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to update QR Code.')),
+          );
+        }
+      } catch (e) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+    _qrIdController.clear();
+  }
+
 
   // Handles deleting a QR code with a confirmation dialog and progress indicator
   Future<void> _deleteQrCode(String qrId) async {
@@ -1311,12 +1486,12 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             ),
           ],
         ),
-        // floatingActionButton: (_jwtToken != null && !_isProcessing && !widget.userMode)
-        //     ? FloatingActionButton(
-        //   onPressed: showUploadQrDialog,
-        //   child: const Icon(Icons.add),
-        // )
-        //     : null,
+        floatingActionButton: (_jwtToken != null && !_isProcessing && !widget.userMode)
+            ? FloatingActionButton(
+          onPressed: _showUploadQrDialog,
+          child: const Icon(Icons.add),
+        )
+            : null,
       ),
     );
   }
@@ -1893,6 +2068,13 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             tip: 'Delete QR Code',
             onTap: () => _deleteQrCode(qrCode.qrId),
             color: Colors.redAccent,
+          ),
+        if (!widget.userMode && widget.userMeta.role == "admin")
+          action(
+            icon: Icons.photo_camera,
+            tip: 'Change QR Code Image',
+            onTap: () => _editQrCode(qrCode.qrId),
+            color: Colors.blueAccent,
           ),
         if (widget.userMode && qrCode.isActive)
           action(

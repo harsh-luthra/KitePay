@@ -16,32 +16,32 @@ class _LoginPageState extends State<LoginPage> {
   void initState(){
     super.initState();
     print('Test');
-    CheckIfLoggedIn();
+    // CheckIfLoggedIn();
   }
 
-  void CheckIfLoggedIn() async {
-    bool isLoggedIn = await appwrite.isLoggedIn();
-
-    if(!isLoggedIn){
-      try{
-        final session = await appwrite.account.createEmailPasswordSession(
-          email: 'admin@example.com',
-          password: 'Test@1234',
-        );
-        print('Session created: ${session.userId}');
-      }on AppwriteException catch (e) {
-        print("Login error: ${e.message}");
-      }
-    }
-
-    if(isLoggedIn){
-      final user = await appwrite.account.get();
-      print("Email: "+user.labels.toString());
-    }
-
-    print(isLoggedIn);
-
-  }
+  // void CheckIfLoggedIn() async {
+  //   bool isLoggedIn = await appwrite.isLoggedIn();
+  //
+  //   if(!isLoggedIn){
+  //     try{
+  //       final session = await appwrite.account.createEmailPasswordSession(
+  //         email: 'admin@example.com',
+  //         password: 'Test@1234',
+  //       );
+  //       print('Session created: ${session.userId}');
+  //     }on AppwriteException catch (e) {
+  //       print("Login error: ${e.message}");
+  //     }
+  //   }
+  //
+  //   if(isLoggedIn){
+  //     final user = await appwrite.account.get();
+  //     print("Email: "+user.labels.toString());
+  //   }
+  //
+  //   print(isLoggedIn);
+  //
+  // }
 
   @override
   Widget build(BuildContext context) {

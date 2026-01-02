@@ -4,6 +4,7 @@ import 'package:admin_qr_manager/AppConstants.dart';
 import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:admin_qr_manager/widget/TransactionCard.dart';
 import 'package:admin_qr_manager/widget/TransactionCardShimmer.dart';
+import 'package:excel/excel.dart' show Excel;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -24,6 +25,13 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 import 'package:number_to_indian_words/number_to_indian_words.dart';
 
+import 'dart:html' as html;
+import 'dart:typed_data';
+import 'package:excel/excel.dart';
+import 'package:intl/intl.dart';  // for date formatting
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
 class TransactionPageNew extends StatefulWidget {
   final String? filterUserId;
   final String? filterQrCodeId;
@@ -42,6 +50,9 @@ class TransactionPageNew extends StatefulWidget {
   @override
   State<TransactionPageNew> createState() => _TransactionPageNewState();
 }
+
+int? selectedMaxTxns = 50;
+
 
 enum TxnStatus { normal, cyber, refund, chargeback }
 
@@ -300,7 +311,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         hasMore = true;
       });
 
-
     userMeta = (await MyMetaApi.getMyMetaData(
       jwtToken: await AppWriteService().getJWT(),
       refresh: true, // set true to force re-fetch
@@ -323,7 +333,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     // }
 
     socketManagerConnect();
-
 
     if (widget.userMode) {
       await fetchUserTransactions();
@@ -988,7 +997,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           ),
     ); // confirm dialog [1][2]
 
-    if (confirm != true) return; // user canceled [1]
+    if (confirm != true) return; // user canceled
 
     // Show loading dialog (modal)
     showDialog<void>(
@@ -1009,7 +1018,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           ),
         ),
       ),
-    ); // loading dialog [1][2]
+    ); // loading dialog
 
     try {
       final ok = await TransactionService.deleteTransaction(
@@ -1025,7 +1034,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('✅ Transaction deleted')),
         ); // feedback [3]
-        _refetchWithCurrentFilters(); // refresh list [3]
+        _refetchWithCurrentFilters(); // refresh list
       }
     } on TimeoutException {
       if (context.mounted) {
@@ -1038,10 +1047,10 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context, rootNavigator: true)
-            .pop(); // ensure loader is closed [1]
+            .pop(); // ensure loader is closed
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('❌ Delete failed: $e')),
-        ); // feedback [3]
+        ); // feedback
       }
     }
   }
@@ -1051,7 +1060,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   }) async {
     // Local selection defaulted from txn.status String? (case-insensitive).
     TxnStatus? selected = _parseStatusOrNull(
-        txn.status); // 'normal' -> TxnStatus.normal [19]
+        txn.status); // 'normal' -> TxnStatus.normal
 
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -1060,11 +1069,11 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         return StatefulBuilder(
           builder: (ctx, setState) {
             return AlertDialog(
-              title: const Text('Change status?'), // [2]
+              title: const Text('Change status?'), //
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TransactionCard(txn: txn, compactMode: false,), // existing preview [2]
+                  TransactionCard(txn: txn, compactMode: false,), // existing preview
                   const SizedBox(height: 12),
                   DropdownButton<TxnStatus>(
                     value: selected,
@@ -1099,10 +1108,10 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           },
         );
       },
-    ); // confirm with dropdown [2][15][11]
+    ); // confirm with dropdown
 
     if (confirm != true || selected == null)
-      return; // user canceled or nothing chosen [11]
+      return; // user canceled or nothing chosen
 
     // Show loading dialog (modal)
     showDialog<void>(
@@ -1176,9 +1185,18 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     return null;
   }
 
+
   @override
   Widget build(BuildContext context) {
     final userHasQrCodes = selectedUserId == null || filteredQrCodes.isNotEmpty;
+
+    final effectiveUserId =
+    widget.userMode
+        ? widget.userModeUserid
+        : (selectedUserId ?? widget.filterUserId);
+    final effectiveQrId = selectedQrCodeId ?? widget.filterQrCodeId;
+
+    AppUser? cachedUser = MyMetaApi.cached;
 
     return ScaffoldMessenger(
       key: _scaffoldMessengerKey,
@@ -1187,10 +1205,29 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           title: Text(widget.userMode ? 'Transactions' : 'All Transactions'),
           actions: [
             // if (widget.filterUserId == null && widget.filterQrCodeId == null)
+
+            // if(effectiveUserId != null || effectiveQrId != null)
+            // ElevatedButton.icon(
+            //   icon: const Icon(Icons.download_for_offline_outlined, size: 25,),
+            //   // label: const Text('Download Txns'),
+            //   label: const Text(''),
+            //   onPressed: () {
+            //     _showDownloadDialog();
+            //     // FocusScope.of(context).unfocus();
+            //     // _refetchWithCurrentFilters();
+            //   },
+            // ),
+
+            // STATEMENT DOWNLOAD BUTTON IS DISABLED
+            if((effectiveUserId != null || effectiveQrId != null) && cachedUser?.role == 'admin')
+            IconButton(onPressed: loading ? null : _showDownloadDialog, icon: const Icon(Icons.download, size: 35,),),
+
+            const SizedBox(width: 8),
+
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Toggle Filters: '),
+                const Text('Filters: '),
                 Switch.adaptive(
                   value: showingFilters,
                   onChanged: (val) => setState(() => showingFilters = val),
@@ -1201,7 +1238,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Compact Mode: '),
+                const Text('Compact: '),
                 Switch.adaptive(
                   value: compactMode,
                   onChanged: (val) => setState(() => compactMode = val),
@@ -1275,6 +1312,313 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       ),
     );
   }
+
+  Future<void> _showDownloadDialog() async {
+    // int? dialogMaxTxns;  // Local state for dialog
+
+    // final effectiveUserId =
+    // widget.userMode
+    //     ? widget.userModeUserid
+    //     : (selectedUserId ?? widget.filterUserId);
+    // final effectiveQrId = selectedQrCodeId ?? widget.filterQrCodeId;
+    //
+    // if((effectiveUserId == null || effectiveQrId == null)){
+    //   await showDialog(
+    //     context: context,
+    //     builder: (_) => AlertDialog(
+    //       title: const Text('No UserId or QrId Selected'),
+    //       content: const Text('PLease Select User'),
+    //       actions: [
+    //         TextButton(
+    //           onPressed: () => Navigator.pop(context),
+    //           child: const Text('OK'),
+    //         ),
+    //       ],
+    //     ),
+    //   );
+    //   return;
+    // }
+
+    if(transactions.isEmpty){
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('No Transactions'),
+          content: const Text('No transactions match your current filters.\nTry adjusting date range or other filters.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(  // ← ADD THIS
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Download Statement'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Select maximum transactions:'),
+              DropdownButton<int?>(
+                value: selectedMaxTxns,
+                isExpanded: true,
+                items: [
+                  const DropdownMenuItem(value: 50, child: Text('Last 50')),
+                  const DropdownMenuItem(value: 100, child: Text('Last 100')),
+                  const DropdownMenuItem(value: 200, child: Text('Last 200')),
+                  const DropdownMenuItem(value: 500, child: Text('Last 500')),
+                  // const DropdownMenuItem(value: null, child: Text('All Available')),
+                ],
+                onChanged: (value) {
+                  setDialogState(() => selectedMaxTxns = value);  // ← Local setState
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: selectedMaxTxns != null ? () {
+                Navigator.pop(ctx);
+                _downloadExcel();  // Pass selected value
+              } : null,
+              child: const Text('Download Excel'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  // 2. Call your existing API with current filters + maxTxns
+  Future<void> _downloadExcel() async {
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(children: [
+          CircularProgressIndicator(),
+          SizedBox(width: 20),
+          Text('Generating Excel...'),
+        ]),
+      ),
+    );
+
+    try {
+      final queryParams = <String>[];
+
+      final effectiveUserId =
+      widget.userMode
+          ? widget.userModeUserid
+          : (selectedUserId ?? widget.filterUserId);
+      final effectiveQrId = selectedQrCodeId ?? widget.filterQrCodeId;
+
+      // ADD YOUR EXISTING FILTERS HERE (reuse current state)
+      if (effectiveUserId != null) queryParams.add('userId=${effectiveUserId}');
+      if (effectiveQrId != null) queryParams.add('qrId=$effectiveQrId');  // your qr filter
+      if (selectedFromDate != null) queryParams.add('from=${selectedFromDate!.toIso8601String()}');
+      if (selectedToDate != null) queryParams.add('to=${selectedToDate!.toIso8601String()}');
+      if (selectedStatus != null) queryParams.add('status=$selectedStatus');
+      if (selectedSearchField != null && selectedSearchField != null) {
+        queryParams.add('searchField=$selectedSearchField');
+        queryParams.add('searchValue=$searchText');
+      }
+
+      // final fetched = await TransactionService.fetchTransactions(
+      //   userId: effectiveUserId,
+      //   qrId: effectiveQrId,
+      //   from: selectedFromDate,
+      //   to: selectedToDate,
+      //   cursor: nextCursor,
+      //   searchField: selectedSearchField,
+      //   searchValue: searchText.isEmpty ? null : searchText,
+      //   jwtToken: _jwtToken!,
+      // );
+
+      // Add maxTxns
+      if (selectedMaxTxns != null) {
+        queryParams.add('maxTxns=$selectedMaxTxns');
+      }
+
+      final uri = Uri.parse('${AppConstants.exportTransactions}?${queryParams.join('&')}');
+
+      // print(uri.toString());
+
+      var _token = await AppWriteService().getJWT();
+
+      final response = await http.get(uri, headers: {
+        'Authorization': 'Bearer $_token',  // your auth token
+      });
+
+      if (context.mounted) Navigator.pop(context);  // close loading
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        _generateAndDownloadExcel(data['transactions']);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${response.body}')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Download failed: $e')),
+      );
+    }
+  }
+
+  // 3. Generate & download Excel
+  Future<void> _generateAndDownloadExcel(List<dynamic> transactions) async {
+    final excel = Excel.createExcel();
+
+    final sheet = excel['Transaction Statement'];
+
+    // ✅ Remove default Sheet1
+    excel.delete('Sheet1');
+
+    // Headers
+    sheet.appendRow([
+      TextCellValue('Amount (₹)'),
+      TextCellValue('RRN'),
+      TextCellValue('VPA'),
+      TextCellValue('Date'),
+      TextCellValue('QR ID'),
+      TextCellValue('Payment ID'),
+      TextCellValue('Status'),
+      TextCellValue('Txn ID'),
+    ]);
+
+    // Style headers - right align + bold
+    for (int col = 0; col < 8; col++) {
+      final headerCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0));
+      headerCell.cellStyle = CellStyle(
+        horizontalAlign: HorizontalAlign.Right,
+        bold: true,
+        fontSize: 12,
+      );
+    }
+
+    // Data rows
+    // for (final txn in transactions) {
+    //   sheet.appendRow([
+    //     // DoubleCellValue((txn['amount'] ?? 0) / 100.0),  // ✅ Add .0 for double
+    //     IntCellValue(((txn['amount'] ?? 0) / 100).round()),  // ✅ Whole rupees
+    //     // DoubleCellValue((txn['amount'] ?? 0) / 100.round()),
+    //     TextCellValue(txn['rrnNumber']?.toString() ?? ''),
+    //     TextCellValue(txn['vpa']?.toString() ?? ''),
+    //     TextCellValue(_formatDateTime(txn['created_at']?.toString() ?? '')),
+    //     TextCellValue(txn['qrCodeId']?.toString() ?? ''),
+    //     TextCellValue(txn['paymentId']?.toString() ?? ''),
+    //     TextCellValue(txn['status']?.toString() ?? 'normal'),
+    //     TextCellValue(txn['id']?.toString() ?? ''),
+    //   ]);
+    // }
+
+    // Data rows
+    for (int i = 0; i < transactions.length; i++) {
+      final txn = transactions[i];
+      sheet.appendRow([
+        // IntCellValue(((txn['amount'] ?? 0) / 100).round()),
+        // TextCellValue(NumberFormat('#,##0.00').format(((txn['amount'] ?? 0) / 100.0).roundToDouble())),
+        DoubleCellValue(((txn['amount'] ?? 0) / 100.0).roundToDouble()),
+        // TextCellValue('₹${((txn['amount'] ?? 0) / 100.0).roundToDouble().toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}'),
+        TextCellValue(txn['rrnNumber']?.toString() ?? ''),
+        TextCellValue(txn['vpa']?.toString() ?? ''),
+        TextCellValue(_formatDateTime(txn['created_at']?.toString() ?? '')),
+        TextCellValue(txn['qrCodeId']?.toString() ?? ''),
+        TextCellValue(txn['paymentId']?.toString() ?? ''),
+        TextCellValue(txn['status']?.toString() ?? 'normal'),
+        TextCellValue(txn['id']?.toString() ?? ''),
+      ]);
+
+      // Right align all data cells (Row i+1)
+      for (int col = 0; col < 8; col++) {
+        final dataCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: i + 1));
+        dataCell.cellStyle = CellStyle(horizontalAlign: HorizontalAlign.Right);
+      }
+    }
+
+    // ✅ Single download
+    excel.save(
+        fileName: 'txns_statement_${DateTime.now().millisecondsSinceEpoch}.xlsx'
+    );
+  }
+
+// ✅ Add this helper method if missing
+  String _formatDateTime(String isoString) {
+    if (isoString.isEmpty) return '';
+    try {
+      final date = DateTime.parse(isoString);
+      return DateFormat('MMM dd, yyyy hh:mm a').format(date.toLocal());  // ✅ AM/PM
+    } catch (e) {
+      return isoString;
+    }
+  }
+
+
+  // 3. Generate & download Excel
+  // Future<void> _generateAndDownloadExcel(List<dynamic> transactions) async {
+  //   final excel = Excel.createExcel();
+  //   final sheet = excel['Transaction Statement'];
+  //
+  //   // Headers
+  //   sheet.appendRow([
+  //     TextCellValue('ID'),
+  //     TextCellValue('Amount (₹)'),
+  //     TextCellValue('Status'),
+  //     TextCellValue('Date'),
+  //     TextCellValue('QR ID'),
+  //     TextCellValue('Payment ID'),
+  //     TextCellValue('VPA'),
+  //     TextCellValue('RRN'),
+  //   ]);
+  //
+  //   // Data rows
+  //   for (final txn in transactions) {
+  //     sheet.appendRow([
+  //       TextCellValue(txn['id'] ?? ''),
+  //       DoubleCellValue((txn['amount'] ?? 0) / 100),  // paise to rupees
+  //       TextCellValue(txn['status'] ?? 'normal'),
+  //       TextCellValue(_formatDateTime(txn['created_at'] ?? '')),
+  //       TextCellValue(txn['qrCodeId'] ?? ''),
+  //       TextCellValue(txn['paymentId'] ?? ''),
+  //       TextCellValue(txn['vpa'] ?? ''),
+  //       TextCellValue(txn['rrnNumber'] ?? ''),
+  //     ]);
+  //   }
+  //
+  //   // ✅ Downloads ONE file with custom name
+  //   excel.save(
+  //       fileName: 'txns_statement_${DateTime.now().millisecondsSinceEpoch}.xlsx'
+  //   );
+  //
+  //   // Web download
+  //   // final bytes = excel.save()!;
+  //   // final blob = html.Blob([bytes]);
+  //   // final url = html.Url.createObjectUrlFromBlob(blob);
+  //   // final anchor = html.AnchorElement(href: url)
+  //   //   ..setAttribute('download', 'txns_statement_${DateTime.now().millisecondsSinceEpoch}.xlsx')
+  //   //   ..click();
+  //   // html.Url.revokeObjectUrl(url);
+  // }
+  //
+  // String _formatDateTime(String isoString) {
+  //   final date = DateTime.parse(isoString);
+  //   return DateFormat('MMM dd, yyyy HH:mm').format(date.toLocal());
+  // }
+
 
   Widget _buildSearchArea() {
     const searchFields = ['qrCodeId', 'paymentId', 'rrnNumber', 'vpa', 'amount'];

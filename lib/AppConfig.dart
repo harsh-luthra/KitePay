@@ -31,8 +31,8 @@ class AppConfig {
     minCommission = (json['min_commission'] ?? 0).toDouble() ?? defaultMinCommission;
     maxCommission = (json['max_commission'] ?? 0).toDouble() ?? defaultMaxCommission;
 
-    print("min_commission $minCommission");
-    print("max_commission $maxCommission");
+    // print("min_commission $minCommission");
+    // print("max_commission $maxCommission");
 
     // print("max_withdrawal_amount: $maxWithdrawalAmount");
     // print("min_withdrawal_amount: $minWithdrawalAmount");

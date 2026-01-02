@@ -133,6 +133,117 @@ class QrCodeService {
     }
   }
 
+  Future<bool> editQrCodeFile(PlatformFile? file, String qrId, String jwtToken) async {
+    try {
+      print('🔄 Editing QR code: $qrId with type:');
+
+      // Step 1: If new file provided, upload it first
+      String? newFileId;
+      String? newImageUrl;
+
+      if (file != null && file.bytes != null) {
+        print('📤 Uploading new file: ${file.name}');
+
+        final inputFile = InputFile.fromBytes(
+          bytes: file.bytes!,
+          filename: file.name,
+        );
+
+        final fileResult = await _appwriteStorage.createFile(
+          bucketId: bucketId,
+          fileId: ID.unique(),
+          file: inputFile,
+        );
+
+        newFileId = fileResult.$id;
+        if (newFileId.isEmpty) {
+          print('❌ Failed to get new file ID');
+          return false;
+        }
+
+        newImageUrl = 'https://fra.cloud.appwrite.io/v1/storage/buckets/$bucketId/files/$newFileId/view?project=688c98fd002bfe3cf596';
+        print('✅ New file uploaded. File ID: $newFileId');
+      }
+
+      // Step 2: Prepare update payload (only changed fields)
+      final updateData = <String, dynamic>{};
+
+      // Always include qrType if provided (even if same, server handles it safely)
+      // if (qrType.isNotEmpty) {
+      //   updateData['qrType'] = qrType;
+      // }
+
+      // Include file info only if new file was uploaded
+      if (newFileId != null) {
+        updateData['fileId'] = newFileId;
+        updateData['imageUrl'] = newImageUrl!;
+      }
+
+      // Must have at least one field to update
+      if (updateData.isEmpty) {
+        print('⚠️ No update data provided');
+        return false;
+      }
+
+      // Step 3: Call server PATCH endpoint
+      final success = await _editQrEntryOnServer(
+        qrId: qrId,
+        updateData: updateData,
+        jwtToken: jwtToken,
+      );
+
+      if (success) {
+        print('✅ QR code $qrId updated successfully');
+      }
+
+      return success;
+
+    } on AppwriteException catch (e) {
+      print('❌ Appwrite Error: ${e.message} (type: ${e.type})');
+      return false;
+    } catch (e) {
+      print('❌ Error editing QR code: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _editQrEntryOnServer({
+    required String qrId,
+    required Map<String, dynamic> updateData,
+    required String jwtToken,
+  }) async {
+    try {
+      print('📡 Calling PATCH /edit-qr/$qrId');
+      print('Payload: $updateData');
+
+      final response = await http.patch(
+        Uri.parse('$_baseUrl/edit-qr/$qrId'),
+        headers: {
+          'Authorization': 'Bearer $jwtToken',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode(updateData),
+      ).timeout(const Duration(seconds: 20));
+
+      print('Server response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('✅ Server response: ${data['message']}');
+        return true;
+      } else {
+        print('❌ Server error ${response.statusCode}: ${response.body}');
+        return false;
+      }
+    } on TimeoutException {
+      print('🔌 Request timed out after 20s');
+      return false;
+    } catch (e) {
+      print('❌ Network error: $e');
+      return false;
+    }
+  }
+
   // Function to fetch all QR codes from the server
   // This function assumes a protected API endpoint that returns a list of QR codes.
   // Your server-side logic should query Appwrite's 'qr_codes' collection and return the data.

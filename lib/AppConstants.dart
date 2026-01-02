@@ -16,6 +16,9 @@ class AppConstants {
   static const String getUsers = "$baseApiUrl/admin/users";
   static const String createUser = "$baseApiUrl/admin/users/create";
 
+  // Export Transactions
+  static const String exportTransactions = "$baseApiUrl/admin/user/transactions/export";
+
   // Transactions
   static const String getTransactions = "$baseApiUrl/transactions";
 
@@ -31,7 +34,7 @@ class AppConstants {
   static const String viewAllWithdrawals = "all_withdrawals";
   static const String manageAllWithdrawals = "edit_withdrawals";
 
-// Add more endpoints as needed...
+  // Add more endpoints as needed...
 }
 
 
