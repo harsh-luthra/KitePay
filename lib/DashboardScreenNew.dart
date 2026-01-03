@@ -19,6 +19,7 @@ import 'AppConfig.dart';
 import 'AppConstants.dart';
 import 'AppWriteService.dart';
 import 'CommissionSummaryBoardPage.dart';
+import 'ManageApiMerchantsNew.dart';
 import 'ManageUsersScreen.dart';
 import 'ManageQrScreen.dart';
 import 'ManageUsersScreenRefactor.dart';
@@ -229,6 +230,13 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         icon: Icons.account_balance_wallet,
         visibleFor: (_) => !checkRole('employee'),
         builder: (user) => ManageWithdrawalsNew(userMode: true, userModeUserid: user.$id),
+      ),
+      _MenuItem(
+        id: 13,
+        label: 'Manage Api Merchants',
+        icon: Icons.developer_board,
+        visibleFor: (labels) => checkRole('admin'),
+        builder: (user) => ManageApiMerchantsNew(),
       ),
       // _MenuItem(
       //   id: 8,
