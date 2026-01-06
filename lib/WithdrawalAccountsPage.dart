@@ -462,8 +462,8 @@ void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext c
                       if (trimmed.length < 9 || trimmed.length > 18) {
                         return 'Must be 9-18 digits';
                       }
-                      if (!RegExp(r'^\d{9,18}$').hasMatch(trimmed)) {
-                        return 'Digits only (9-18 characters)';
+                      if (!RegExp(r'^[a-zA-Z0-9]{9,18}$').hasMatch(trimmed)) {
+                        return '(9-18 characters)';
                       }
                       return null;
                     },
