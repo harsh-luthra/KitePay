@@ -29,6 +29,7 @@ import 'MyMetaApi.dart';
 import 'SocketManager.dart';
 import 'TransactionPageNew.dart';
 import 'UserDashboardPage.dart';
+import 'WithdrawalAccountsPage.dart';
 import 'WithdrawalFormPage.dart';
 import 'adminLoginPage.dart';
 import 'package:http/http.dart' as http;
@@ -233,6 +234,14 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       ),
       _MenuItem(
         id: 13,
+        label: 'Withdrawal Accounts',
+        icon: Icons.account_balance_outlined,
+        visibleFor: (_) => true,
+        builder: (user) => WithdrawalAccountsPage(),
+      ),
+      // WithdrawalAccountsPage
+      _MenuItem(
+        id: 14,
         label: 'Manage Api Merchants',
         icon: Icons.developer_board,
         visibleFor: (labels) => checkRole('admin'),

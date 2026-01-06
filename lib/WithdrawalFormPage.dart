@@ -8,7 +8,10 @@ import 'package:flutter/material.dart';
 import 'AppConfig.dart';
 import 'QRService.dart';
 import 'WithdrawService.dart';
+import 'WithdrawalAccountsPage.dart';
+import 'WithdrawalAccountsService.dart';
 import 'models/QrCode.dart';
+import 'models/WithdrawalAccount.dart';
 
 class WithdrawalFormPage extends StatefulWidget {
   const WithdrawalFormPage({super.key});
@@ -53,6 +56,11 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
   late AppUser UserMeta;
   double subAdminCommission = 0;
 
+  // ✅ Withdrawal Account state
+  List<WithdrawalAccount> _withdrawalAccounts = [];
+  WithdrawalAccount? selectedAccount;
+  bool _isLoadingAccounts = false;
+
   @override
   void initState() {
     // TODO: implement initState
@@ -61,6 +69,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     subAdminCommission = UserMeta.commission!;
     // print(subAdminCommission);
     _fetchOnlyUserQrCodes();
+    _loadWithdrawalAccounts();
   }
 
   @override
@@ -73,6 +82,184 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     _bankHolderNameController.dispose();
     _bankNameController.dispose();
     super.dispose();
+  }
+
+  // ✅ Load accounts after QR selection
+  Future<void> _loadWithdrawalAccounts() async {
+    // if (selectedQrCode == null) return;
+
+    setState(() => _isLoadingAccounts = true);
+    try {
+      final jwtToken = await AppWriteService().getJWT();
+      final paginated = await WithdrawalAccountsService.fetchWithdrawalAccountsPaginated(
+        jwtToken: jwtToken,
+      );
+      setState(() {
+        _withdrawalAccounts = paginated.accounts;
+        _isLoadingAccounts = false;
+        print(_withdrawalAccounts);
+      });
+    } catch (e) {
+      setState(() => _isLoadingAccounts = false);
+      // _showSnackBar('Error loading accounts: $e');
+      SnackBar(content: Text('Error loading accounts: $e'));
+    }
+  }
+
+  // ✅ Show Account Selection Dialog (like QR dialog)
+  Future<void> _showAccountSelectionDialog() async {
+    if (_withdrawalAccounts.isEmpty) {
+      await _showNoAccountsDialog();
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Select Account for Withdrawal'),
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.9,
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Column(
+            children: [
+              // Search
+              // TextField(
+              //   decoration: InputDecoration(
+              //     hintText: 'Search accounts...',
+              //     prefixIcon: const Icon(Icons.search),
+              //     border: const OutlineInputBorder(),
+              //   ),
+              //   onChanged: (query) {
+              //     // Filter logic (add if needed)
+              //   },
+              // ),
+              const SizedBox(height: 16),
+
+              // Accounts List
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _withdrawalAccounts.length,
+                  itemBuilder: (context, index) {
+                    final acc = _withdrawalAccounts[index];
+                    final isSelected = selectedAccount?.id == acc.id;
+
+                    return InkWell(
+                      onTap: () {
+                        setState(() => selectedAccount = acc);
+                        Navigator.pop(context);
+                        // _showSnackBar('Selected: ${acc.holderName}');
+                        SnackBar(content: Text('Selected: ${acc.holderName}'));
+                      },
+                      child: Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: acc.mode == 'upi' ? Colors.green : Colors.blue,
+                            child: Icon(
+                              acc.mode == 'upi' ? Icons.payment : Icons.account_balance,
+                              color: Colors.white,
+                            ),
+                          ),
+                          title: Text(
+                            acc.holderName ?? 'Unnamed',
+                            style: TextStyle(
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected ? Theme.of(context).colorScheme.primary : null,
+                            ),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${acc.mode.toUpperCase()} Account'),
+                              if (acc.mode == 'upi' && acc.upiId != null)
+                                Text(acc.upiId!, style: const TextStyle(fontSize: 12)),
+                              if (acc.mode == 'bank' && acc.accountNumber != null)
+                                Text('****${acc.accountNumber!.substring(acc.accountNumber!.length - 4)}',
+                                    style: const TextStyle(fontSize: 12)),
+                              if (acc.updatedAt != null)
+                                Text('Updated: ${acc.updatedAt!.substring(0, 10)}',
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                            ],
+                          ),
+                          trailing: isSelected
+                              ? const Icon(Icons.check_circle, color: Colors.green, size: 28)
+                              : null,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const WithdrawalAccountsPage()),
+              ).then((_) {
+                // ✅ Refresh accounts when returning
+                if (mounted) {
+                  _loadWithdrawalAccounts();
+                }
+              });
+            },
+            icon: const Icon(Icons.edit),
+            label: const Text('Manage Account'),
+          ),
+          ElevatedButton.icon(
+            onPressed: selectedAccount == null
+                ? null
+                : () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_forward),
+            label: const Text('Use Account'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ No accounts dialog
+  Future<void> _showNoAccountsDialog() async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('No Accounts'),
+        content: const Text('Add a withdrawal account first to continue.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const WithdrawalAccountsPage()),
+              ).then((_) {
+                // ✅ Refresh accounts when returning
+                if (mounted) {
+                  _loadWithdrawalAccounts();
+                }
+              });
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Add Account'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _fetchOnlyUserQrCodes() async {
@@ -518,7 +705,9 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     final user = await AppWriteService().account.get();
     String userId = user.$id;
 
-    String name = _mode == 'upi' ? _upiHolderNameController.text.trim() : _bankHolderNameController.text.trim();
+    // String name = _mode == 'upi' ? _upiHolderNameController.text.trim() : _bankHolderNameController.text.trim();
+
+    _mode = selectedAccount!.mode;
 
     final int requestedAmount = int.tryParse(_amountController.text.trim()) ?? 0;
 
@@ -630,15 +819,15 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
       final withdrawalRequest = WithdrawalRequest(
         userId: userId,
         qrId: selectedQrCode?.qrId,
-        holderName: name,
+        holderName: selectedAccount!.holderName!,
         amount: netWithdrawalAmount,
         preAmount: requestedAmount,
         commission: commissionAmount,
         mode: _mode,
-        upiId: _mode == 'upi' ? _upiIdController.text.trim() : null,
-        bankName: _mode == 'bank' ? _bankNameController.text.trim() : null,
-        accountNumber: _mode == 'bank' ? _accountNumberController.text.trim() : null,
-        ifscCode: _mode == 'bank' ? _ifscCodeController.text.trim().toUpperCase() : null,
+        upiId: _mode == 'upi' ? selectedAccount!.upiId! : null,
+        bankName: _mode == 'bank' ? selectedAccount!.bankName!.trim() : null,
+        accountNumber: _mode == 'bank' ? selectedAccount!.accountNumber!.trim() : null,
+        ifscCode: _mode == 'bank' ? selectedAccount!.ifscCode!.trim().toUpperCase() : null,
       );
 
       final success = await WithdrawService.submitWithdrawRequest(withdrawalRequest);
@@ -747,6 +936,44 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                     ),
                   ),
 
+                if (selectedAccount != null)
+                  selectedAccountUI(selectedAccount!),
+                if(selectedAccount == null)
+                // Show "Select Account" prompt
+                  Card(
+                    color: Colors.orange.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Icon(Icons.account_circle_outlined, color: Colors.orange, size: 28),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Select Withdrawal Account',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                const Text('Choose UPI or bank account for payout'),
+                                const SizedBox(height: 8),
+                                ElevatedButton.icon(
+                                  onPressed: _showAccountSelectionDialog,
+                                  icon: const Icon(Icons.account_balance_wallet),
+                                  label: const Text('Select Account'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.orange,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
                 const SizedBox(height: 12),
 
                 // Amount section
@@ -772,12 +999,18 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                             border: const OutlineInputBorder(),
                             isDense: true,
                             prefixIcon: const Icon(Icons.payments_outlined),
+                            // helperText: selectedQrCode == null
+                            //     ? 'Select a QR first to see limits'
+                            //     : 'Min: ₹$minWithdrawalAmount • Max: ₹$maxWithdrawalAmount • Overhead: ₹$overheadBalanceRequired',
                             helperText: selectedQrCode == null
-                                ? 'Select a QR first to see limits'
-                                : 'Min: ₹$minWithdrawalAmount • Max: ₹$maxWithdrawalAmount • Overhead: ₹$overheadBalanceRequired',
+                                ? 'Select QR first'
+                                : selectedAccount == null
+                                ? 'Select QR → Account → Amount'
+                                : 'Min: ₹$minWithdrawalAmount • Max: ₹$maxWithdrawalAmount',
                           ),
                           validator: (val) {
-                            if (selectedQrCode == null) return "Select a QR code first";
+                            if (selectedQrCode == null) return "Select QR first";
+                            if (selectedAccount == null) return "Select withdrawal account first";
                             final text = val?.trim();
                             if (text == null || text.isEmpty) return 'Enter amount';
                             final int? amount = int.tryParse(text);
@@ -815,156 +1048,156 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
 
                 const SizedBox(height: 12),
 
-                // Method section
-                Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: const [
-                          Icon(Icons.swap_horiz_rounded, size: 18, color: Colors.blueGrey),
-                          SizedBox(width: 8),
-                          Text('Withdrawal Method', style: TextStyle(fontWeight: FontWeight.w600)),
-                        ]),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 12,
-                          children: [
-                            ChoiceChip(
-                              label: const Text('UPI'),
-                              selected: _mode == 'upi',
-                              onSelected: (val) => val ? setState(() => _mode = 'upi') : null,
-                            ),
-                            ChoiceChip(
-                              label: const Text('Bank'),
-                              selected: _mode == 'bank',
-                              onSelected: (val) => val ? setState(() => _mode = 'bank') : null,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _mode == 'upi'
-                              ? 'UPI is usually faster. Ensure UPI ID and name match the bank records.'
-                              : 'Bank transfer may take longer. Ensure IFSC and account details are correct.',
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                // // Method section
+                // Card(
+                //   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                //   child: Padding(
+                //     padding: const EdgeInsets.all(14),
+                //     child: Column(
+                //       crossAxisAlignment: CrossAxisAlignment.start,
+                //       children: [
+                //         Row(children: const [
+                //           Icon(Icons.swap_horiz_rounded, size: 18, color: Colors.blueGrey),
+                //           SizedBox(width: 8),
+                //           Text('Withdrawal Method', style: TextStyle(fontWeight: FontWeight.w600)),
+                //         ]),
+                //         const SizedBox(height: 10),
+                //         Wrap(
+                //           spacing: 12,
+                //           children: [
+                //             ChoiceChip(
+                //               label: const Text('UPI'),
+                //               selected: _mode == 'upi',
+                //               onSelected: (val) => val ? setState(() => _mode = 'upi') : null,
+                //             ),
+                //             ChoiceChip(
+                //               label: const Text('Bank'),
+                //               selected: _mode == 'bank',
+                //               onSelected: (val) => val ? setState(() => _mode = 'bank') : null,
+                //             ),
+                //           ],
+                //         ),
+                //         const SizedBox(height: 8),
+                //         Text(
+                //           _mode == 'upi'
+                //               ? 'UPI is usually faster. Ensure UPI ID and name match the bank records.'
+                //               : 'Bank transfer may take longer. Ensure IFSC and account details are correct.',
+                //           style: const TextStyle(fontSize: 12, color: Colors.grey),
+                //         ),
+                //       ],
+                //     ),
+                //   ),
+                // ),
 
-                const SizedBox(height: 12),
-
-                // UPI fields
-                if (_mode == 'upi')
-                  Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(children: const [
-                            Icon(Icons.account_circle_outlined, size: 18, color: Colors.blueGrey),
-                            SizedBox(width: 8),
-                            Text('UPI Details', style: TextStyle(fontWeight: FontWeight.w600)),
-                          ]),
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _upiIdController,
-                            decoration: const InputDecoration(
-                              labelText: 'UPI ID',
-                              hintText: 'name@bank',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                              prefixIcon: Icon(Icons.alternate_email),
-                              helperText: 'Example: username@okaxis · Avoid spaces',
-                            ),
-                            validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter UPI ID' : null,
-                          ),
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _upiHolderNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Account Holder Name',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                              prefixIcon: Icon(Icons.badge_outlined),
-                            ),
-                            validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter holder name' : null,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // Bank fields
-                if (_mode == 'bank')
-                  Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(children: const [
-                            Icon(Icons.account_balance_outlined, size: 18, color: Colors.blueGrey),
-                            SizedBox(width: 8),
-                            Text('Bank Details', style: TextStyle(fontWeight: FontWeight.w600)),
-                          ]),
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _accountNumberController,
-                            decoration: const InputDecoration(
-                              labelText: 'Bank Account Number',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                              prefixIcon: Icon(Icons.numbers),
-                            ),
-                            validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter account number' : null,
-                          ),
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _ifscCodeController,
-                            textCapitalization: TextCapitalization.characters,
-                            decoration: const InputDecoration(
-                              labelText: 'IFSC Code',
-                              hintText: 'e.g., HDFC0001234',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                              prefixIcon: Icon(Icons.qr_code_2_outlined),
-                              helperText: '11 characters · 4 letters + 0 + 6 digits',
-                            ),
-                            validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter IFSC code' : null,
-                          ),
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _bankHolderNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Account Holder Name',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                              prefixIcon: Icon(Icons.person_outline),
-                            ),
-                            validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter holder name' : null,
-                          ),
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _bankNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Bank Name (optional)',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                              prefixIcon: Icon(Icons.account_balance),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                // const SizedBox(height: 12),
+                //
+                // // UPI fields
+                // if (_mode == 'upi')
+                //   Card(
+                //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                //     child: Padding(
+                //       padding: const EdgeInsets.all(14),
+                //       child: Column(
+                //         crossAxisAlignment: CrossAxisAlignment.start,
+                //         children: [
+                //           Row(children: const [
+                //             Icon(Icons.account_circle_outlined, size: 18, color: Colors.blueGrey),
+                //             SizedBox(width: 8),
+                //             Text('UPI Details', style: TextStyle(fontWeight: FontWeight.w600)),
+                //           ]),
+                //           const SizedBox(height: 10),
+                //           TextFormField(
+                //             controller: _upiIdController,
+                //             decoration: const InputDecoration(
+                //               labelText: 'UPI ID',
+                //               hintText: 'name@bank',
+                //               border: OutlineInputBorder(),
+                //               isDense: true,
+                //               prefixIcon: Icon(Icons.alternate_email),
+                //               helperText: 'Example: username@okaxis · Avoid spaces',
+                //             ),
+                //             validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter UPI ID' : null,
+                //           ),
+                //           const SizedBox(height: 10),
+                //           TextFormField(
+                //             controller: _upiHolderNameController,
+                //             decoration: const InputDecoration(
+                //               labelText: 'Account Holder Name',
+                //               border: OutlineInputBorder(),
+                //               isDense: true,
+                //               prefixIcon: Icon(Icons.badge_outlined),
+                //             ),
+                //             validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter holder name' : null,
+                //           ),
+                //         ],
+                //       ),
+                //     ),
+                //   ),
+                //
+                // // Bank fields
+                // if (_mode == 'bank')
+                //   Card(
+                //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                //     child: Padding(
+                //       padding: const EdgeInsets.all(14),
+                //       child: Column(
+                //         crossAxisAlignment: CrossAxisAlignment.start,
+                //         children: [
+                //           Row(children: const [
+                //             Icon(Icons.account_balance_outlined, size: 18, color: Colors.blueGrey),
+                //             SizedBox(width: 8),
+                //             Text('Bank Details', style: TextStyle(fontWeight: FontWeight.w600)),
+                //           ]),
+                //           const SizedBox(height: 10),
+                //           TextFormField(
+                //             controller: _accountNumberController,
+                //             decoration: const InputDecoration(
+                //               labelText: 'Bank Account Number',
+                //               border: OutlineInputBorder(),
+                //               isDense: true,
+                //               prefixIcon: Icon(Icons.numbers),
+                //             ),
+                //             validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter account number' : null,
+                //           ),
+                //           const SizedBox(height: 10),
+                //           TextFormField(
+                //             controller: _ifscCodeController,
+                //             textCapitalization: TextCapitalization.characters,
+                //             decoration: const InputDecoration(
+                //               labelText: 'IFSC Code',
+                //               hintText: 'e.g., HDFC0001234',
+                //               border: OutlineInputBorder(),
+                //               isDense: true,
+                //               prefixIcon: Icon(Icons.qr_code_2_outlined),
+                //               helperText: '11 characters · 4 letters + 0 + 6 digits',
+                //             ),
+                //             validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter IFSC code' : null,
+                //           ),
+                //           const SizedBox(height: 10),
+                //           TextFormField(
+                //             controller: _bankHolderNameController,
+                //             decoration: const InputDecoration(
+                //               labelText: 'Account Holder Name',
+                //               border: OutlineInputBorder(),
+                //               isDense: true,
+                //               prefixIcon: Icon(Icons.person_outline),
+                //             ),
+                //             validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter holder name' : null,
+                //           ),
+                //           const SizedBox(height: 10),
+                //           TextFormField(
+                //             controller: _bankNameController,
+                //             decoration: const InputDecoration(
+                //               labelText: 'Bank Name (optional)',
+                //               border: OutlineInputBorder(),
+                //               isDense: true,
+                //               prefixIcon: Icon(Icons.account_balance),
+                //             ),
+                //           ),
+                //         ],
+                //       ),
+                //     ),
+                //   ),
 
                 const SizedBox(height: 20),
 
@@ -989,7 +1222,177 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     );
   }
 
+  Widget selectedAccountUI(WithdrawalAccount selectedAccount){
+    // ✅ Selected Account Card (add after Selected QR Card in build())
+      return Card(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with mode icon
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: selectedAccount!.mode == 'upi'
+                        ? Colors.green
+                        : Colors.blue,
+                    radius: 20,
+                    child: Icon(
+                      selectedAccount!.mode == 'upi'
+                          ? Icons.payment
+                          : Icons.account_balance,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          selectedAccount!.holderName ?? 'Unnamed',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '${selectedAccount!.mode.toUpperCase()} Account',
+                          style: TextStyle(
+                            color: selectedAccount!.mode == 'upi'
+                                ? Colors.green
+                                : Colors.blue,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _showAccountSelectionDialog,
+                    icon: const Icon(Icons.account_balance, size: 16),
+                    label: const Text('Change Account', style: TextStyle(fontSize: 13)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Details Row
+              Row(
+                children: [
+                  // Left: Primary detail
+                  Expanded(
+                    child: _AccountDetailTile(
+                      icon: selectedAccount!.mode == 'upi'
+                          ? Icons.alternate_email
+                          : Icons.numbers,
+                      label: selectedAccount!.mode == 'upi' ? 'UPI ID' : 'Account',
+                      value: selectedAccount!.mode == 'upi'
+                          ? (selectedAccount!.upiId ?? '')
+                          : (selectedAccount!.accountNumber ?? ''), // ✅ Full number
+                    ),
+                  ),
+
+                  // Right: Secondary detail
+                  Expanded(
+                    child: _AccountDetailTile(
+                      icon: Icons.description,
+                      label: 'IFSC' + (selectedAccount!.mode == 'upi' ? '' : '*'),
+                      value: selectedAccount!.ifscCode ?? 'N/A',
+                    ),
+                  ),
+                ],
+              ),
+
+              if (selectedAccount!.bankName != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _AccountDetailTile(
+                    icon: Icons.account_balance,
+                    label: 'Bank',
+                    value: selectedAccount!.bankName!,
+                    isFullWidth: true,
+                  ),
+                ),
+
+              if (selectedAccount!.notes != null && selectedAccount!.notes!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _AccountDetailTile(
+                    icon: Icons.note,
+                    label: 'Notes',
+                    value: selectedAccount!.notes!,
+                    isFullWidth: true,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+  }
+
 }
+
+class _AccountDetailTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool isFullWidth;
+
+  const _AccountDetailTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.isFullWidth = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.grey.shade600),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value.isEmpty ? 'Not set' : value,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 // ======= Selected QR Card (improved design) =======
 class _SelectedQrCard extends StatelessWidget {
@@ -1199,6 +1602,7 @@ class _SelectedQrCard extends StatelessWidget {
                 ),
               ),
             ),
+
           ],
         ),
       ),

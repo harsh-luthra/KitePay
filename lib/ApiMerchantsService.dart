@@ -22,6 +22,8 @@ class ApiMerchantsService {
     if (search != null) params['search'] = search;
     if (cursor != null) params['cursor'] = cursor;
 
+    print(jwtToken);
+
     final uri = Uri.parse('$_baseUrl/merchant/admin/merchants').replace(queryParameters: params);
     final resp = await http.get(uri, headers: {'Authorization': 'Bearer $jwtToken'});
 
