@@ -5,6 +5,7 @@ import 'package:admin_qr_manager/CommissionTransactionsPage.dart';
 import 'package:admin_qr_manager/ManualTransactionForm.dart';
 import 'package:admin_qr_manager/QRService.dart';
 import 'package:admin_qr_manager/SubAdminDashboardPage.dart';
+import 'package:admin_qr_manager/WalletRechargePage.dart';
 import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:admin_qr_manager/utils/NotificationSystemForQr.dart';
 import 'package:admin_qr_manager/widget/TransactionCard.dart';
@@ -239,9 +240,16 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         visibleFor: (_) => true,
         builder: (user) => WithdrawalAccountsPage(),
       ),
-      // WithdrawalAccountsPage
       _MenuItem(
         id: 14,
+        label: 'Kitepay Wallet',
+        icon: Icons.wallet,
+        visibleFor: (_) => true,
+        builder: (user) => WalletRechargePage(),
+      ),
+      // WithdrawalAccountsPage
+      _MenuItem(
+        id: 15,
         label: 'Manage Api Merchants',
         icon: Icons.developer_board,
         visibleFor: (labels) => checkRole('admin'),
