@@ -244,7 +244,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         id: 14,
         label: 'Kitepay Wallet',
         icon: Icons.wallet,
-        visibleFor: (_) => true,
+        visibleFor: (_) => checkRole('admin') ,
         builder: (user) => WalletRechargePage(),
       ),
       // WithdrawalAccountsPage
