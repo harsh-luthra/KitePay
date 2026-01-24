@@ -10,7 +10,7 @@ class UsersService {
   static final String _baseUrl = AppConstants.baseApiUrl;
 
   static Future<PaginatedAppUsers> listUsers({String? cursor,
-    int limit = 50, required String jwtToken}) async {
+    int limit = 100, required String jwtToken}) async {
     try {
       String url = '$_baseUrl/admin/users';
       Map<String, String> queryParams = {
