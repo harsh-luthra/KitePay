@@ -153,7 +153,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
     _socket = IO.io(
       // 'http://localhost:3000',
-      'https://kite-pay-api-v1.onrender.com',
+      AppConstants.baseApiUrlSocket,
+      // 'https://kite-pay-api-v1.onrender.com',
       IO.OptionBuilder()
           .setTransports(['websocket'])
           .setAuth({'token': jwt}) // JWT on connect [web:522]

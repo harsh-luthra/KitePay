@@ -184,7 +184,8 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         id: 6,
         label: 'Manual TXN',
         icon: Icons.add_box_outlined,
-        visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.manualTransactions)),
+        // visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.manualTransactions)),
+        visibleFor: (labels) => false,
         builder: (_) => ManualTransactionForm(),
       ),
       _MenuItem(
@@ -446,7 +447,8 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     await initTts(); // TTS initialize
     if (!SocketManager.instance.isConnected) {
       await SocketManager.instance.connect(
-        url: 'https://kite-pay-api-v1.onrender.com',
+        url: AppConstants.baseApiUrlSocket,
+        // url: 'https://kite-pay-api-v1.onrender.com',
         // url: 'http://localhost:3000',
         jwt: await AppWriteService().getJWT(),
         // qrIds: ["119188392"],
