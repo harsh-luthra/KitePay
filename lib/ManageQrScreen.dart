@@ -14,6 +14,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import 'AppWriteService.dart';
+import 'MyMetaApi.dart';
 import 'TransactionPageNew.dart';
 import 'UsersService.dart';
 import 'models/AppUser.dart';
@@ -50,6 +51,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   int userQrCount = 0;
   int activeUserQrCount = 0;
   // late AppUser userMeta;
+  late AppUser userMeta;
 
   String _managerScope = 'ALL'; // 'ALL' | 'SUBADMIN'
   AppUser? _selectedSubadmin;   // chosen subadmin for filtering (if scope == SUBADMIN)
@@ -62,6 +64,16 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     // Simulate a login to get a token, for a real app this would be a user action
     // _loginAsAdmin();
     // loadUserMeta();
+    userMeta = MyMetaApi.current!;
+
+    // if (userMeta.role.toLowerCase() == 'employee') {
+    //   _roleFilter = RoleFilter.all;  // Use "All" but scoped to assigned
+    // } else if (userMeta.role.toLowerCase() == 'subadmin') {
+    //   _roleFilter = RoleFilter.users;
+    // } else {
+    //   _roleFilter = RoleFilter.all;
+    // }
+
     if(!widget.userMode){
         _fetchQrCodes();
         _fetchUsers();

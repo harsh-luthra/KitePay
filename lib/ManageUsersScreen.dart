@@ -66,10 +66,12 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     // loadUserMeta();
     userMeta = MyMetaApi.current!;
 
-    if (userMeta.role.toLowerCase() == 'subadmin') {
-      _roleFilter = RoleFilter.users; // default to Users
+    if (userMeta.role.toLowerCase() == 'employee') {
+      _roleFilter = RoleFilter.all;  // Use "All" but scoped to assigned
+    } else if (userMeta.role.toLowerCase() == 'subadmin') {
+      _roleFilter = RoleFilter.users;
     } else {
-      _roleFilter = RoleFilter.all;   // keep default for others
+      _roleFilter = RoleFilter.all;
     }
 
     _fetchUsers(firstLoad: true);
@@ -352,12 +354,25 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         jwtToken: await AppWriteService().getJWT(),
       );
 
+      // final jwt = await AppWriteService().getJWT();
+      // final fetched;
+      // if (userMeta.role.toLowerCase() == 'employee') {
+      //   // New: Fetch only assigned (direct + under merchants)
+      //   fetched = await UsersService.listUsersForEmployee(
+      //     employeeId: userMeta.id,
+      //     cursor: nextCursor,
+      //     jwtToken: jwt,
+      //   );
+      // } else {
+      //   // Existing global fetch
+      //   fetched = await UsersService.listUsers(cursor: nextCursor, jwtToken: jwt);
+      // }
+
       if (firstLoad) {
         _users = fetched.appUsers.toList();
       } else {
         final existingIds = _users.map((e) => e.id).toSet();
         final newUsers = fetched.appUsers.where((e) => !existingIds.contains(e.id));
-
         if (newUsers.isEmpty) {
           // No new data, so stop further loading to prevent infinite loader
           hasMore = false;
@@ -1022,6 +1037,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     selected: _roleFilter == RoleFilter.users,
                     onSelected: (_) => setState(() => _roleFilter = RoleFilter.users),
                   ),
+                  if (userMeta.role.toLowerCase() != 'employee')
                   ChoiceChip(
                     label: Text('Employees (${_totalEmployees})'),
                     selected: _roleFilter == RoleFilter.employees,
@@ -1089,30 +1105,40 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     final employeesExists = employees.isNotEmpty;
                     final sentinelIndex = employeesStart + (employeesExists ? 1 : 0);
 
-                    if (employeesExists && index == employeesStart) {
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        child: ExpansionTile(
-                          initiallyExpanded: _expandedGroupIds.contains('employees'),
-                          onExpansionChanged: (val) {
-                            setState(() {
-                              if (val) {
-                                _expandedGroupIds.add('employees');
-                              } else {
-                                _expandedGroupIds.remove('employees');
-                              }
-                            });
-                          },
-                          leading: const Icon(Icons.badge_outlined),
-                          title: Text('Employees : $employeesCount', style: Theme.of(context).textTheme.titleMedium),
-                          children: employees
-                              .map((e) => Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: _buildUserItemCard(context, e),
-                          ))
-                              .toList(),
-                        ),
-                      );
+                    if (userMeta.role.toLowerCase() == 'admin') {
+                      if (employeesExists && index == employeesStart) {
+                        return Card(
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          child: ExpansionTile(
+                            initiallyExpanded: _expandedGroupIds.contains(
+                                'employees'),
+                            onExpansionChanged: (val) {
+                              setState(() {
+                                if (val) {
+                                  _expandedGroupIds.add('employees');
+                                } else {
+                                  _expandedGroupIds.remove('employees');
+                                }
+                              });
+                            },
+                            leading: const Icon(Icons.badge_outlined),
+                            title: Text(
+                                'Employees : $employeesCount', style: Theme
+                                .of(context)
+                                .textTheme
+                                .titleMedium),
+                            children: employees
+                                .map((e) =>
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8),
+                                  child: _buildUserItemCard(context, e),
+                                ))
+                                .toList(),
+                          ),
+                        );
+                      }
                     }
 
                     // loading-more sentinel at last
@@ -1305,7 +1331,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
               ),
             ],
             const SizedBox(height: 10),
-            if (userMeta.role == 'admin' || userMeta.role == 'employee' || userMeta.role == 'subadmin')
+            if (userMeta.role == 'admin' || userMeta.role == 'employee' ||  userMeta.role == 'subadmin')
               Row(
                 children: [
                   if (user.role != 'admin' && userMeta.role != "employee") ...[

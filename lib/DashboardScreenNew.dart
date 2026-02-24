@@ -130,6 +130,8 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       _activeIndex = 1; // Manage Users
     }else if(widget.userMeta.role == "user"){
       _activeIndex = 2; //My QR Codes
+    }else if(widget.userMeta.role == "employee"){
+      _activeIndex = 3; //My QR Codes
     }else{
 
     }
@@ -163,14 +165,14 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         id: 3,
         label: 'Manage Users',
         icon: Icons.person,
-        visibleFor: (labels) => checkRole('admin') || (checkRole("subadmin") && checkLabel("users") || (checkRole("employee") && checkLabel(AppConstants.viewAllUsers))  ),
+        visibleFor: (labels) => checkRole('admin') || checkRole("semployee") || (checkRole("subadmin") && checkLabel("users") || (checkRole("employee") && checkLabel(AppConstants.viewAllUsers))  ),
         builder: (_) => ManageUsersScreen(),
       ),
       _MenuItem(
         id: 4,
         label: 'Manage All QR Codes',
         icon: Icons.qr_code,
-        visibleFor: (labels) => checkRole('admin'),
+        visibleFor: (labels) => checkRole('admin') || (checkRole("employee") && checkLabel(AppConstants.viewAllQrCodes)),
         builder: (_) => ManageQrScreen(userMeta: widget.userMeta,),
       ),
       _MenuItem(
