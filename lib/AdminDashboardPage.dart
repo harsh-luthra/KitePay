@@ -543,7 +543,7 @@ Future<DashboardData> fetchDashboard({bool force = false}) async {
     'pendingMembershipUsers': raw['pendingMembershipUsers'] ?? 0,
   };
 
-  print(data);
+  // print(data);
 
   return DashboardData.fromJson(data);
 

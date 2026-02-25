@@ -391,7 +391,7 @@ Future<UserDashboardData> fetchUserDashboard({required String userId}) async {
     'totalCommissionPaid': raw['totalCommissionPaid'] ?? 0,
   };
 
-  print(normalized);
+  // print(normalized);
 
   return UserDashboardData.fromJson(normalized);
 }

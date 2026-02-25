@@ -147,7 +147,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
     required String status,
     bool firstLoad = false,
   }) async {
-    print('Fetching Page');
+    // print('Fetching Page');
     final page = pages[status]!;
 
     // If this is an explicit first load (after reset or mutation),
@@ -210,7 +210,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
       page.nextCursor = resp.nextCursor;
       page.hasMore = resp.nextCursor != null;
 
-      print('Fetched Page');
+      // print('Fetched Page');
 
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
@@ -1026,6 +1026,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
         appBar: AppBar(
           title: const Text('Withdrawal Requests'),
           actions: !loading ? [
+            if (!widget.userMode)
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
