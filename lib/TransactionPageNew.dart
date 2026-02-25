@@ -53,7 +53,6 @@ class TransactionPageNew extends StatefulWidget {
 
 int? selectedMaxTxns = 50;
 
-
 enum TxnStatus { normal, cyber, refund, chargeback }
 
 extension TxnStatusX on TxnStatus {

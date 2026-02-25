@@ -10,8 +10,9 @@ import 'AppWriteService.dart';
 
 class SubAdminDashboardPage extends StatefulWidget {
   final AppUser userMeta; // keep nullable if not always provided
+  final bool showUserTitle;
 
-  const SubAdminDashboardPage({super.key, required this.userMeta});
+  const SubAdminDashboardPage({super.key, required this.userMeta, required this.showUserTitle});
   @override
   State<SubAdminDashboardPage> createState() => _SubAdminDashboardPageState();
 }
@@ -47,7 +48,7 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Merchant Dashboard'),
+        title: Text(widget.showUserTitle ? 'Merchant Dashboard - ${widget.userMeta.email}' : 'Merchant Dashboard'),
         actions: [
           IconButton(
             tooltip: _showFullNumbers ? 'Show compact numbers' : 'Show full numbers',
@@ -100,6 +101,7 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                     _metricGrid([
                       _metric('Total Transactions', data.totalTxCount, Icons.swap_horiz, Colors.indigo),
                       _money('Total Received', data.totalAmountReceived, Icons.account_balance_wallet, Colors.teal),
+                      _money('Today Received', data.todayPayInAllQrs, Icons.account_balance_wallet, Colors.greenAccent),
                       _money('Merchant Profit', data.totalMerchantProfit, Icons.wallet, Colors.orange),
                       _metric('QRs Assigned to Merchant', data.totalQrsAssignedToMerchant, Icons.assignment_ind, Colors.cyan),
                     ]),
@@ -367,6 +369,7 @@ class SubAdminDashboardData {
   // Overview
   final int totalTxCount;
   final int totalAmountReceived;
+  final int todayPayInAllQrs;
   final int totalAvailableAmount;
   final int totalMerchantProfit;
   final int totalQrsAssignedToMerchant;
@@ -400,6 +403,7 @@ class SubAdminDashboardData {
   const SubAdminDashboardData({
     required this.totalTxCount,
     required this.totalAmountReceived,
+    required this.todayPayInAllQrs,
     required this.totalAvailableAmount,
     required this.totalMerchantProfit,
     required this.totalQrsAssignedToMerchant,
@@ -424,6 +428,7 @@ class SubAdminDashboardData {
   factory SubAdminDashboardData.fromJson(Map<String, dynamic> j) => SubAdminDashboardData(
       totalTxCount: j['totalTxCount'],
       totalAmountReceived: j['totalAmountReceived'],
+      todayPayInAllQrs: j['todayPayInAllQrs'],
       totalAvailableAmount: j['totalAvailableAmount'],
       totalMerchantProfit: j['totalMerchantProfit'],
       totalQrsAssignedToMerchant: j['totalQrsAssignedToMerchant'],
@@ -472,6 +477,7 @@ Future<SubAdminDashboardData> fetchSubadminDashboard({
     final normalized = <String, dynamic>{
       'totalTxCount': raw['totalTxCount'] ?? 0,
       'totalAmountReceived': raw['totalAmountReceived'] ?? 0,
+      'todayPayInAllQrs': raw['todayPayInAllQrs'] ?? 0,
       'totalAvailableAmount': raw['totalAvailableAmount'] ?? 0,
       'totalMerchantProfit': raw['totalMerchantProfit'] ?? 0,
       'totalQrsAssignedToMerchant': raw['totalQrsAssignedToMerchant'] ?? 0,
@@ -487,6 +493,8 @@ Future<SubAdminDashboardData> fetchSubadminDashboard({
       'pendingMembershipUsers': raw['pendingMembershipUsers'] ?? 0,
     };
 
+    print(normalized);
+
     return SubAdminDashboardData.fromJson(normalized);
   } catch (e) {
     // Network or parsing error → fallback
@@ -494,98 +502,99 @@ Future<SubAdminDashboardData> fetchSubadminDashboard({
   }
 }
 
-Future<SubAdminDashboardData> fetchDashboardDummy({bool force = false}) async {
-  final data = {
-    'totalTxCount': 1250,
-    'totalAmountReceived': 15235200,
-    'totalMerchantProfit': 250000,
-    'totalQrsAssignedToMerchant': 10,
-    'qrCodesActive': 9,
-    // If you also store disabled in backend, include it; else keep a default:
-    'qrCodesDisabled': 1,
-
-    // 'chargebackCount': raw['chargebackCount'] ?? 0,
-    // 'chargebackAmount': raw['chargebackAmount'] ?? 0,
-    // 'cyberCount': raw['cyberCount'] ?? 0,
-    // 'cyberAmount': raw['cyberAmount'] ?? 0,
-    // 'refundCount': raw['refundCount'] ?? 0,
-    // 'refundAmount': raw['refundAmount'] ?? 0,
-
-    'totalAmountPaid': 10235200,
-    'totalWithdrawalPendingAmount': 5235200,
-
-    'activeUsers': 5,
-    'disabledUsers': 1,
-    'totalUsers': 6,
-
-    'totalMembershipPurchased': 5,
-    'pendingMembershipUsers': 1,
-  };
-
-  return SubAdminDashboardData.fromJson(data);
-}
-
-Future<SubAdminDashboardData> fetchDashboard({bool force = false}) async {
-  // if (!force && _cache != null && _cacheAt != null) {
-  //   final age = DateTime.now().difference(_cacheAt!);
-  //   if (age.inSeconds < 30) return _cache!;
-  // }
-
-  final jwt = await AppWriteService().getJWT();
-  final uri = Uri.parse('${AppConstants.baseApiUrl}/admin/dashboard/counters');
-  final resp = await http.get(uri, headers: {'Authorization': 'Bearer $jwt', 'Accept': 'application/json'});
-
-  if (resp.statusCode != 200) {
-    throw Exception('Failed to fetch dashboard: ${resp.statusCode} ${resp.body}');
-  }
-
-  // print(resp.body);
-
-  final jsonMap = json.decode(resp.body) as Map<String, dynamic>;
-  // final data = DashboardData.fromJson(jsonMap);
-  //
-  // _cache = data;
-  // _cacheAt = DateTime.now();
-  // return data;
-
-  final raw = json.decode(resp.body) as Map<String, dynamic>;
-  final data = {
-    'totalTxCount': raw['totalTxCount'] ?? 0,
-    'totalAmountReceived': raw['totalAmountReceived'] ?? 0,
-    'totalAdminProfit': raw['totalAdminProfit'] ?? 0,
-    'totalMerchantProfit': raw['totalMerchantProfit'] ?? 0,
-    'totalQrsUploaded': raw['totalQrsUploaded'] ?? 0,
-    'totalQrsAssignedToMerchant': raw['totalQrsAssignedToMerchant'] ?? 0,
-    'totalPinelabsQrs': raw['totalPinelabsQrs'] ?? 0,
-    'totalPaytmQrs': raw['totalPaytmQrs'] ?? 0,
-    'totalOtherQrs': raw['totalOtherQrs'] ?? 0,
-    'qrCodesActive': raw['qrCodesActive'] ?? 0,
-    // If you also store disabled in backend, include it; else keep a default:
-    'qrCodesDisabled': raw['qrCodesDisabled'] ?? 0,
-
-    'totalManualTx': raw['totalManualTx'] ?? 0,
-    'totalApiTx': raw['totalApiTx'] ?? 0,
-    'chargebackCount': raw['chargebackCount'] ?? 0,
-    'chargebackAmount': raw['chargebackAmount'] ?? 0,
-    'cyberCount': raw['cyberCount'] ?? 0,
-    'cyberAmount': raw['cyberAmount'] ?? 0,
-    'refundCount': raw['refundCount'] ?? 0,
-    'refundAmount': raw['refundAmount'] ?? 0,
-
-    'totalAmountPaid': raw['totalAmountPaid'] ?? 0,
-    'totalWithdrawalPendingAmount': raw['totalWithdrawalPendingAmount'] ?? 0,
-
-    'activeUsers': raw['activeUsers'] ?? 0,
-    'disabledUsers': raw['disabledUsers'] ?? 0,
-    'merchantActive': raw['merchantActive'] ?? 0,
-    'merchantPending': raw['merchantPending'] ?? 0,
-    'merchantDisabled': raw['merchantDisabled'] ?? 0,
-    'totalUsers': raw['totalUsers'] ?? 0,
-
-    'totalMembershipPurchased': raw['totalMembershipPurchased'] ?? 0,
-    'pendingMembershipUsers': raw['pendingMembershipUsers'] ?? 0,
-  };
-
-  return SubAdminDashboardData.fromJson(data);
-
-}
+// Future<SubAdminDashboardData> fetchDashboardDummy({bool force = false}) async {
+//   final data = {
+//     'totalTxCount': 1250,
+//     'totalAmountReceived': 15235200,
+//     'totalMerchantProfit': 250000,
+//     'totalQrsAssignedToMerchant': 10,
+//     'qrCodesActive': 9,
+//     // If you also store disabled in backend, include it; else keep a default:
+//     'qrCodesDisabled': 1,
+//
+//     // 'chargebackCount': raw['chargebackCount'] ?? 0,
+//     // 'chargebackAmount': raw['chargebackAmount'] ?? 0,
+//     // 'cyberCount': raw['cyberCount'] ?? 0,
+//     // 'cyberAmount': raw['cyberAmount'] ?? 0,
+//     // 'refundCount': raw['refundCount'] ?? 0,
+//     // 'refundAmount': raw['refundAmount'] ?? 0,
+//
+//     'totalAmountPaid': 10235200,
+//     'totalWithdrawalPendingAmount': 5235200,
+//
+//     'activeUsers': 5,
+//     'disabledUsers': 1,
+//     'totalUsers': 6,
+//
+//     'totalMembershipPurchased': 5,
+//     'pendingMembershipUsers': 1,
+//   };
+//
+//   return SubAdminDashboardData.fromJson(data);
+// }
+//
+// Future<SubAdminDashboardData> fetchDashboard({bool force = false}) async {
+//   // if (!force && _cache != null && _cacheAt != null) {
+//   //   final age = DateTime.now().difference(_cacheAt!);
+//   //   if (age.inSeconds < 30) return _cache!;
+//   // }
+//
+//   final jwt = await AppWriteService().getJWT();
+//   final uri = Uri.parse('${AppConstants.baseApiUrl}/admin/dashboard/counters');
+//   final resp = await http.get(uri, headers: {'Authorization': 'Bearer $jwt', 'Accept': 'application/json'});
+//
+//   if (resp.statusCode != 200) {
+//     throw Exception('Failed to fetch dashboard: ${resp.statusCode} ${resp.body}');
+//   }
+//
+//   // print(resp.body);
+//
+//   final jsonMap = json.decode(resp.body) as Map<String, dynamic>;
+//   // final data = DashboardData.fromJson(jsonMap);
+//   //
+//   // _cache = data;
+//   // _cacheAt = DateTime.now();
+//   // return data;
+//
+//   final raw = json.decode(resp.body) as Map<String, dynamic>;
+//   final data = {
+//     'totalTxCount': raw['totalTxCount'] ?? 0,
+//     'totalAmountReceived': raw['totalAmountReceived'] ?? 0,
+//     'todayPayInAllQrs': raw['todayPayInAllQrs'] ?? 0,
+//     'totalAdminProfit': raw['totalAdminProfit'] ?? 0,
+//     'totalMerchantProfit': raw['totalMerchantProfit'] ?? 0,
+//     'totalQrsUploaded': raw['totalQrsUploaded'] ?? 0,
+//     'totalQrsAssignedToMerchant': raw['totalQrsAssignedToMerchant'] ?? 0,
+//     'totalPinelabsQrs': raw['totalPinelabsQrs'] ?? 0,
+//     'totalPaytmQrs': raw['totalPaytmQrs'] ?? 0,
+//     'totalOtherQrs': raw['totalOtherQrs'] ?? 0,
+//     'qrCodesActive': raw['qrCodesActive'] ?? 0,
+//     // If you also store disabled in backend, include it; else keep a default:
+//     'qrCodesDisabled': raw['qrCodesDisabled'] ?? 0,
+//
+//     'totalManualTx': raw['totalManualTx'] ?? 0,
+//     'totalApiTx': raw['totalApiTx'] ?? 0,
+//     'chargebackCount': raw['chargebackCount'] ?? 0,
+//     'chargebackAmount': raw['chargebackAmount'] ?? 0,
+//     'cyberCount': raw['cyberCount'] ?? 0,
+//     'cyberAmount': raw['cyberAmount'] ?? 0,
+//     'refundCount': raw['refundCount'] ?? 0,
+//     'refundAmount': raw['refundAmount'] ?? 0,
+//
+//     'totalAmountPaid': raw['totalAmountPaid'] ?? 0,
+//     'totalWithdrawalPendingAmount': raw['totalWithdrawalPendingAmount'] ?? 0,
+//
+//     'activeUsers': raw['activeUsers'] ?? 0,
+//     'disabledUsers': raw['disabledUsers'] ?? 0,
+//     'merchantActive': raw['merchantActive'] ?? 0,
+//     'merchantPending': raw['merchantPending'] ?? 0,
+//     'merchantDisabled': raw['merchantDisabled'] ?? 0,
+//     'totalUsers': raw['totalUsers'] ?? 0,
+//
+//     'totalMembershipPurchased': raw['totalMembershipPurchased'] ?? 0,
+//     'pendingMembershipUsers': raw['pendingMembershipUsers'] ?? 0,
+//   };
+//
+//   return SubAdminDashboardData.fromJson(data);
+//
+// }

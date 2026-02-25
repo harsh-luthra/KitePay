@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
+import 'QRService.dart';
 import 'UsersService.dart';
 import 'WithdrawService.dart';
 import 'WithdrawalFormPage.dart';
 import 'models/AppUser.dart';
+import 'models/QrCode.dart';
 import 'models/WithdrawalRequest.dart';
 
 // Generic page state to mirror TransactionPageNew style
@@ -41,6 +43,7 @@ class ManageWithdrawalsNew extends StatefulWidget {
 }
 
 class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
+  final QrCodeService _qrCodeService = QrCodeService();
   // Tabs: all, pending, approved, rejected
   String filter = 'all';
 
@@ -62,16 +65,23 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
 
   // Users for display (requestedBy)
   List<AppUser> users = [];
+  List<QrCode> qrCodes = [];
 
   // Global loading for first visible load and user list
   bool loading = false;
   bool loadingUsers = false;
+  bool loadingQr = false;
 
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
 
   // Scroll/infinite pagination (mirrors TransactionPageNew)
   final ScrollController _scrollController = ScrollController();
+
+  String? selectedUserId;
+  String? selectedQrCodeId;
+
+  bool showingFilters = false;
 
   @override
   void initState() {
@@ -92,7 +102,8 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
     setState(() => loading = true);
     try {
       if (!widget.userMode) {
-        await _fetchUsers();
+        // await _fetchUsers();
+        await fetchUsersQrCodes();
         // print("Fetching users");
       }
       // First page for current tab
@@ -106,27 +117,37 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
     setState(() => loading = false);
   }
 
-  Future<void> _fetchUsers() async {
-    setState(() => loadingUsers = true);
+  Future<void> fetchUsersQrCodes() async {
+    if (mounted) setState(() => loadingUsers = true);
+
     try {
-      final fetched = await UsersService.listUsers(
-        jwtToken: await AppWriteService().getJWT(),
-      );
+      final fetched = await UsersService.listUsers(jwtToken: await AppWriteService().getJWT());
       users = fetched.appUsers;
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('❌ Failed to fetch users: $e')),
       );
     }
-    if (!mounted) return;
-    setState(() => loadingUsers = false);
+    if (mounted) setState(() => loadingUsers = false);
+
+    if (mounted) setState(() => loadingQr = true);
+    try {
+      qrCodes = await _qrCodeService.getQrCodes(await AppWriteService().getJWT());
+    } catch (e) {
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text('❌ Failed to fetch Qr Codes: $e')),
+      );
+    }
+    if (mounted) setState(() => loadingQr = false);
   }
+
 
   // Fetch a page for a given status tab, with inFlight guard
   Future<void> fetchPage({
     required String status,
     bool firstLoad = false,
   }) async {
+    print('Fetching Page');
     final page = pages[status]!;
 
     // If this is an explicit first load (after reset or mutation),
@@ -165,22 +186,32 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
         jwtToken: await AppWriteService().getJWT(),
         status: isAll ? null : status,
         cursor: page.nextCursor,
+        userId: selectedUserId,
+        qrId: selectedQrCodeId,
         // limit: 20,
       );
 
       final existingIds = page.items.map((e) => e.id)
           .whereType<String>()
           .toSet();
-      final newOnes = resp.requests.where((r) =>
-      r.id != null && !existingIds.contains(r.id));
+      // final newOnes = resp.requests.where((r) =>
+      // r.id != null && !existingIds.contains(r.id));
+
+      final newOnes = resp.requests;
+
       if (firstLoad && page.items.isEmpty) {
         page.items = newOnes.toList();
       } else {
         page.items.addAll(newOnes);
       }
 
+      print(resp.requests.length);
+
       page.nextCursor = resp.nextCursor;
       page.hasMore = resp.nextCursor != null;
+
+      print('Fetched Page');
+
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('❌ Failed to fetch $status withdrawals: $e')),
@@ -195,6 +226,14 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
     }
   }
 
+  Future<void> refetchWithCurrentFilters() async {
+    // Reset and refetch current filter tab with new user/qr filters
+    await _resetTab(filter, fetch: true);
+    // Sync All tab if not already on All
+    if (filter != 'all') {
+      await _resetTab('all', fetch: true);
+    }
+  }
 
     // Helper to reset a tab state and optionally fetch immediately
   Future<void> _resetTab(String status, {bool fetch = false}) async {
@@ -960,8 +999,24 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
     );
   }
 
+  List<QrCode> get filteredQrCodes {
+    if (selectedUserId == null) return qrCodes;
+    return qrCodes.where((qr) => qr.assignedUserId == selectedUserId).toList();
+  }
+
+  List<String> filteredUniqueQrIds() {
+    // unique, non-empty ids for dropdown items
+    return filteredQrCodes
+        .map((qr) => qr.qrId ?? '')
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final userHasQrCodes = selectedUserId == null || filteredQrCodes.isNotEmpty;
+
     final current = pages[filter]!;
     final visible = current.items;
 
@@ -971,6 +1026,16 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
         appBar: AppBar(
           title: const Text('Withdrawal Requests'),
           actions: !loading ? [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Filters: '),
+                Switch.adaptive(
+                  value: showingFilters,
+                  onChanged: (val) => setState(() => showingFilters = val),
+                ),
+              ],
+            ),
             if (widget.userMode)
               IconButton(
                 icon: const Icon(Icons.add),
@@ -1014,6 +1079,8 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
             : Column(
           children: [
             const SizedBox(height: 10),
+            if(showingFilters)
+              _buildFilters(userHasQrCodes),
             // Filter toolbar
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -1060,6 +1127,176 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                   },
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilters(bool userHasQrCodes) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: const [
+              Icon(Icons.filter_alt_outlined, size: 18, color: Colors.blueGrey),
+              SizedBox(width: 8),
+              Text('Filters', style: TextStyle(fontWeight: FontWeight.w600)),
+            ]),
+            const SizedBox(height: 12),
+
+            // Top row: User + QR
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                if (!widget.userMode)
+                  SizedBox(
+                    width: 320,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 6),
+                          child: Text('Filter User', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        loadingUsers
+                            ? const LinearProgressIndicator(minHeight: 2)
+                            : DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          value: selectedUserId,
+                          hint: const Text('Select User'),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                          items: [
+                            const DropdownMenuItem(value: null, child: Text('--------')),
+                            ...users.map(
+                                  (u) => DropdownMenuItem(
+                                value: u.id,
+                                child: Text('${u.name} (${u.email})', overflow: TextOverflow.ellipsis),
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              selectedUserId = value;
+                              selectedQrCodeId = null;
+                            });
+                            refetchWithCurrentFilters();
+                            // fetchPage(status: filter, firstLoad: true);
+                            // _refetchWithCurrentFilters(); /////////////
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                SizedBox(
+                  width: 320,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 6),
+                        child: Text('Filter QR Code', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                      loadingQr
+                          ? const LinearProgressIndicator(minHeight: 2)
+                          : DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        value: selectedQrCodeId,
+                        hint: const Text('Select QR Code'),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('--------')),
+                          ...filteredQrCodes.map(
+                                (qr) => DropdownMenuItem(
+                              value: qr.qrId,
+                              child: Text('${qr.qrId} (${qr.totalTransactions})', overflow: TextOverflow.ellipsis),
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() => selectedQrCodeId = value);
+                          refetchWithCurrentFilters();
+                          // fetchPage(status: filter, firstLoad: true);
+                          // _refetchWithCurrentFilters(); ///////////////
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // Date range row
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Status row (optional)
+            // buildStatusFilter(),
+
+            if (selectedUserId != null && !userHasQrCodes)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('No QR codes assigned to this user.', style: TextStyle(color: Colors.red)),
+                ),
+              ),
+
+            const SizedBox(height: 10),
+            // Footer actions
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Reset'),
+                  onPressed: () {
+                    setState(() {
+                      selectedUserId = null;
+                      selectedQrCodeId = null;
+                    });
+                    refetchWithCurrentFilters();
+                    // fetchPage(status: filter, firstLoad: true);
+                    // _refetchWithCurrentFilters(); /////////////
+                  },
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.filter_alt),
+                  label: const Text('Apply'),
+                  onPressed: () {
+                    FocusScope.of(context).unfocus();
+                    refetchWithCurrentFilters();  /////////////
+                    // fetchPage(status: filter, firstLoad: true);
+                  },
+                ),
+              ],
             ),
           ],
         ),

@@ -152,14 +152,14 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         label: 'Merchant Dashboard',
         icon: Icons.dashboard,
         visibleFor: (_) => checkRole('subadmin'),
-        builder: (_) => SubAdminDashboardPage(userMeta: widget.userMeta,),
+        builder: (_) => SubAdminDashboardPage(userMeta: widget.userMeta, showUserTitle: false,),
       ),
       _MenuItem(
         id: 2,
         label: 'User Dashboard',
         icon: Icons.dashboard,
         visibleFor: (_) => checkRole('user'),
-        builder: (_) => UserDashboardPage(userMeta: widget.userMeta,),
+        builder: (_) => UserDashboardPage(userMeta: widget.userMeta, showUserTitle: false,),
       ),
       _MenuItem(
         id: 3,

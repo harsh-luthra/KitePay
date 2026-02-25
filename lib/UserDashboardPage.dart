@@ -11,7 +11,9 @@ import 'package:http/http.dart' as http;
 
 class UserDashboardPage extends StatefulWidget {
   final AppUser userMeta;
-  const UserDashboardPage({super.key, required this.userMeta});
+  final bool showUserTitle;
+
+  const UserDashboardPage({super.key, required this.userMeta, required this.showUserTitle});
 
   @override
   State<UserDashboardPage> createState() => _UserDashboardPageState();
@@ -48,7 +50,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('User Dashboard'),
+        title: Text(widget.showUserTitle ? 'User Dashboard - ${widget.userMeta.email}' : 'User Dashboard'),
         actions: [
           IconButton(
             tooltip: _showFullNumbers ? 'Show compact numbers' : 'Show full numbers',
@@ -100,6 +102,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                     _metricGrid([
                       _metric('Total Txns', data.totalTxCount, Icons.swap_horiz, Colors.indigo),
                       _money('Total Pay-In', data.totalAmountPayIn, Icons.account_balance_wallet, Colors.teal),
+                      _money('Today Pay-In', data.todayPayInAllQrs, Icons.account_balance_wallet, Colors.greenAccent),
                       _metric('Total QRs', data.totalQrs, Icons.qr_code_2, Colors.blueGrey),
                     ]),
                   ],
@@ -312,6 +315,7 @@ class _UserDashboardSkeleton extends StatelessWidget {
 class UserDashboardData {
   // QR breakdown
   final int totalQrs;
+  final int todayPayInAllQrs;
   final int qrCodesActive;
   final int qrCodesDisabled;
 
@@ -331,6 +335,7 @@ class UserDashboardData {
 
   const UserDashboardData({
     required this.totalQrs,
+    required this.todayPayInAllQrs,
     required this.qrCodesActive,
     required this.qrCodesDisabled,
     required this.totalTxCount,
@@ -345,6 +350,7 @@ class UserDashboardData {
 
   factory UserDashboardData.fromJson(Map<String, dynamic> j) => UserDashboardData(
     totalQrs: j['totalQrs'] ?? 0,
+    todayPayInAllQrs: j['todayPayInAllQrs'] ?? 0,
     qrCodesActive: j['qrCodesActive'] ?? 0,
     qrCodesDisabled: j['qrCodesDisabled'] ?? 0,
     totalTxCount: j['totalTxCount'] ?? 0,
@@ -372,6 +378,7 @@ Future<UserDashboardData> fetchUserDashboard({required String userId}) async {
   // Normalize nulls
   final normalized = <String, dynamic>{
     'totalQrs': raw['totalQrs'] ?? 0,
+    'todayPayInAllQrs': raw['todayPayInAllQrs'] ?? 0,
     'qrCodesActive': raw['qrCodesActive'] ?? 0,
     'qrCodesDisabled': raw['qrCodesDisabled'] ?? 0,
     'totalTxCount': raw['totalTxCount'] ?? 0,
@@ -383,5 +390,8 @@ Future<UserDashboardData> fetchUserDashboard({required String userId}) async {
     'totalCommissionOnHold': raw['totalCommissionOnHold'] ?? 0,
     'totalCommissionPaid': raw['totalCommissionPaid'] ?? 0,
   };
+
+  print(normalized);
+
   return UserDashboardData.fromJson(normalized);
 }

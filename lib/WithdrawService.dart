@@ -95,6 +95,7 @@ class WithdrawService {
     String? cursor,           // server-provided cursor token from previous page
     int limit = 15,           // page size
     String? userId,           // optional: scope to a single user if needed
+    String? qrId,
   }) async {
     try {
       final qp = <String, String>{
@@ -102,6 +103,7 @@ class WithdrawService {
         if (cursor != null) 'cursor': cursor,
         if (status != null) 'status': status,
         if (userId != null) 'userId': userId,
+        if (qrId != null) 'qrId': qrId,
       };
 
       final uri = Uri.parse('$_baseUrl/user/withdrawals_paginated').replace(queryParameters: qp);
