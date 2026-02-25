@@ -102,7 +102,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                     _metricGrid([
                       _metric('Total Txns', data.totalTxCount, Icons.swap_horiz, Colors.indigo),
                       _money('Total Pay-In', data.totalAmountPayIn, Icons.account_balance_wallet, Colors.teal),
-                      _money('Today Pay-In', data.todayPayInAllQrs, Icons.account_balance_wallet, Colors.greenAccent),
+                      _money('Today Pay-In', data.todayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
                       _metric('Total QRs', data.totalQrs, Icons.qr_code_2, Colors.blueGrey),
                     ]),
                   ],

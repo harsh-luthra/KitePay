@@ -100,8 +100,8 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                   children: [
                     _metricGrid([
                       _metric('Total Transactions', data.totalTxCount, Icons.swap_horiz, Colors.indigo),
-                      _money('Total Received', data.totalAmountReceived, Icons.account_balance_wallet, Colors.teal),
-                      _money('Today Received', data.todayPayInAllQrs, Icons.account_balance_wallet, Colors.greenAccent),
+                      _money('Total Pay-In', data.totalAmountReceived, Icons.account_balance_wallet, Colors.teal),
+                      _money('Today Pay-In', data.todayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
                       _money('Merchant Profit', data.totalMerchantProfit, Icons.wallet, Colors.orange),
                       _metric('QRs Assigned to Merchant', data.totalQrsAssignedToMerchant, Icons.assignment_ind, Colors.cyan),
                     ]),

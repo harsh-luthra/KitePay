@@ -96,7 +96,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   children: [
                     _metricGrid([
                       _metric('Total Transactions', data.totalTxCount, Icons.swap_horiz, Colors.indigo),
-                      _money('Total Received', data.totalAmountReceived, Icons.account_balance_wallet, Colors.teal),
+                      _money('Total Pay-In', data.totalAmountReceived, Icons.account_balance_wallet, Colors.teal),
+                      _money('Today Pay-In', data.todayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
                       _money('Admin Profit', data.totalAdminProfit, Icons.leaderboard, Colors.deepPurple),
                       _money('Merchant Profit', data.totalMerchantProfit, Icons.wallet, Colors.orange),
                       _metric('QR Codes Uploaded', data.totalQrsUploaded, Icons.qr_code_2, Colors.blueGrey),
@@ -371,6 +372,7 @@ class DashboardData {
   // Overview
   final int totalTxCount;
   final int totalAmountReceived;
+  final int todayPayInAllQrs;
   final int totalAdminProfit;
   final int totalMerchantProfit;
   final int totalQrsUploaded;
@@ -412,6 +414,7 @@ class DashboardData {
   const DashboardData({
     required this.totalTxCount,
     required this.totalAmountReceived,
+    required this.todayPayInAllQrs,
     required this.totalAdminProfit,
     required this.totalMerchantProfit,
     required this.totalQrsUploaded,
@@ -444,6 +447,7 @@ class DashboardData {
   factory DashboardData.fromJson(Map<String, dynamic> j) => DashboardData(
       totalTxCount: j['totalTxCount'],
       totalAmountReceived: j['totalAmountReceived'],
+      todayPayInAllQrs: j['todayPayInAllQrs'],
       totalAdminProfit: j['totalAdminProfit'],
       totalMerchantProfit: j['totalMerchantProfit'],
       totalQrsUploaded: j['totalQrsUploaded'],
@@ -504,6 +508,7 @@ Future<DashboardData> fetchDashboard({bool force = false}) async {
   final data = {
     'totalTxCount': raw['totalTxCount'] ?? 0,
     'totalAmountReceived': raw['totalAmountReceived'] ?? 0,
+    'todayPayInAllQrs': raw['todayPayInAllQrs'] ?? 0,
     'totalAdminProfit': raw['totalAdminProfit'] ?? 0,
     'totalMerchantProfit': raw['totalMerchantProfit'] ?? 0,
     'totalQrsUploaded': raw['totalQrsUploaded'] ?? 0,
@@ -537,6 +542,8 @@ Future<DashboardData> fetchDashboard({bool force = false}) async {
     'totalMembershipPurchased': raw['totalMembershipPurchased'] ?? 0,
     'pendingMembershipUsers': raw['pendingMembershipUsers'] ?? 0,
   };
+
+  print(data);
 
   return DashboardData.fromJson(data);
 
