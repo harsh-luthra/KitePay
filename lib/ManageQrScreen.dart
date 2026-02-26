@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:admin_qr_manager/AppConfig.dart';
 import 'package:admin_qr_manager/AppConstants.dart';
 import 'package:admin_qr_manager/QRService.dart';
 import 'package:admin_qr_manager/SocketManager.dart';
@@ -14,6 +15,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import 'AppWriteService.dart';
+import 'DashboardScreenNew.dart';
 import 'MyMetaApi.dart';
 import 'TransactionPageNew.dart';
 import 'UsersService.dart';
@@ -47,6 +49,8 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   bool _isProcessing = false; // New state variable for showing progress
 
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
+  final double QR_PayIn_Today_limit = AppConfig().qrLimitTodayPayIn;
 
   int userQrCount = 0;
   int activeUserQrCount = 0;
@@ -98,6 +102,31 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   void dispose() {
     _qrIdController.dispose();
     super.dispose();
+  }
+
+  Future<void> checkQrLimitTodayPayin() async {
+
+    print("Checking QR Today Limit Value: ${QR_PayIn_Today_limit}");
+    for (QrCode qr in _qrCodes){
+      int? todayPayIn = qr.todayTotalPayIn;
+      if(todayPayIn! >= QR_PayIn_Today_limit){
+        SocketManager.instance.emitQrLimitAlert({
+          "qrCodeId": qr.qrId,
+          "todayPayIn": todayPayIn,
+        });
+        // await DialogSingleton.showReplacing(
+        //   builder: (ctx) => AlertDialog(
+        //     title: Text('QR Limit Reached'),
+        //     content: Text("QR: ${qr.qrId}\nToday: ${CurrencyUtils.formatIndianCurrency(todayPayIn/100)}"),
+        //     actions: [TextButton(
+        //         onPressed: () => Navigator.of(ctx).pop(),
+        //         child: Text('OK')
+        //     )],
+        //   ),
+        // );
+        // print("Qr Limit ${todayPayIn} Reached for Today QR_ID: ${qr.qrId}");
+      }
+    }
   }
 
   Future<void> _fetchUsers() async {
@@ -405,6 +434,9 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     setState(() {
       _isLoading = false;
     });
+
+    checkQrLimitTodayPayin();
+
   }
 
   int activeQrCount(List<QrCode> qrCodes) {
@@ -445,6 +477,9 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     setState(() {
       _isLoading = false;
     });
+
+    checkQrLimitTodayPayin();
+
   }
 
   // The main function for the floating action button now shows a dialog
@@ -755,7 +790,6 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     }
     _qrIdController.clear();
   }
-
 
   // Handles deleting a QR code with a confirmation dialog and progress indicator
   Future<void> _deleteQrCode(String qrId) async {
@@ -1601,8 +1635,18 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
               'QR ID: ${qrCode.qrId}',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
+            // Limit Check Widget
+            if(qrCode.todayTotalPayIn! >= QR_PayIn_Today_limit)
+              Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_outlined,  // icon name FIRST
+                    color: Colors.redAccent,          // THEN color
+                  ),
+                  Text("Limit Reached For Today"),
+                ],
+              ),
             const SizedBox(height: 12),
-
             // Content row/column
             isMobile
                 ? Column(

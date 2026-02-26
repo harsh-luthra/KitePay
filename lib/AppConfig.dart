@@ -12,6 +12,8 @@ class AppConfig {
   double defaultMinCommission = 1.0;
   double defaultMaxCommission = 2.0;
 
+  double defaultQrLimitTodayPayIn = 30000000.0;
+
   late int maxWithdrawalAmount;
   late int minWithdrawalAmount;
   late int maxWithdrawalRequests;
@@ -20,6 +22,8 @@ class AppConfig {
 
   late double minCommission;
   late double maxCommission;
+
+  late double qrLimitTodayPayIn;
 
   void loadFromJson(Map<String, dynamic> json) {
     maxWithdrawalAmount = json['max_withdrawal_amount'] ?? 0;
@@ -30,6 +34,8 @@ class AppConfig {
 
     minCommission = (json['min_commission'] ?? 0).toDouble() ?? defaultMinCommission;
     maxCommission = (json['max_commission'] ?? 0).toDouble() ?? defaultMaxCommission;
+
+    qrLimitTodayPayIn = (json['qr_limit_today_pay_in'] ?? 0).toDouble() ?? defaultQrLimitTodayPayIn;
 
     // print("min_commission $minCommission");
     // print("max_commission $maxCommission");

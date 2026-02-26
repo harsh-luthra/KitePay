@@ -29,6 +29,10 @@ class SocketManager {
   final _qrAlertController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get qrAlertController => _qrAlertController.stream;
 
+  // Connection status broadcast
+  final _qrLimitAlertController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get qrLimitAlertController => _qrLimitAlertController.stream;
+
   Future<void> connect({
     required String url,
     required String jwt,
@@ -107,6 +111,19 @@ class SocketManager {
         }
         // TODO: forward to a StreamController/BLoC/callback
       })
+      ..on('qrLimitAlert', (data) {
+        // print('QR ALERT:'+ data.toString());
+        // QrCode qrCode = QrCode.fromJson(data);
+        // print(qrCode.toString());
+        // print("qrLimitAlert");
+        // print(data);
+        if (data is Map) {
+          _qrLimitAlertController.add(Map<String, dynamic>.from(data));
+        } else {
+          _qrLimitAlertController.add({'raw': data});
+        }
+        // TODO: forward to a StreamController/BLoC/callback
+      })
       ..onConnectError((err) {
         _connController.add(SocketStatus.error);
         print(err);
@@ -138,6 +155,17 @@ class SocketManager {
     _socket!.emit('send:qrsAlert', qr.toJson());
   }
 
+  /// ✅ Send qrLimitAlert event from ANYWHERE in your app
+  void emitQrLimitAlert(Map<String, dynamic> data) {
+    // print("🔥 Manual QR Limit Alert: $data");
+
+    if (data is Map) {
+      _qrLimitAlertController.add(Map<String, dynamic>.from(data));
+    } else {
+      _qrLimitAlertController.add({'raw': data});
+    }
+  }
+
   void unsubscribeQrIds(List<String> qrIds) {
     if (!isConnected) return;
     _socket!.emit('unsubscribe:qrs', {'qrIds': List<String>.from(qrIds)});
@@ -159,6 +187,7 @@ class SocketManager {
     _txController.close();
     _connController.close();
     _qrAlertController.close();
+    _qrLimitAlertController.close();
   }
 
 }

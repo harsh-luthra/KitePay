@@ -27,6 +27,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   Future<void> _refresh() async {
     if (_refreshing) return;
     setState(() => _refreshing = true);
+
     try {
       final data = await fetchDashboard(force: true);
       if (!mounted) return;
@@ -487,9 +488,18 @@ Future<DashboardData> fetchDashboard({bool force = false}) async {
   //   if (age.inSeconds < 30) return _cache!;
   // }
 
+  print("Start Wait........");
+
+  // ✅ Wait 5 seconds before calling
+  await Future.delayed(const Duration(seconds: 5));
+
+  print("End Wait........");
+
   final jwt = await AppWriteService().getJWT();
   final uri = Uri.parse('${AppConstants.baseApiUrl}/admin/dashboard/counters');
   final resp = await http.get(uri, headers: {'Authorization': 'Bearer $jwt', 'Accept': 'application/json'});
+
+  print("Dashboard Loaded");
 
   if (resp.statusCode != 200) {
     throw Exception('Failed to fetch dashboard: ${resp.statusCode} ${resp.body}');

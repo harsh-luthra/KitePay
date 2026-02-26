@@ -7,6 +7,7 @@ import 'package:admin_qr_manager/QRService.dart';
 import 'package:admin_qr_manager/SubAdminDashboardPage.dart';
 import 'package:admin_qr_manager/WalletRechargePage.dart';
 import 'package:admin_qr_manager/models/AppUser.dart';
+import 'package:admin_qr_manager/utils/CurrencyUtils.dart';
 import 'package:admin_qr_manager/utils/NotificationSystemForQr.dart';
 import 'package:admin_qr_manager/widget/TransactionCard.dart';
 import 'package:flutter/material.dart';
@@ -88,6 +89,8 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
 
   late StreamSubscription<Map<String, dynamic>>? _qrAlertSub;
 
+  late StreamSubscription<Map<String, dynamic>>? _qrLimitAlertSub;
+
   bool ttsENABLED = true;
 
   bool popUpENABLED = true;
@@ -136,8 +139,9 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
 
     }
 
-    loadConfig();
+    setupSocketTransactionSpeech();
 
+    loadConfig();
 
     _allMenuItems = [
       _MenuItem(
@@ -272,8 +276,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       _hovering[item.id] = false;
     }
 
-    setupSocketTransactionSpeech();
-
   }
 
   @override
@@ -281,6 +283,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     _txSub?.cancel();
     _connSub?.cancel();
     _qrAlertSub?.cancel();
+    _qrLimitAlertSub?.cancel();
     super.dispose();
   }
 
@@ -383,30 +386,51 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     // await _tts.speak(sentence); // say full words, not digits [18]
   }
 
-  Future<void> speakQrAlert() async {
+  Future<void> speakQrAlert({required String condition}) async {
     // List supported languages (optional, for debugging/install hints)
     final langs = await _tts.getLanguages;
     // print(langs);
 
     // Prefer Hindi (India)
     const hindiIndia = 'hi-IN';
-    if (langs is List && langs.contains(hindiIndia)) {
-      await _tts.setLanguage(hindiIndia); // Hindi (India)
-      await _tts.setSpeechRate(0.9);
-      await _tts.setPitch(1.0);
+    if(condition.contains("work")){
+      if (langs is List && langs.contains(hindiIndia)) {
+        await _tts.setLanguage(hindiIndia); // Hindi (India)
+        await _tts.setSpeechRate(0.9);
+        await _tts.setPitch(1.0);
 
-      final sentence = 'क्यूआर का काम शुरू हो गया है';
-      await _tts.speak(sentence); // say full words, not digits [18]
+        final sentence = 'क्यूआर का काम शुरू हो गया है';
+        await _tts.speak(sentence); // say full words, not digits [18]
 
-    } else {
-      // Fallback or show a prompt that Hindi voice is not installed
-      await _tts.setLanguage('en-IN'); // fallback
+      } else {
+        // Fallback or show a prompt that Hindi voice is not installed
+        await _tts.setLanguage('en-IN'); // fallback
 
-      await _tts.setSpeechRate(0.9);
-      await _tts.setPitch(1.0);
+        await _tts.setSpeechRate(0.9);
+        await _tts.setPitch(1.0);
 
-      final sentence = 'QR ka kaam shuru ho gaya hai';
-      await _tts.speak(sentence); // say full words, not digits [18]
+        final sentence = 'QR ka kaam shuru ho gaya hai';
+        await _tts.speak(sentence); // say full words, not digits [18]
+      }
+    }else if(condition.contains("limit")){
+      if (langs is List && langs.contains(hindiIndia)) {
+        await _tts.setLanguage(hindiIndia); // Hindi (India)
+        await _tts.setSpeechRate(0.9);
+        await _tts.setPitch(1.0);
+
+        final sentence = 'आज की क्यूआरकोड सीमा पूरी हो गई है। कृपया इस क्यूआरकोड पर भुगतान प्राप्त करना बंद कर दें, अन्यथा आपकी पूरी राशि फ्रीज हो सकती है।';
+        await _tts.speak(sentence); // say full words, not digits [18]
+
+      } else {
+        // Fallback or show a prompt that Hindi voice is not installed
+        await _tts.setLanguage('en-IN'); // fallback
+
+        await _tts.setSpeechRate(0.9);
+        await _tts.setPitch(1.0);
+
+        final sentence = 'QR ki aaj ki limit puri ho gayi hai aur payment mat lijiye is qr id me nahi to sara amount freeze ho sakta hai';
+        await _tts.speak(sentence); // say full words, not digits [18]
+      }
     }
 
     // await _tts.setSpeechRate(0.9);
@@ -517,7 +541,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       if (mounted) setState(() => _unread = (_unread + 1));
 
       if (ttsENABLED) {
-        speakQrAlert();
+        speakQrAlert(condition: "work");
       }
       if (popUpENABLED) {
         await DialogSingleton.showReplacing(
@@ -530,7 +554,145 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       }
     });
 
+    _qrLimitAlertSub = SocketManager.instance.qrLimitAlertController.listen((event) async {
+      // final qr = QrCode.fromJson(event);
+
+      final QR_ID = event["qrCodeId"];
+      final todayPayIn = event["todayPayIn"];
+      // print("today_payin alert qr limit");
+
+      // print("today_pay_in ${QR_ID} : ${todayPayIn}");
+
+      // Add to notifications
+      final item = NotificationItem(
+        id: QR_ID, // if not unique, use '${qr.qrId}-${DateTime.now().millisecondsSinceEpoch}'
+        title: 'QR Limit Reached',
+        subtitle: QR_ID,
+        at: DateTime.now(),
+      );
+      await _notifStore.add(item);
+      if (mounted) setState(() => _unread = (_unread + 1));
+
+      if (ttsENABLED) {
+        speakQrAlert(condition: "limit");
+      }
+      if (popUpENABLED) {
+        await DialogSingleton.showReplacing(
+          builder: (ctx) => qrLimitAlertDialog(
+            context: ctx,
+            qrId: QR_ID,
+            todayPayIn: todayPayIn,
+          ),
+        );
+      }
+    });
+
   }
+
+  Widget qrLimitAlertDialog({
+    required BuildContext context,
+    required String qrId,
+    required double todayPayIn,
+  }) {
+    return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+      contentPadding: EdgeInsets.zero,  // Remove default padding
+      titlePadding: const EdgeInsets.all(20),
+      actionsPadding: const EdgeInsets.only(right: 20, bottom: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.warning_amber_rounded,
+              color: Colors.orange.shade700,
+              size: 28),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'QR Limit Reached',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              Text(
+                'Today\'s Pay-In Limit Exceeded',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      content: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.orange.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.orange.shade200),
+        ),
+        child: SizedBox(
+          height: 70,
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.account_balance_wallet_rounded,
+                    color: Colors.orange.shade700, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'QR: $qrId',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Today Pay-In: ${CurrencyUtils.formatIndianCurrency(todayPayIn/100)}',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton.icon(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.close, size: 18),
+          label: const Text('Got it'),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.grey.shade700,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          ),
+        ),
+      ],
+    );
+  }
+
 
   Widget _bellIcon(BuildContext context) {
     return Stack(
@@ -630,11 +792,14 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   // }
 
   Future<void> loadConfig() async {
+    print("loading config");
     try{
       final response = await http.get(Uri.parse('${AppConstants.baseApiUrl}/user/config')).timeout(Duration(seconds: 5));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        print("got 200 config");
         if (data['success']) {
+          print("loaded config");
           AppConfig().loadFromJson(data['config']);
         }
       }

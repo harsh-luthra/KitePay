@@ -5,8 +5,8 @@ class AppConstants {
   // static const String baseApiUrl = "http://192.168.1.14:3000/api";
   // static const String baseApiUrl = "http://127.0.0.1:3000/api";
 
-  // static const String baseApiUrlSocket = "https://kite-pay-api-v1.onrender.com";
-  static const String baseApiUrlSocket = "http://127.0.0.1:3000";
+  static const String baseApiUrlSocket = "https://kite-pay-api-v1.onrender.com";
+  // static const String baseApiUrlSocket = "http://127.0.0.1:3000";
 
   // static const String baseApiUrl = "http://46.202.164.198:3000/api";
   // https://kite-pay-api-v1.onrender.com
