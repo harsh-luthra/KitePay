@@ -992,7 +992,11 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     final adminUsersCount = adminBucket.length;
     final employeesCount = employees.length;
 
-    final adminTitle = 'Admin — Unassigned-Users: $adminUsersCount';
+    var adminTitle = 'Admin — Unassigned-Users: $adminUsersCount';
+
+    if (userMeta.role == "employee") {
+      adminTitle = 'SubAdmin — Unassigned-Users: $adminUsersCount';
+    }
 
     return ScaffoldMessenger(
       key: _scaffoldMessengerKey,
@@ -1078,14 +1082,16 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     final sas = _subadminsOf(_users);
                     final employees = _employeesOnly(_users);
 
-                    // index 0 -> Admin group
-                    if (index == 0) {
-                      return _makeGroupTile(
-                        id: 'admin-root',
-                        title: adminTitle,
-                        icon: Icons.admin_panel_settings_outlined,
-                        children: adminBucket,
-                      );
+                    // index 0 -> Admin group hidden for employee
+                    if (userMeta.role != "employee") {
+                      if (index == 0) {
+                        return _makeGroupTile(
+                          id: 'admin-root',
+                          title: adminTitle,
+                          icon: Icons.admin_panel_settings_outlined,
+                          children: adminBucket,
+                        );
+                      }
                     }
 
                     // next sas.length entries -> each subadmin
@@ -1385,10 +1391,10 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                             );
                           }, color: Colors.teal),
                         if (user.role == 'subadmin' &&
-                            userMeta.role == 'admin' ||
-                            userMeta.role == 'subadmin' ||
-                            (userMeta.role == 'employee' &&
-                                userMeta.labels.contains(AppConstants.viewAllTransactions)))
+                            (userMeta.role == 'admin' ||
+                            userMeta.role == 'subadmin'
+                            || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.viewAllTransactions)))
+                          )
                           _iconBtn(Icons.dashboard, 'View Merchant Dashboard', () {
                             Navigator.push(
                               context,
@@ -1396,10 +1402,10 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                             );
                           }, color: Colors.teal),
                         if (user.role == 'user' &&
-                            userMeta.role == 'admin' ||
-                            userMeta.role == 'subadmin' ||
-                            (userMeta.role == 'employee' &&
-                                userMeta.labels.contains(AppConstants.viewAllTransactions)))
+                            (userMeta.role == 'admin' ||
+                            userMeta.role == 'subadmin'
+                            || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.viewAllTransactions)))
+                          )
                           _iconBtn(Icons.dashboard, 'View User Dashboard', () {
                             Navigator.push(
                               context,

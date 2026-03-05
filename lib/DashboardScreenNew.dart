@@ -114,10 +114,20 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   late final NotificationStore _notifStore = NotificationStore();
   int _unread = 0;
 
+  var userTitle = "";
+
   @override
   void initState() {
 
     super.initState();
+
+    userTitle = widget.userMeta.role.toUpperCase();
+
+    // if(widget.userMeta.role == "employee"){
+    //   userTitle = "SubAdmin";
+    // }else if(widget.userMeta.role == "subadmin"){
+    //   userTitle = "Merchant";
+    // }
 
     _notifStore.load().then((_) {
       setState(() {
@@ -212,7 +222,8 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         id: 9,
         label: 'View Commission TXNs',
         icon: Icons.receipt,
-        visibleFor: (labels) => checkRole('admin') || checkRole('subadmin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
+        visibleFor: (labels) => checkRole('admin') || checkRole('subadmin'),
+        // visibleFor: (labels) => checkRole('admin') || checkRole('subadmin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
         builder: (user) => CommissionTransactionsPage(
           userMeta: widget.userMeta,
           initialUserId: checkRole('subadmin') ? widget.userMeta.id : null,
@@ -223,7 +234,8 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         id: 10,
         label: 'View Commission Summary',
         icon: Icons.receipt,
-        visibleFor: (labels) => checkRole('admin') || checkRole('subadmin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
+        visibleFor: (labels) => checkRole('admin') || checkRole('subadmin'),
+        // visibleFor: (labels) => checkRole('admin') || checkRole('subadmin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
         builder: (user) => CommissionSummaryBoardPage(userMeta: widget.userMeta),
       ),
       _MenuItem(
@@ -244,7 +256,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         id: 13,
         label: 'Withdrawal Accounts',
         icon: Icons.account_balance_outlined,
-        visibleFor: (_) => true,
+        visibleFor: (_) => checkRole('admin') || checkRole('subadmin') || checkRole('user'),
         builder: (user) => WithdrawalAccountsPage(),
       ),
       _MenuItem(
@@ -945,6 +957,14 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     final bg2 = Colors.grey.shade50;
     final items = _visibleMenuItems;
 
+    var userTitle = widget.userMeta.role.toUpperCase();
+
+    if(widget.userMeta.role == "employee"){
+      userTitle = "SubAdmin";
+    }else if(widget.userMeta.role == "subadmin"){
+      userTitle = "Merchant";
+    }
+
     return Container(
       width: collapsed ? 96 : 248, // tighter
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
@@ -994,7 +1014,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                               color: Colors.blueGrey.withOpacity(0.08),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Text(widget.userMeta.role.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+                            child: Text(userTitle, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
                           ),
                         ),
                         if(isDesktop)
@@ -1194,7 +1214,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(color: Colors.blueGrey.withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
-                child: Text(widget.userMeta.role.toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                child: Text(userTitle, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
               ),
               const SizedBox(width: 16),
               // Column(
