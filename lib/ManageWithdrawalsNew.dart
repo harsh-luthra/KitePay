@@ -141,7 +141,6 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
     if (mounted) setState(() => loadingQr = false);
   }
 
-
   // Fetch a page for a given status tab, with inFlight guard
   Future<void> fetchPage({
     required String status,
@@ -226,8 +225,44 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
     }
   }
 
-  Future<void> refetchWithCurrentFilters() async {
-    // Reset and refetch current filter tab with new user/qr filters
+  String? getAppUserNameEmail(String? id) {
+    if (id == null) {
+      return "None";
+    }
+    for (AppUser user in users) {
+      if (user.id == id) {
+        return "${user.name}-${user.email}";
+      }
+    }
+    return "";
+  }
+
+  String? getAppUserRole(String? id) {
+    if (id == null) {
+      return "None";
+    }
+    for (AppUser user in users) {
+      if (user.id == id) {
+        return user.role;
+      }
+    }
+    return "";
+  }
+
+  String? getAppUserParentId(String? id) {
+    if (id == null) {
+      return "None";
+    }
+    for (AppUser user in users) {
+      if (user.id == id) {
+        return user.parentId;
+      }
+    }
+    return "";
+  }
+
+  Future<void> reFetchWithCurrentFilters() async {
+    // Reset and reFetch current filter tab with new user/qr filters
     await _resetTab(filter, fetch: true);
     // Sync All tab if not already on All
     if (filter != 'all') {
@@ -448,7 +483,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                       const SizedBox(height: 4),
                       Text('QR: ${request.qrId}'),
                       if (request.userId != null)
-                        Text('Requested By: ${displayUserNameText(request.userId) ?? request.userId}'),
+                        Text('Requested By: ${getAppUserRole(request.userId)} ${displayUserNameText(request.userId) ?? request.userId}'),
                     ],
                   ),
                 ),
@@ -912,7 +947,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                 final details = [
                   _buildInfoRow("Name", r.holderName),
                   if (!widget.userMode)
-                    _buildInfoRow("Requested By", displayUserNameText(r.userId) ?? 'Not Available'),
+                    _buildInfoRow("Requested By", "${getAppUserRole(r.userId)} - ${displayUserNameText(r.userId)}"?? 'Not Available'),
                   _buildInfoRow("QR Id", r.qrId, copyable: true),
                   if (r.mode == 'upi') _buildInfoRow("VPA", r.upiId , copyable: true),
                   if (r.mode != 'upi') _buildInfoRow("Bank", r.bankName , copyable: true),
@@ -922,7 +957,9 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                   if (r.status == 'approved' && r.utrNumber?.isNotEmpty == true)
                     _buildInfoRow("UTR", r.utrNumber , copyable: true),
                   if (r.status == 'rejected' && r.rejectionReason?.isNotEmpty == true)
-                    _buildInfoRow("Reason", r.rejectionReason),
+                    _buildInfoRow("Reason", r.rejectionReason, copyable: true),
+                  if(getAppUserRole(r.userId) == "user")
+                    _buildInfoRow("Managed By:", getAppUserNameEmail(getAppUserParentId(r.userId))),
                 ];
 
                 if (!twoCols) return Column(children: details);
@@ -1191,7 +1228,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                               selectedUserId = value;
                               selectedQrCodeId = null;
                             });
-                            refetchWithCurrentFilters();
+                            reFetchWithCurrentFilters();
                             // fetchPage(status: filter, firstLoad: true);
                             // _refetchWithCurrentFilters(); /////////////
                           },
@@ -1230,7 +1267,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                         ],
                         onChanged: (value) {
                           setState(() => selectedQrCodeId = value);
-                          refetchWithCurrentFilters();
+                          reFetchWithCurrentFilters();
                           // fetchPage(status: filter, firstLoad: true);
                           // _refetchWithCurrentFilters(); ///////////////
                         },
@@ -1282,7 +1319,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                       selectedUserId = null;
                       selectedQrCodeId = null;
                     });
-                    refetchWithCurrentFilters();
+                    reFetchWithCurrentFilters();
                     // fetchPage(status: filter, firstLoad: true);
                     // _refetchWithCurrentFilters(); /////////////
                   },
@@ -1293,7 +1330,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                   label: const Text('Apply'),
                   onPressed: () {
                     FocusScope.of(context).unfocus();
-                    refetchWithCurrentFilters();  /////////////
+                    reFetchWithCurrentFilters();  /////////////
                     // fetchPage(status: filter, firstLoad: true);
                   },
                 ),
