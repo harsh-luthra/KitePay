@@ -6,6 +6,7 @@ class AppUser {
    bool status;
    String role;
    String? parentId;
+   String? assigned_to;
    List<String> labels;
    double? commission;
 
@@ -16,6 +17,7 @@ class AppUser {
     required this.status,
     required this.role,
     this.parentId,
+    this.assigned_to,
     required this.labels,
     required this.commission,
   });
@@ -28,6 +30,7 @@ class AppUser {
        status: json['status'] as bool,
        role: json['role'] as String,
        parentId: json['parentId'] as String?, // null stays null
+       assigned_to: json['assigned_to'] as String?, // null stays null
        labels: (json['labels'] as List<dynamic>? ?? const [])
            .map((e) => e.toString())
            .toList(),
@@ -42,6 +45,7 @@ class AppUser {
      'status': status,
      'role': role,
      'parentId': parentId,
+     'assigned_to': assigned_to,
      'labels': labels,
      'commission' : commission,
    };

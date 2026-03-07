@@ -21,11 +21,10 @@ class ManageUsersScreen extends StatefulWidget {
 
   @override
   State<ManageUsersScreen> createState() => _ManageUsersScreenState();
-
 }
 
 // Filters for the list
-enum RoleFilter { all, subadmins, users , employees }
+enum RoleFilter { all, subadmins, users, employees }
 
 RoleFilter _roleFilter = RoleFilter.all;
 // Track expanded groups by id: 'admin-root' for admin bucket, subadmin.id for each subadmin section
@@ -40,7 +39,17 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
   late AppUser appUser;
 
-  final List<String> availableLabels = ['SelfQr', 'users', 'all_users', 'all_qr', 'manual_transactions','all_transactions', 'edit_transactions', 'all_withdrawals' , 'edit_withdrawals'];
+  final List<String> availableLabels = [
+    'SelfQr',
+    'users',
+    'all_users',
+    'all_qr',
+    'manual_transactions',
+    'all_transactions',
+    'edit_transactions',
+    'all_withdrawals',
+    'edit_withdrawals',
+  ];
 
   late AppUser userMeta;
 
@@ -57,9 +66,15 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   double maxCommissionLimit = 2.0; // Loading it from AppConfig when using it
 
   int get _totalAll => _users.length;
-  int get _totalSubadmins => _users.where((u) => u.role.toLowerCase() == 'subadmin').length;
-  int get _totalUsers => _users.where((u) => u.role.toLowerCase() == 'user').length;
-  int get _totalEmployees => _users.where((u) => u.role.toLowerCase() == 'employee').length;
+
+  int get _totalSubadmins =>
+      _users.where((u) => u.role.toLowerCase() == 'subadmin').length;
+
+  int get _totalUsers =>
+      _users.where((u) => u.role.toLowerCase() == 'user').length;
+
+  int get _totalEmployees =>
+      _users.where((u) => u.role.toLowerCase() == 'employee').length;
 
   @override
   void initState() {
@@ -69,7 +84,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     userMeta = MyMetaApi.current!;
 
     if (userMeta.role.toLowerCase() == 'employee') {
-      _roleFilter = RoleFilter.all;  // Use "All" but scoped to assigned
+      _roleFilter = RoleFilter.all; // Use "All" but scoped to assigned
     } else if (userMeta.role.toLowerCase() == 'subadmin') {
       _roleFilter = RoleFilter.users;
     } else {
@@ -78,10 +93,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
     _fetchUsers(firstLoad: true);
 
-    if(userMeta.role == 'admin') {
+    if (userMeta.role == 'admin') {
       loadTodayCommissions();
     }
-
   }
 
   @override
@@ -106,14 +120,18 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   Future<void> loadTodayCommissions() async {
     try {
       final jwt = await AppWriteService().getJWT();
-      final snap = await CommissionService.fetchTodayPerUserCommissions(jwtToken: jwt);
+      final snap = await CommissionService.fetchTodayPerUserCommissions(
+        jwtToken: jwt,
+      );
       setState(() {
         _todayPaise = snap.paiseByUser;
         _todayDate = snap.date;
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load today commissions: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load today commissions: $e')),
+        );
       }
     }
   }
@@ -216,7 +234,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                     }
                                     // Refresh list (ensure owning State is still mounted)
                                     if (pageContext.mounted) {
-                                      _fetchUsers(firstLoad: true); // make sure this is safe to call
+                                      _fetchUsers(
+                                        firstLoad: true,
+                                      ); // make sure this is safe to call
                                     }
                                   } catch (e) {
                                     // Dismiss loading dialog
@@ -259,6 +279,227 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         );
       },
     );
+  }
+
+  Future<void> assignMerchantToEmployee(BuildContext context, String subAdminId) async {
+    final pageContext = context;
+    String jwtToken = await AppWriteService().getJWT();
+    showDialog(
+      context: pageContext,
+      builder: (context) {
+        String localSearchTerm = '';
+        Timer? debounce;
+
+        return StatefulBuilder(
+          builder: (dialogCtx, setState) {
+            return AlertDialog(
+              title: Text("Select Employee"),
+              content: Container(
+                width: 300,
+                height: 350,
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: InputDecoration(
+                        labelText: 'Search by name or email',
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                      onChanged: (value) {
+                        if (debounce?.isActive ?? false) debounce!.cancel();
+                        debounce = Timer(const Duration(milliseconds: 500), () {
+                          setState(() {
+                            localSearchTerm = value;
+                          });
+                        });
+                      },
+                    ),
+                    SizedBox(height: 10),
+                    Expanded(
+                      child: FutureBuilder<List<AppUser>>(
+                        future: UsersService.listEmployees(
+                          jwtToken,
+                          search: localSearchTerm,
+                        ),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return Center(child: CircularProgressIndicator());
+                          }
+                          if (snapshot.hasError) {
+                            return Text("Error: ${snapshot.error}");
+                          }
+                          final employees = snapshot.data ?? [];
+                          if (employees.isEmpty) {
+                            return Center(child: Text('No sub-admins found'));
+                          }
+                          return ListView.builder(
+                            itemCount: employees.length,
+                            itemBuilder: (context, index) {
+                              final employee = employees[index];
+                              return ListTile(
+                                leading: Text(
+                                  (index + 1).toString(),
+                                  style: TextStyle(fontSize: 25),
+                                ),
+                                title: Text(employee.name),
+                                subtitle: Text(employee.email),
+                                onTap: () async {
+                                  // Close the selection dialog using dialog context
+                                  Navigator.of(dialogCtx).pop();
+                                  // Show a progress dialog using page context
+                                  showDialog(
+                                    context: pageContext,
+                                    barrierDismissible: false,
+                                    builder:
+                                        (_) => const Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  );
+                                  try {
+                                    await UsersService.assignMerchantToEmployee(
+                                      employeeId: employee.id,
+                                      subAdminId: subAdminId,
+                                      jwtToken: jwtToken,
+                                    );
+                                    // Dismiss loading dialog
+                                    if (pageContext.mounted) {
+                                      Navigator.of(pageContext).pop();
+                                    }
+                                    // Now show snackbar using page context (has ScaffoldMessenger)
+                                    if (pageContext.mounted) {
+                                      ScaffoldMessenger.of(
+                                        pageContext,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            "Subadmin: ${getAppUserNameEmail(subAdminId)} assigned to Employee ${getAppUserNameEmail(employee.id)}",
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                    // Refresh list (ensure owning State is still mounted)
+                                    if (pageContext.mounted) {
+                                      _fetchUsers(
+                                        firstLoad: true,
+                                      ); // make sure this is safe to call
+                                    }
+                                  } catch (e) {
+                                    // Dismiss loading dialog
+                                    if (pageContext.mounted) {
+                                      Navigator.of(pageContext).pop();
+                                    }
+                                    if (pageContext.mounted) {
+                                      ScaffoldMessenger.of(
+                                        pageContext,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Failed to assign user: $e',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    debounce?.cancel();
+                    Navigator.pop(context);
+                  },
+                  child: Text("Cancel"),
+                ),
+                TextButton(
+                  onPressed: () {
+                    debounce?.cancel();
+                    Navigator.pop(context);
+                    unAssignSubAdmin(context, subAdminId, subAdminId);
+                  },
+                  child: Text("None"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> unAssignSubAdmin(
+      BuildContext context,
+      String subAdminId,
+      String employeeId,
+      ) async {
+    final pageContext = context;
+
+    final confirm = await showDialog<bool>(
+      context: pageContext,
+      builder:
+          (ctx) => AlertDialog(
+        title: const Text('Un-assign SubAdmin'),
+        content: const Text(
+          'Are you sure you want to un-assign this SubAdmin from the Employee?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Yes, un-assign'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    final jwtToken = await AppWriteService().getJWT();
+
+    print("UNsassign call 1");
+
+    // Show loader
+    showDialog(
+      context: pageContext,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      print("UNsassign call 2");
+      await UsersService.assignMerchantToEmployee(
+        unAssign: true,
+        subAdminId: subAdminId,
+        employeeId: employeeId,
+        jwtToken: jwtToken,
+      );
+      if (pageContext.mounted) {
+        Navigator.of(pageContext, rootNavigator: true).pop(); // dismiss loader
+        ScaffoldMessenger.of(pageContext).showSnackBar(
+          SnackBar(content: Text('Subadmin: ${getAppUserNameEmail(subAdminId)} Unassigned Successfully')),
+        );
+        _fetchUsers(
+          firstLoad: true,
+        ); // make sure owner is still mounted if it triggers setState
+      }
+    } catch (e) {
+      if (pageContext.mounted) {
+        Navigator.of(pageContext, rootNavigator: true).pop(); // dismiss loader
+        ScaffoldMessenger.of(
+          pageContext,
+        ).showSnackBar(SnackBar(content: Text('Failed to UnAssign subAdmin: $e')));
+      }
+    }
   }
 
   Future<void> unAssignUser(
@@ -315,7 +556,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         ScaffoldMessenger.of(pageContext).showSnackBar(
           SnackBar(content: Text('User: $userId Unassigned Successfully')),
         );
-        _fetchUsers(firstLoad: true); // make sure owner is still mounted if it triggers setState
+        _fetchUsers(
+          firstLoad: true,
+        ); // make sure owner is still mounted if it triggers setState
       }
     } catch (e) {
       if (pageContext.mounted) {
@@ -374,7 +617,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         _users = fetched.appUsers.toList();
       } else {
         final existingIds = _users.map((e) => e.id).toSet();
-        final newUsers = fetched.appUsers.where((e) => !existingIds.contains(e.id));
+        final newUsers = fetched.appUsers.where(
+          (e) => !existingIds.contains(e.id),
+        );
         if (newUsers.isEmpty) {
           // No new data, so stop further loading to prevent infinite loader
           hasMore = false;
@@ -389,7 +634,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       }
 
       print("$nextCursor    $hasMore");
-
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('❌ Failed to fetch users: $e')),
@@ -407,7 +651,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     final emailController = TextEditingController(text: "");
     final passController = TextEditingController(text: "");
     final nameController = TextEditingController(text: "");
-    String? selectedRole = userMeta.role == "subadmin" ? "user" : null; // store chosen role
+    String? selectedRole =
+        userMeta.role == "subadmin" ? "user" : null; // store chosen role
 
     showDialog(
       context: context,
@@ -785,7 +1030,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                           SnackBar(content: Text('User Edited Successfully')),
                         );
                       }
-
                     } catch (e) {
                       if (dialogContext != null)
                         Navigator.of(dialogContext!).pop();
@@ -812,8 +1056,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     required double maxCommission,
     required BuildContext parentContext,
   }) {
-    final commissionController =
-    TextEditingController(text: user.commission?.toStringAsFixed(1));
+    final commissionController = TextEditingController(
+      text: user.commission?.toStringAsFixed(1),
+    );
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -859,8 +1104,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
             ElevatedButton(
               onPressed: () async {
                 if (!formKey.currentState!.validate()) return;
-                final newCommission =
-                double.parse(commissionController.text.trim());
+                final newCommission = double.parse(
+                  commissionController.text.trim(),
+                );
 
                 Navigator.of(context).pop(); // close edit dialog
 
@@ -882,12 +1128,16 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     commission: newCommission,
                   );
                   if (progressDialogContext != null) {
-                    Navigator.of(progressDialogContext!).pop(); // close progress
+                    Navigator.of(
+                      progressDialogContext!,
+                    ).pop(); // close progress
                   }
                   _fetchUsers(firstLoad: true);
                   if (parentContext.mounted) {
                     ScaffoldMessenger.of(parentContext).showSnackBar(
-                      SnackBar(content: Text('User Commission Updated Successfully')),
+                      SnackBar(
+                        content: Text('User Commission Updated Successfully'),
+                      ),
                     );
                   }
                 } catch (e) {
@@ -896,7 +1146,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   }
                   if (parentContext.mounted) {
                     ScaffoldMessenger.of(parentContext).showSnackBar(
-                      SnackBar(content: Text('Failed to update commission: $e')),
+                      SnackBar(
+                        content: Text('Failed to update commission: $e'),
+                      ),
                     );
                   }
                 }
@@ -908,7 +1160,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       },
     );
   }
-
 
   Future<void> _deleteUser(String userId, String name, String email) async {
     final confirm = await showDialog<bool>(
@@ -939,10 +1190,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       );
 
       try {
-        await UsersService.deleteUser(
-          userId,
-          await AppWriteService().getJWT(),
-        );
+        await UsersService.deleteUser(userId, await AppWriteService().getJWT());
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('User $name, Email $email Deleted Successfully'),
@@ -985,9 +1233,21 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     }
   }
 
+  String? getAppUserNameEmail(String? id) {
+    if (id == null) {
+      return "None";
+    }
+    for (AppUser user in _users) {
+      if (user.id == id) {
+        return "${user.name}-${user.email}";
+      }
+    }
+    return "";
+  }
+
   @override
   Widget build(BuildContext context) {
-    final adminBucket = _rootUsers(_users);   // users under admin (no parent)
+    final adminBucket = _rootUsers(_users); // users under admin (no parent)
     final employees = _employeesOnly(_users); // all employees
     final adminUsersCount = adminBucket.length;
     final employeesCount = employees.length;
@@ -1003,177 +1263,216 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text("Manage Users"),
-          actions: !loading
-              ? [
-            if (userMeta.role != "employee")
-              IconButton(
-                icon: const Icon(Icons.add),
-                tooltip: "Add User",
-                onPressed: () => _showAddUserDialog(context),
-              ),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: "Refresh",
-              onPressed: () => _fetchUsers(firstLoad: true),
-            ),
-          ]
-              : [],
+          actions:
+              !loading
+                  ? [
+                    if (userMeta.role != "employee")
+                      IconButton(
+                        icon: const Icon(Icons.add),
+                        tooltip: "Add User",
+                        onPressed: () => _showAddUserDialog(context),
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh),
+                      tooltip: "Refresh",
+                      onPressed: () => _fetchUsers(firstLoad: true),
+                    ),
+                  ]
+                  : [],
         ),
         body: Column(
           children: [
             // Filter chips row
             if (userMeta.role.toLowerCase() != 'subadmin')
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: Wrap(
-                spacing: 8,
-                children: [
-                  ChoiceChip(
-                    label: Text('All (${_totalAll})'),
-                    selected: _roleFilter == RoleFilter.all,
-                    onSelected: (_) => setState(() => _roleFilter = RoleFilter.all),
-                  ),
-                  ChoiceChip(
-                    label: Text('Subadmins (${_totalSubadmins})'),
-                    selected: _roleFilter == RoleFilter.subadmins,
-                    onSelected: (_) => setState(() => _roleFilter = RoleFilter.subadmins),
-                  ),
-                  ChoiceChip(
-                    label: Text('Users (${_totalUsers})'),
-                    selected: _roleFilter == RoleFilter.users,
-                    onSelected: (_) => setState(() => _roleFilter = RoleFilter.users),
-                  ),
-                  if (userMeta.role.toLowerCase() != 'employee')
-                  ChoiceChip(
-                    label: Text('Employees (${_totalEmployees})'),
-                    selected: _roleFilter == RoleFilter.employees,
-                    onSelected: (_) => setState(() => _roleFilter = RoleFilter.employees),
-                  ),
-                ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                child: Wrap(
+                  spacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: Text('All (${_totalAll})'),
+                      selected: _roleFilter == RoleFilter.all,
+                      onSelected:
+                          (_) => setState(() => _roleFilter = RoleFilter.all),
+                    ),
+                    ChoiceChip(
+                      label: Text('Subadmins (${_totalSubadmins})'),
+                      selected: _roleFilter == RoleFilter.subadmins,
+                      onSelected:
+                          (_) => setState(
+                            () => _roleFilter = RoleFilter.subadmins,
+                          ),
+                    ),
+                    ChoiceChip(
+                      label: Text('Users (${_totalUsers})'),
+                      selected: _roleFilter == RoleFilter.users,
+                      onSelected:
+                          (_) => setState(() => _roleFilter = RoleFilter.users),
+                    ),
+                    if (userMeta.role.toLowerCase() != 'employee')
+                      ChoiceChip(
+                        label: Text('Employees (${_totalEmployees})'),
+                        selected: _roleFilter == RoleFilter.employees,
+                        onSelected:
+                            (_) => setState(
+                              () => _roleFilter = RoleFilter.employees,
+                            ),
+                      ),
+                  ],
+                ),
               ),
-            ),
 
             // Existing list area
             Expanded(
-              child: loading
-                  ? ListView.builder(
-                padding: EdgeInsets.zero,
-                itemCount: 8,
-                itemBuilder: (_, __) => const UsersCardShimmer(),
-              )
-                  : _users.isEmpty
-                  ? const Center(child: Text("No users found"))
-                  : (_roleFilter == RoleFilter.all
-              // Grouped "All": Admin -> Subadmins -> Employees
-                  ? RefreshIndicator(
-                onRefresh: () async => _fetchUsers(firstLoad: true),
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.only(top: 6, bottom: 12),
-                  itemCount: (() {
-                    final adminBucket = _rootUsers(_users);
-                    final sas = _subadminsOf(_users);
-                    final employees = _employeesOnly(_users);
-                    // groups count = 1 admin + sas.length + (employees.isNotEmpty ? 1 : 0) + sentinel(optional)
-                    return 1 + sas.length + (employees.isNotEmpty ? 1 : 0) + (loadingMore && hasMore ? 1 : 0);
-                  })(),
-                  itemBuilder: (context, index) {
-                    final adminBucket = _rootUsers(_users);
-                    final sas = _subadminsOf(_users);
-                    final employees = _employeesOnly(_users);
+              child:
+                  loading
+                      ? ListView.builder(
+                        padding: EdgeInsets.zero,
+                        itemCount: 8,
+                        itemBuilder: (_, __) => const UsersCardShimmer(),
+                      )
+                      : _users.isEmpty
+                      ? const Center(child: Text("No users found"))
+                      : (_roleFilter == RoleFilter.all
+                          // Grouped "All": Admin -> Subadmins -> Employees
+                          ? RefreshIndicator(
+                            onRefresh: () async => _fetchUsers(firstLoad: true),
+                            child: ListView.builder(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.only(
+                                top: 6,
+                                bottom: 12,
+                              ),
+                              itemCount:
+                                  (() {
+                                    final adminBucket = _rootUsers(_users);
+                                    final sas = _subadminsOf(_users);
+                                    final employees = _employeesOnly(_users);
+                                    // groups count = 1 admin + sas.length + (employees.isNotEmpty ? 1 : 0) + sentinel(optional)
+                                    return 1 +
+                                        sas.length +
+                                        (employees.isNotEmpty ? 1 : 0) +
+                                        (loadingMore && hasMore ? 1 : 0);
+                                  })(),
+                              itemBuilder: (context, index) {
+                                final adminBucket = _rootUsers(_users);
+                                final sas = _subadminsOf(_users);
+                                final employees = _employeesOnly(_users);
 
-                    // index 0 -> Admin group hidden for employee
-                    if (userMeta.role != "employee") {
-                      if (index == 0) {
-                        return _makeGroupTile(
-                          id: 'admin-root',
-                          title: adminTitle,
-                          icon: Icons.admin_panel_settings_outlined,
-                          children: adminBucket,
-                        );
-                      }
-                    }
-
-                    // next sas.length entries -> each subadmin
-                    if (index >= 1 && index < 1 + sas.length) {
-                      final sa = sas[index - 1];
-                      final kids = _usersUnder(sa.id, _users);
-                      final subCount = kids.length;
-                      final subTitle = 'Subadmin — ${sa.name} : ${sa.email} • Users: $subCount';
-                      return _makeGroupTile(
-                        id: sa.id,
-                        title: subTitle,
-                        icon: Icons.supervisor_account_outlined,
-                        children: kids,
-                      );
-                    }
-
-                    // Optional employees block if present
-                    final employeesStart = 1 + sas.length;
-                    final employeesExists = employees.isNotEmpty;
-                    final sentinelIndex = employeesStart + (employeesExists ? 1 : 0);
-
-                    if (userMeta.role.toLowerCase() == 'admin') {
-                      if (employeesExists && index == employeesStart) {
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          child: ExpansionTile(
-                            initiallyExpanded: _expandedGroupIds.contains(
-                                'employees'),
-                            onExpansionChanged: (val) {
-                              setState(() {
-                                if (val) {
-                                  _expandedGroupIds.add('employees');
-                                } else {
-                                  _expandedGroupIds.remove('employees');
+                                // index 0 -> Admin group hidden for employee
+                                if (userMeta.role != "employee") {
+                                  if (index == 0) {
+                                    return _makeGroupTile(
+                                      id: 'admin-root',
+                                      title: adminTitle,
+                                      icon: Icons.admin_panel_settings_outlined,
+                                      children: adminBucket,
+                                    );
+                                  }
                                 }
-                              });
+
+                                // next sas.length entries -> each subadmin
+                                if (index >= 1 && index < 1 + sas.length) {
+                                  final sa = sas[index - 1];
+                                  final kids = _usersUnder(sa.id, _users);
+                                  final subCount = kids.length;
+                                  final subTitle =
+                                      'Subadmin — ${sa.name} : ${sa.email} • Users: $subCount';
+                                  return _makeGroupTile(
+                                    id: sa.id,
+                                    title: subTitle,
+                                    icon: Icons.supervisor_account_outlined,
+                                    children: kids,
+                                  );
+                                }
+
+                                // Optional employees block if present
+                                final employeesStart = 1 + sas.length;
+                                final employeesExists = employees.isNotEmpty;
+                                final sentinelIndex =
+                                    employeesStart + (employeesExists ? 1 : 0);
+
+                                if (userMeta.role.toLowerCase() == 'admin') {
+                                  if (employeesExists &&
+                                      index == employeesStart) {
+                                    return Card(
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      child: ExpansionTile(
+                                        initiallyExpanded: _expandedGroupIds
+                                            .contains('employees'),
+                                        onExpansionChanged: (val) {
+                                          setState(() {
+                                            if (val) {
+                                              _expandedGroupIds.add(
+                                                'employees',
+                                              );
+                                            } else {
+                                              _expandedGroupIds.remove(
+                                                'employees',
+                                              );
+                                            }
+                                          });
+                                        },
+                                        leading: const Icon(
+                                          Icons.badge_outlined,
+                                        ),
+                                        title: Text(
+                                          'Employees : $employeesCount',
+                                          style:
+                                              Theme.of(
+                                                context,
+                                              ).textTheme.titleMedium,
+                                        ),
+                                        children:
+                                            employees
+                                                .map(
+                                                  (e) => Padding(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                        ),
+                                                    child: _buildUserItemCard(
+                                                      context,
+                                                      e,
+                                                    ),
+                                                  ),
+                                                )
+                                                .toList(),
+                                      ),
+                                    );
+                                  }
+                                }
+
+                                // loading-more sentinel at last
+                                if ((loadingMore && hasMore) &&
+                                    index == sentinelIndex) {
+                                  return const TransactionCardShimmer();
+                                }
+
+                                return const SizedBox.shrink();
+                              },
+                            ),
+                          )
+                          // Non-All: flat filtered list
+                          : ListView.builder(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.only(top: 6, bottom: 12),
+                            itemCount:
+                                _applyRoleFilter(_users).length +
+                                (loadingMore && hasMore ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              final filtered = _applyRoleFilter(_users);
+                              if (index < filtered.length) {
+                                final user = filtered[index];
+                                return _buildUserItemCard(context, user);
+                              }
+                              return const TransactionCardShimmer();
                             },
-                            leading: const Icon(Icons.badge_outlined),
-                            title: Text(
-                                'Employees : $employeesCount', style: Theme
-                                .of(context)
-                                .textTheme
-                                .titleMedium),
-                            children: employees
-                                .map((e) =>
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8),
-                                  child: _buildUserItemCard(context, e),
-                                ))
-                                .toList(),
-                          ),
-                        );
-                      }
-                    }
-
-                    // loading-more sentinel at last
-                    if ((loadingMore && hasMore) && index == sentinelIndex) {
-                      return const TransactionCardShimmer();
-                    }
-
-                    return const SizedBox.shrink();
-                  },
-                ),
-              )
-              // Non-All: flat filtered list
-                  : ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.only(top: 6, bottom: 12),
-                itemCount: _applyRoleFilter(_users).length + (loadingMore && hasMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  final filtered = _applyRoleFilter(_users);
-                  if (index < filtered.length) {
-                    final user = filtered[index];
-                    return _buildUserItemCard(context, user);
-                  }
-                  return const TransactionCardShimmer();
-                },
-              )),
+                          )),
             ),
-
           ],
         ),
       ),
@@ -1184,7 +1483,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       xs.where((u) => u.role == 'user').toList();
 
   List<AppUser> _rootUsers(List<AppUser> xs) =>
-      _usersOnly(xs).where((u) => (u.parentId == null || u.parentId!.isEmpty)).toList();
+      _usersOnly(
+        xs,
+      ).where((u) => (u.parentId == null || u.parentId!.isEmpty)).toList();
 
   List<AppUser> _subadminsOf(List<AppUser> xs) =>
       xs.where((u) => u.role == 'subadmin').toList();
@@ -1196,6 +1497,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       _usersOnly(xs).where((u) => u.parentId == subadminId).toList();
 
   Widget buildUserTile(AppUser u) => _buildUserItemCard(context, u);
+
   Widget buildSubadminTile(AppUser sa) => _buildUserItemCard(context, sa);
 
   Widget _makeGroupTile({
@@ -1220,14 +1522,22 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         },
         leading: Icon(icon),
         title: Text(title, style: Theme.of(context).textTheme.titleMedium),
-        children: children.isEmpty
-            ? [const Padding(padding: EdgeInsets.all(12), child: Text('No users'))]
-            : children
-            .map((u) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: _buildUserItemCard(context, u),
-        ))
-            .toList(),
+        children:
+            children.isEmpty
+                ? [
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text('No users'),
+                  ),
+                ]
+                : children
+                    .map(
+                      (u) => Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: _buildUserItemCard(context, u),
+                      ),
+                    )
+                    .toList(),
       ),
     );
   }
@@ -1252,7 +1562,10 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     (user.name?.isNotEmpty ?? false)
                         ? user.name!.substring(0, 1).toUpperCase()
                         : 'U',
-                    style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1265,7 +1578,10 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                           Flexible(
                             child: Text(
                               user.name ?? 'Unnamed',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -1281,7 +1597,10 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                           Expanded(
                             child: Text(
                               user.email ?? '',
-                              style: const TextStyle(fontSize: 13, color: Colors.black87),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.black87,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -1303,16 +1622,28 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   _infoToken(
                     Icons.account_tree,
                     'Parent',
-                    (user.parentId == null || user.parentId!.isEmpty) ? 'Admin' : 'Sub-Admin',
+                    (user.parentId == null || user.parentId!.isEmpty)
+                        ? 'Admin'
+                        : 'Sub-Admin',
                   ),
                 _infoToken(Icons.badge_outlined, 'Role', user.role),
                 if (user.role != 'employee' && user.role != 'admin')
-                  _infoToken(Icons.percent, 'Commission', '${user.commission ?? 0} %'),
+                  _infoToken(
+                    Icons.percent,
+                    'Commission',
+                    '${user.commission ?? 0} %',
+                  ),
                 if (user.role == 'admin' || user.role == 'subadmin')
-                  _infoToken(Icons.currency_rupee, 'Today Commission', _fmtRupees(_todayPaise[user.id] ?? 0)),
+                  _infoToken(
+                    Icons.currency_rupee,
+                    'Today Commission',
+                    _fmtRupees(_todayPaise[user.id] ?? 0),
+                  ),
               ],
             ),
-            if (user.labels != null && user.labels.isNotEmpty && userMeta.role == "admin") ...[
+            if (user.labels != null &&
+                user.labels.isNotEmpty &&
+                userMeta.role == "admin") ...[
               const SizedBox(height: 10),
               Container(
                 width: double.infinity,
@@ -1324,30 +1655,61 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                 child: Wrap(
                   spacing: 6,
                   runSpacing: 6,
-                  children: user.labels
-                      .map<Widget>(
-                        (label) => Chip(
-                      label: Text(label, overflow: TextOverflow.ellipsis),
-                      backgroundColor: Colors.blue.shade50,
-                      labelStyle: const TextStyle(color: Colors.blue),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  )
-                      .toList(),
+                  children:
+                      user.labels
+                          .map<Widget>(
+                            (label) => Chip(
+                              label: Text(
+                                label,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              backgroundColor: Colors.blue.shade50,
+                              labelStyle: const TextStyle(color: Colors.blue),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          )
+                          .toList(),
                 ),
               ),
             ],
             const SizedBox(height: 10),
-            if (userMeta.role == 'admin' || userMeta.role == 'employee' ||  userMeta.role == 'subadmin')
+            Row(
+              children: [
+                if (user.role == 'subadmin')
+                  _infoToken(
+                    Icons.supervised_user_circle,
+                    'Assigned-To: ',
+                    getAppUserNameEmail(user.assigned_to)!,
+                  ),
+                if (user.role == 'subadmin')
+                  _iconBtn(Icons.replay_circle_filled, "Change Employee Assignment", () {
+                    assignMerchantToEmployee(context, user.id);
+                  }),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (userMeta.role == 'admin' ||
+                userMeta.role == 'employee' ||
+                userMeta.role == 'subadmin')
               Row(
                 children: [
                   if (user.role != 'admin' && userMeta.role != "employee") ...[
-                    const Text('Status:', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Status:',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     const SizedBox(width: 6),
                     Switch(
                       value: (user.status ?? false),
-                      onChanged: (newStatus) => _confirmAndToggleUserStatus(context, user, newStatus),
+                      onChanged:
+                          (newStatus) => _confirmAndToggleUserStatus(
+                            context,
+                            user,
+                            newStatus,
+                          ),
                     ),
                   ],
                   const Spacer(),
@@ -1355,61 +1717,123 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     Wrap(
                       spacing: 6,
                       children: [
-                        if (user.role == 'user' && user.parentId == null && userMeta.role != "employee")
-                          _iconBtn(Icons.no_accounts_outlined, 'Assign to Sub-Admin',
-                                  () => assignUserToSubAdmin(context, user.id)),
-                        if (user.role == 'user' && user.parentId != null && userMeta.role != "employee")
-                          _iconBtn(Icons.account_circle, 'Un-Assign',
-                                  () => unAssignUser(context, user.id, user.parentId!)),
+                        if (user.role == 'user' &&
+                            user.parentId == null &&
+                            userMeta.role != "employee")
+                          _iconBtn(
+                            Icons.no_accounts_outlined,
+                            'Assign to Sub-Admin',
+                            () => assignUserToSubAdmin(context, user.id),
+                          ),
+                        if (user.role == 'user' &&
+                            user.parentId != null &&
+                            userMeta.role != "employee")
+                          _iconBtn(
+                            Icons.account_circle,
+                            'Un-Assign',
+                            () =>
+                                unAssignUser(context, user.id, user.parentId!),
+                          ),
                         if (userMeta.role != "employee")
-                          _iconBtn(Icons.edit, 'Edit',
-                                  () => _showEditDialog(user, user.name, user.email, context)),
-                        if (userMeta.role != "employee" && user.role != "employee")
-                          _iconBtn(Icons.percent_sharp, 'Commission %',
-                                  () => showCommissionEditDialog(
-                                minCommission: AppConfig().minCommission,
-                                maxCommission: AppConfig().maxCommission,
-                                parentContext: context,
-                                user: user,
-                              )),
+                          _iconBtn(
+                            Icons.edit,
+                            'Edit',
+                            () => _showEditDialog(
+                              user,
+                              user.name,
+                              user.email,
+                              context,
+                            ),
+                          ),
+                        if (userMeta.role != "employee" &&
+                            user.role != "employee")
+                          _iconBtn(
+                            Icons.percent_sharp,
+                            'Commission %',
+                            () => showCommissionEditDialog(
+                              minCommission: AppConfig().minCommission,
+                              maxCommission: AppConfig().maxCommission,
+                              parentContext: context,
+                              user: user,
+                            ),
+                          ),
                         if (userMeta.role != "employee")
-                          _iconBtn(Icons.lock_reset, 'Reset Password',
-                                  () => _showResetPasswordDialog(context, user.id),
-                              color: Colors.orange),
+                          _iconBtn(
+                            Icons.lock_reset,
+                            'Reset Password',
+                            () => _showResetPasswordDialog(context, user.id),
+                            color: Colors.orange,
+                          ),
                         if (userMeta.role != "employee")
-                          _iconBtn(Icons.delete, 'Delete',
-                                  () => _deleteUser(user.id, user.name, user.email),
-                              color: Colors.red),
+                          _iconBtn(
+                            Icons.delete,
+                            'Delete',
+                            () => _deleteUser(user.id, user.name, user.email),
+                            color: Colors.red,
+                          ),
                         if (userMeta.role == 'admin' ||
                             userMeta.role == 'subadmin' ||
                             (userMeta.role == 'employee' &&
-                                userMeta.labels.contains(AppConstants.viewAllTransactions)))
-                          _iconBtn(Icons.receipt_long, 'View Transactions', () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => TransactionPageNew(filterUserId: user.id)),
-                            );
-                          }, color: Colors.teal),
+                                userMeta.labels.contains(
+                                  AppConstants.viewAllTransactions,
+                                )))
+                          _iconBtn(
+                            Icons.receipt_long,
+                            'View Transactions',
+                            () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (_) => TransactionPageNew(
+                                        filterUserId: user.id,
+                                      ),
+                                ),
+                              );
+                            },
+                            color: Colors.teal,
+                          ),
                         if (user.role == 'subadmin' &&
                             (userMeta.role == 'admin' ||
-                            userMeta.role == 'subadmin'
-                            || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.viewAllTransactions)))
-                          )
-                          _iconBtn(Icons.dashboard, 'View Merchant Dashboard', () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => SubAdminDashboardPage(userMeta: user, showUserTitle: true,)),
-                            );
-                          }, color: Colors.teal),
+                                userMeta.role == 'subadmin' ||
+                                (userMeta.role == 'employee' &&
+                                    userMeta.labels.contains(
+                                      AppConstants.viewAllTransactions,
+                                    ))))
+                          _iconBtn(
+                            Icons.dashboard,
+                            'View Merchant Dashboard',
+                            () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (_) => SubAdminDashboardPage(
+                                        userMeta: user,
+                                        showUserTitle: true,
+                                      ),
+                                ),
+                              );
+                            },
+                            color: Colors.teal,
+                          ),
                         if (user.role == 'user' &&
                             (userMeta.role == 'admin' ||
-                            userMeta.role == 'subadmin'
-                            || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.viewAllTransactions)))
-                          )
+                                userMeta.role == 'subadmin' ||
+                                (userMeta.role == 'employee' &&
+                                    userMeta.labels.contains(
+                                      AppConstants.viewAllTransactions,
+                                    ))))
                           _iconBtn(Icons.dashboard, 'View User Dashboard', () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => UserDashboardPage(userMeta: user, showUserTitle: true,)),
+                              MaterialPageRoute(
+                                builder:
+                                    (_) => UserDashboardPage(
+                                      userMeta: user,
+                                      showUserTitle: true,
+                                    ),
+                              ),
                             );
                           }, color: Colors.teal),
                       ],
@@ -1424,19 +1848,32 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
   Widget _roleChip(String role) {
     final r = role.toUpperCase();
-    Color c; String t;
+    Color c;
+    String t;
     switch (r) {
       case 'ADMIN':
-        c = Colors.red; t = 'ADMIN'; break;
+        c = Colors.red;
+        t = 'ADMIN';
+        break;
       case 'SUBADMIN':
-        c = Colors.orange; t = 'SUBADMIN'; break;
+        c = Colors.orange;
+        t = 'SUBADMIN';
+        break;
       default:
-        c = Colors.blue; t = r; break;
+        c = Colors.blue;
+        t = r;
+        break;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: c.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
-      child: Text(t, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c)),
+      decoration: BoxDecoration(
+        color: c.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        t,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c),
+      ),
     );
   }
 
@@ -1444,8 +1881,18 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     final color = status ? Colors.green : Colors.red;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
-      child: Text(status ? 'Active' : 'Inactive', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        status ? 'Active' : 'Inactive',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
     );
   }
 
@@ -1462,14 +1909,22 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         children: [
           Icon(icon, size: 16, color: Colors.blueGrey),
           const SizedBox(width: 6),
-          Text('$k: ', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+          Text(
+            '$k: ',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+          ),
           Text(v, style: const TextStyle(fontSize: 12)),
         ],
       ),
     );
   }
 
-  Widget _iconBtn(IconData icon, String tip, VoidCallback onTap, {Color? color}) {
+  Widget _iconBtn(
+    IconData icon,
+    String tip,
+    VoidCallback onTap, {
+    Color? color,
+  }) {
     return IconButton(
       tooltip: tip,
       onPressed: onTap,

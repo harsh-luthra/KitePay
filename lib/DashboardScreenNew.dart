@@ -957,13 +957,13 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     final bg2 = Colors.grey.shade50;
     final items = _visibleMenuItems;
 
-    var userTitle = widget.userMeta.role.toUpperCase();
-
-    if(widget.userMeta.role == "employee"){
-      userTitle = "SubAdmin";
-    }else if(widget.userMeta.role == "subadmin"){
-      userTitle = "Merchant";
-    }
+    // var userTitle = widget.userMeta.role.toUpperCase();
+    //
+    // if(widget.userMeta.role == "employee"){
+    //   userTitle = "SubAdmin";
+    // }else if(widget.userMeta.role == "subadmin"){
+    //   userTitle = "Merchant";
+    // }
 
     return Container(
       width: collapsed ? 96 : 248, // tighter

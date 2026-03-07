@@ -98,6 +98,41 @@ class UsersService {
     }
   }
 
+  static Future<List<AppUser>> listEmployees(String jwtToken, {String? search}) async {
+    try {
+      final baseUrl = '$_baseUrl/admin/employees';
+      final url = (search != null && search.isNotEmpty)
+          ? Uri.parse('$baseUrl?search=${Uri.encodeQueryComponent(search)}')
+          : Uri.parse(baseUrl);
+      //
+      // print('🔐 JWT Token: $jwtToken');
+      // print('🔍 Searching for: $search');
+      // print('📤 Sending GET request to: $url');
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $jwtToken',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        // print(response.body);
+        return data.map((json) => AppUser.fromJson(json)).toList();
+      } else {
+        final body = jsonDecode(response.body);
+        final error = body['error'] ?? 'Unknown error';
+        throw Exception(error);
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your connection or try again later.');
+    } catch (e) {
+      throw Exception('Error fetching employees: $e');
+    }
+  }
+
   // static Future<UserListResult> listUsersNew(String jwtToken) async {
   //   try {
   //     final url = Uri.parse('$_baseUrl/admin/users');
@@ -217,6 +252,46 @@ class UsersService {
     }
   }
 
+  static Future<bool> assignMerchantToEmployee({
+    required String employeeId,
+    required String subAdminId,
+    required String jwtToken,
+    bool unAssign = false, // when true, clears parentId on server
+  }) async {
+    final url = Uri.parse('$_baseUrl/admin/assign-subadmin/$employeeId');
+
+    try {
+      final resp = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwtToken',
+        },
+        body: jsonEncode({
+          'userId': subAdminId,
+          'unassign': unAssign, // optional; omit or false to assign
+        }),
+      );
+
+      // Success: backend returns 200 OK on update
+      if (resp.statusCode == 200) return true;
+
+      // Log server message if present
+      try {
+        final body = jsonDecode(resp.body);
+        debugPrint('Assign subadmin failed: ${body['message'] ?? body['error'] ?? body}');
+      } catch (_) {
+        debugPrint('Assign subadmin failed: ${resp.statusCode} ${resp.body}');
+      }
+      return false;
+    } on TimeoutException {
+      debugPrint('Assign subadmin timed out');
+      return false;
+    } catch (e) {
+      debugPrint('Assign subadmin exception: $e');
+      return false;
+    }
+  }
 
   static Future<void> resetPassword(String userId, String newPassword, String jwt) async {
     final response = await http.post(
