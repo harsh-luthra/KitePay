@@ -1676,15 +1676,15 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
               ),
             ],
             const SizedBox(height: 10),
+            if (user.role == 'subadmin' && userMeta.role == 'admin')
             Row(
               children: [
-                if (user.role == 'subadmin')
                   _infoToken(
                     Icons.supervised_user_circle,
                     'Assigned-To: ',
                     getAppUserNameEmail(user.assigned_to)!,
                   ),
-                if (user.role == 'subadmin')
+                if (userMeta.role == 'admin')
                   _iconBtn(Icons.replay_circle_filled, "Change Employee Assignment", () {
                     assignMerchantToEmployee(context, user.id);
                   }),
