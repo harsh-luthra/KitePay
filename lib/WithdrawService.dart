@@ -15,6 +15,7 @@ class WithdrawService {
   static final String _baseUrl = AppConstants.baseApiUrl;
 
   static Future<Map<String, dynamic>?> fetchWithdrawCommissionPreview({
+    required String jwtToken,
     required String userId,
     required String qrId,
     required double preAmount,
@@ -23,7 +24,7 @@ class WithdrawService {
 
     final response = await http.post(
       url,
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Authorization': 'Bearer $jwtToken', 'Content-Type': 'application/json'},
       body: jsonEncode({
         'userId': userId,
         'qrId': qrId,
@@ -47,7 +48,7 @@ class WithdrawService {
   }
 
 
-  static Future<bool> submitWithdrawRequest(WithdrawalRequest request) async {
+  static Future<bool> submitWithdrawRequest( {required String jwtToken, required WithdrawalRequest request } ) async {
     try {
       final Map<String, dynamic> body = {
         'userId': request.userId,
@@ -69,7 +70,7 @@ class WithdrawService {
 
       final response = await http.post(
         Uri.parse('$_baseUrl/user/withdraw_new'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Authorization': 'Bearer $jwtToken', 'Content-Type': 'application/json'},
         body: jsonEncode(body),
       ).timeout(Duration(seconds: 10));
 

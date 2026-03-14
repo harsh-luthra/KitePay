@@ -14,6 +14,7 @@ import 'CommissionService.dart';
 import 'SubAdminDashboardPage.dart';
 import 'TransactionPageNew.dart';
 import 'UsersService.dart';
+import 'main.dart';
 import 'models/AppUser.dart';
 
 class ManageUsersScreen extends StatefulWidget {
@@ -465,27 +466,28 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
     final jwtToken = await AppWriteService().getJWT();
 
-    print("UNsassign call 1");
-
+    // print("UNsassign call 1");
     // Show loader
-    showDialog(
-      context: pageContext,
-      barrierDismissible: false,
-      useRootNavigator: true,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    if (rootNavigatorKey.currentContext != null) {
+      showDialog(
+        context: rootNavigatorKey.currentContext!,
+        barrierDismissible: false,
+        useRootNavigator: true,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     try {
-      print("UNsassign call 2");
+      // print("UNsassign call 2");
       await UsersService.assignMerchantToEmployee(
         unAssign: true,
         subAdminId: subAdminId,
         employeeId: employeeId,
         jwtToken: jwtToken,
       );
-      if (pageContext.mounted) {
-        Navigator.of(pageContext, rootNavigator: true).pop(); // dismiss loader
-        ScaffoldMessenger.of(pageContext).showSnackBar(
+      if (rootNavigatorKey.currentContext != null) {
+        Navigator.of(rootNavigatorKey.currentContext!, rootNavigator: true).pop(); // dismiss loader
+        ScaffoldMessenger.of(rootNavigatorKey.currentContext!).showSnackBar(
           SnackBar(content: Text('Subadmin: ${getAppUserNameEmail(subAdminId)} Unassigned Successfully')),
         );
         _fetchUsers(
@@ -531,10 +533,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     );
     if (confirm != true) return;
 
-    final jwtToken = await AppWriteService().getJWT();
-
     print("UNsassign call 1");
-
     // Show loader
     showDialog(
       context: pageContext,
@@ -544,6 +543,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     );
 
     try {
+      final jwtToken = await AppWriteService().getJWT();
       print("UNsassign call 2");
       await UsersService.assignUserToSubAdmin(
         unAssign: true,

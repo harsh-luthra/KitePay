@@ -332,8 +332,10 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                 final aActive = a.isActive ? 0 : 1;
                 final bActive = b.isActive ? 0 : 1;
                 if (aActive != bActive) return aActive - bActive;
-                final aAvail = (a.amountAvailableForWithdrawal ?? 0);
-                final bAvail = (b.amountAvailableForWithdrawal ?? 0);
+                // final aAvail = (a.amountAvailableForWithdrawal ?? 0);
+                // final bAvail = (b.amountAvailableForWithdrawal ?? 0);
+                final aAvail = (a.canWithdrawToday() ?? 0);
+                final bAvail = (b.canWithdrawToday() ?? 0);
                 return bAvail.compareTo(aAvail);
               });
 
@@ -374,7 +376,8 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                           metricChip('Txns', count(qr.totalTransactions ?? 0), Colors.teal, Icons.receipt_long),
                           metricChip('Today', inr(qr.todayTotalPayIn ?? 0), Colors.indigo, Icons.today),
                           metricChip('Received', inr(qr.totalPayInAmount ?? 0), Colors.deepPurple, Icons.account_balance_wallet),
-                          metricChip('Available', inr(qr.amountAvailableForWithdrawal ?? 0), Colors.green, Icons.savings),
+                          metricChip('Total Available', inr(qr.amountAvailableForWithdrawal ?? 0), Colors.green, Icons.savings),
+                          metricChip('Can Withdraw Today', inr(qr.canWithdrawToday()), Colors.green, Icons.savings),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -596,106 +599,107 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     );
   }
 
-  void _submitForm() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final user = await AppWriteService().account.get();
-    String userId = user.$id;
-    String name = user.name;
-
-    if (_mode == 'upi') {
-      name = _upiHolderNameController.text.trim();
-    } else {
-      name = _bankHolderNameController.text.trim();
-    }
-
-    final int requestedAmount = int.tryParse(_amountController.text.trim()) ?? 0;
-    final double commissionPercent = subAdminCommission ?? 0;
-    final double commissionRaw = requestedAmount * commissionPercent / 100;
-    final int commissionAmount = commissionRaw.ceil(); // always rounds up
-    final int netWithdrawalAmount = requestedAmount + commissionAmount;
-
-    bool proceed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Confirm Withdrawal'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text("Withdrawal amount: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(requestedAmount as num)}"),
-              Text("Commission (${commissionPercent.toStringAsFixed(1)}%): ₹$commissionAmount"),
-              Divider(thickness: 1),
-              Text("Final credited amount: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(netWithdrawalAmount as num)}"),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Confirm Withdrawal'),
-            ),
-          ],
-        );
-      },
-    ) ?? false;
-
-    if (!proceed) return;
-
-    setState(() => _isSubmitting = true);
-
-    try {
-      // Compose the request as in your code
-      final withdrawalRequest = WithdrawalRequest(
-        userId: userId,
-        qrId: selectedQrCode?.qrId,
-        holderName: name,
-        amount: netWithdrawalAmount,
-        preAmount: requestedAmount,
-        commission: commissionAmount,
-        mode: _mode,
-        upiId: _mode == 'upi' ? _upiIdController.text.trim() : null,
-        bankName: _mode == 'bank' ? _bankNameController.text.trim() : null,
-        accountNumber: _mode == 'bank' ? _accountNumberController.text.trim() : null,
-        ifscCode: _mode == 'bank' ? _ifscCodeController.text.trim().toUpperCase() : null,
-      );
-
-      await WithdrawService.fetchWithdrawCommissionPreview(userId: UserMeta.id,qrId: selectedQrCode!.qrId,preAmount: requestedAmount.toDouble());
-
-      final success = await WithdrawService.submitWithdrawRequest(withdrawalRequest);
-
-      if (success) {
-        _formKey.currentState!.reset();
-        await showResultDialog(
-          context,
-          title: "✅ Success",
-          message: "Withdrawal request submitted successfully.",
-          success: true,
-        );
-      } else {
-        await showResultDialog(
-          context,
-          title: "❌ Failed",
-          message: "Failed to submit withdrawal request.",
-          success: false,
-        );
-      }
-    } catch (e) {
-      await showResultDialog(
-        context,
-        title: "❌ Error",
-        message: "Error submitting withdrawal: ${e.toString()}",
-        success: false,
-      );
-    } finally {
-      setState(() => _isSubmitting = false);
-    }
-  }
+  // void _submitForm() async {
+  //   if (!_formKey.currentState!.validate()) return;
+  //
+  //   final user = await AppWriteService().account.get();
+  //   String userId = user.$id;
+  //   String name = user.name;
+  //
+  //   if (_mode == 'upi') {
+  //     name = _upiHolderNameController.text.trim();
+  //   } else {
+  //     name = _bankHolderNameController.text.trim();
+  //   }
+  //
+  //   final int requestedAmount = int.tryParse(_amountController.text.trim()) ?? 0;
+  //   final double commissionPercent = subAdminCommission ?? 0;
+  //   final double commissionRaw = requestedAmount * commissionPercent / 100;
+  //   final int commissionAmount = commissionRaw.ceil(); // always rounds up
+  //   final int netWithdrawalAmount = requestedAmount + commissionAmount;
+  //
+  //   bool proceed = await showDialog<bool>(
+  //     context: context,
+  //     barrierDismissible: false,
+  //     builder: (context) {
+  //       return AlertDialog(
+  //         title: const Text('Confirm Withdrawal'),
+  //         content: Column(
+  //           mainAxisSize: MainAxisSize.min,
+  //           crossAxisAlignment: CrossAxisAlignment.stretch,
+  //           children: [
+  //             Text("Withdrawal amount: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(requestedAmount as num)}"),
+  //             Text("Commission (${commissionPercent.toStringAsFixed(1)}%): ₹$commissionAmount"),
+  //             Divider(thickness: 1),
+  //             Text("Final credited amount: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(netWithdrawalAmount as num)}"),
+  //           ],
+  //         ),
+  //         actions: [
+  //           TextButton(
+  //             onPressed: () => Navigator.of(context).pop(false),
+  //             child: const Text('Cancel'),
+  //           ),
+  //           ElevatedButton(
+  //             onPressed: () => Navigator.of(context).pop(true),
+  //             child: const Text('Confirm Withdrawal'),
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   ) ?? false;
+  //
+  //   if (!proceed) return;
+  //
+  //   setState(() => _isSubmitting = true);
+  //
+  //   try {
+  //     // Compose the request as in your code
+  //     final withdrawalRequest = WithdrawalRequest(
+  //       userId: userId,
+  //       qrId: selectedQrCode?.qrId,
+  //       holderName: name,
+  //       amount: netWithdrawalAmount,
+  //       preAmount: requestedAmount,
+  //       commission: commissionAmount,
+  //       mode: _mode,
+  //       upiId: _mode == 'upi' ? _upiIdController.text.trim() : null,
+  //       bankName: _mode == 'bank' ? _bankNameController.text.trim() : null,
+  //       accountNumber: _mode == 'bank' ? _accountNumberController.text.trim() : null,
+  //       ifscCode: _mode == 'bank' ? _ifscCodeController.text.trim().toUpperCase() : null,
+  //     );
+  //
+  //     final jwtToken = await AppWriteService().getJWT();
+  //     await WithdrawService.fetchWithdrawCommissionPreview(jwtToken: jwtToken, userId: UserMeta.id,qrId: selectedQrCode!.qrId,preAmount: requestedAmount.toDouble());
+  //
+  //     final success = await WithdrawService.submitWithdrawRequest(withdrawalRequest);
+  //
+  //     if (success) {
+  //       _formKey.currentState!.reset();
+  //       await showResultDialog(
+  //         context,
+  //         title: "✅ Success",
+  //         message: "Withdrawal request submitted successfully.",
+  //         success: true,
+  //       );
+  //     } else {
+  //       await showResultDialog(
+  //         context,
+  //         title: "❌ Failed",
+  //         message: "Failed to submit withdrawal request.",
+  //         success: false,
+  //       );
+  //     }
+  //   } catch (e) {
+  //     await showResultDialog(
+  //       context,
+  //       title: "❌ Error",
+  //       message: "Error submitting withdrawal: ${e.toString()}",
+  //       success: false,
+  //     );
+  //   } finally {
+  //     setState(() => _isSubmitting = false);
+  //   }
+  // }
 
   void _submitFormNew() async {
     if (!_formKey.currentState!.validate()) return;
@@ -712,7 +716,9 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     final int requestedAmount = int.tryParse(_amountController.text.trim()) ?? 0;
 
     try {
+      final jwtToken = await AppWriteService().getJWT();
       final preview = await WithdrawService.fetchWithdrawCommissionPreview(
+        jwtToken: jwtToken,
         userId: userId,
         qrId: selectedQrCode!.qrId,
         preAmount: requestedAmount.toDouble(),
@@ -739,6 +745,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
           final commissionRate = preview['commissionRate'] ?? 0;
           final commissionPaise = preview['commissionPaise'] ?? 0;
           final overheadPaise = preview['overheadPaise'] ?? 0;
+          // final available = preview['amountAvailableForWithdrawal'] ?? 0;
           final available = preview['amountAvailableForWithdrawal'] ?? 0;
           final required = preview['withdrawalToCheck'] ?? 0;
 
@@ -830,7 +837,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
         ifscCode: _mode == 'bank' ? selectedAccount!.ifscCode!.trim().toUpperCase() : null,
       );
 
-      final success = await WithdrawService.submitWithdrawRequest(withdrawalRequest);
+      final success = await WithdrawService.submitWithdrawRequest(jwtToken: jwtToken, request: withdrawalRequest, );
 
       if (success) {
         _formKey.currentState!.reset();
@@ -871,7 +878,8 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
 
   int maxWithdrawableRupees(QrCode qr) {
     // Assuming amountAvailableForWithdrawal is in paise (int)
-    final int availablePaise = qr.amountAvailableForWithdrawal ?? 0;
+    // final int availablePaise = qr.amountAvailableForWithdrawal ?? 0;
+    final int availablePaise = qr.canWithdrawToday() ?? 0;
     // Convert paise -> rupees using integer division (truncate paise)
     final int availableRupees = availablePaise ~/ 100; // integer division [web:142]
 
@@ -1017,7 +1025,9 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                             if (amount == null || amount <= 0) {
                               return 'Enter a valid amount (positive integer rupees)';
                             }
-                            final int availableRupees = ((selectedQrCode?.amountAvailableForWithdrawal ?? 0) / 100.0).floor();
+                            // final int availableRupees = ((selectedQrCode?.amountAvailableForWithdrawal ?? 0) / 100.0).floor();
+                            final int availableRupees = ((selectedQrCode?.canWithdrawToday() ?? 0) / 100.0).floor();
+
                             if (availableRupees < 0) return 'Balance is negative: ₹$availableRupees';
                             if (amount < minWithdrawalAmount) return 'Minimum allowed: ₹$minWithdrawalAmount';
                             if (amount > maxWithdrawalAmount) return 'Maximum allowed: ₹$maxWithdrawalAmount';
@@ -1558,6 +1568,12 @@ class _SelectedQrCard extends StatelessWidget {
                     metricTile(
                       'Available',
                       inr(qr.amountAvailableForWithdrawal ?? 0),
+                      Icons.savings,
+                      Colors.green,
+                    ),
+                    metricTile(
+                      'Can Withdrawal Today',
+                      inr(qr.canWithdrawToday()),
                       Icons.savings,
                       Colors.green,
                     ),

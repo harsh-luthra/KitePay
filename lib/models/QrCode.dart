@@ -87,4 +87,11 @@ class QrCode {
     return 'QrCode{qrId: $qrId, fileId: $fileId, imageUrl: $imageUrl, assignedUserId: $assignedUserId, managedByUserId: $managedByUserId, isActive: $isActive, createdAt: $createdAt, totalTransactions: $totalTransactions, totalPayInAmount: $totalPayInAmount, withdrawalRequestedAmount: $withdrawalRequestedAmount, withdrawalApprovedAmount: $withdrawalApprovedAmount, amountAvailableForWithdrawal: $amountAvailableForWithdrawal, commissionOnHold: $commissionOnHold, commissionPaid: $commissionPaid, amountOnHold: $amountOnHold, todayTotalPayIn: $todayTotalPayIn}';
   }
 
+  int canWithdrawToday(){
+    int? todayTotalPayIn = this.todayTotalPayIn;
+    int? amountAvailableForWithdrawal = this.amountAvailableForWithdrawal;
+    int? canWithdrawToday = amountAvailableForWithdrawal! - todayTotalPayIn!;
+    return canWithdrawToday ?? 0;
+  }
+
 }

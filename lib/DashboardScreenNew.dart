@@ -10,6 +10,7 @@ import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:admin_qr_manager/utils/CurrencyUtils.dart';
 import 'package:admin_qr_manager/utils/NotificationSystemForQr.dart';
 import 'package:admin_qr_manager/widget/TransactionCard.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:appwrite/models.dart' show User;
 import 'package:flutter_tts/flutter_tts.dart';
@@ -39,6 +40,8 @@ import 'package:http/http.dart' as http;
 import 'main.dart';
 import 'models/QrCode.dart';
 import 'models/Transaction.dart';
+
+import 'package:web/web.dart' as web;
 
 class DashboardScreenNew extends StatefulWidget {
   final User user;
@@ -90,6 +93,8 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   late StreamSubscription<Map<String, dynamic>>? _qrAlertSub;
 
   late StreamSubscription<Map<String, dynamic>>? _qrLimitAlertSub;
+
+  late StreamSubscription<Map<String, dynamic>>? _forceRefreshAlertSub;
 
   bool ttsENABLED = true;
 
@@ -201,7 +206,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         label: 'Manual TXN',
         icon: Icons.add_box_outlined,
         // visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.manualTransactions)),
-        visibleFor: (labels) => false,
+        visibleFor: (labels) => checkRole('admin'),
         builder: (_) => ManualTransactionForm(),
       ),
       _MenuItem(
@@ -296,6 +301,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     _connSub?.cancel();
     _qrAlertSub?.cancel();
     _qrLimitAlertSub?.cancel();
+    _forceRefreshAlertSub?.cancel();
     super.dispose();
   }
 
@@ -597,6 +603,23 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
           ),
         );
       }
+    });
+
+    _forceRefreshAlertSub = SocketManager.instance.forceRefreshController.listen((event) async {
+      // final qr = QrCode.fromJson(event);
+
+      // final QR_ID = event["qrCodeId"];
+      // final todayPayIn = event["todayPayIn"];
+
+      print("Refreshing Page");
+
+      if(widget.userMeta.role != "admin"){
+        if (kIsWeb) {
+          // Reload the page
+          web.window.location.reload();
+        }
+      }
+
     });
 
   }

@@ -29,9 +29,14 @@ class SocketManager {
   final _qrAlertController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get qrAlertController => _qrAlertController.stream;
 
-  // Connection status broadcast
+  // Qr Limit Alert broadcast
   final _qrLimitAlertController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get qrLimitAlertController => _qrLimitAlertController.stream;
+
+  // Force Refresh broadcast
+  final _forceRefreshController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get forceRefreshController => _forceRefreshController.stream;
+
 
   Future<void> connect({
     required String url,
@@ -124,6 +129,15 @@ class SocketManager {
         }
         // TODO: forward to a StreamController/BLoC/callback
       })
+      ..on('forceRefresh', (data) {
+        print('Force Refresh:'+ data.toString());
+        if (data is Map) {
+          _forceRefreshController.add(Map<String, dynamic>.from(data));
+        } else {
+          _forceRefreshController.add({'raw': data});
+        }
+        // TODO: forward to a StreamController/BLoC/callback
+      })
       ..onConnectError((err) {
         _connController.add(SocketStatus.error);
         print(err);
@@ -188,6 +202,7 @@ class SocketManager {
     _connController.close();
     _qrAlertController.close();
     _qrLimitAlertController.close();
+    _forceRefreshController.close();
   }
 
 }

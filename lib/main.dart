@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:admin_qr_manager/login_page.dart';
 import 'package:web/web.dart' as web;
 import 'dart:js_interop';
+import 'utils/navigator_service.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 

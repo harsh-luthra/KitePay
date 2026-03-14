@@ -1995,6 +1995,8 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                     icon: Icons.account_balance_wallet, color: Colors.deepPurple),
               metricTile('Avail. Withdrawal', inr(qrCode.amountAvailableForWithdrawal ?? 0),
                   icon: Icons.savings, color: Colors.green),
+              metricTile('Can Withdraw Today', inr(qrCode.canWithdrawToday() ?? 0),
+                  icon: Icons.savings, color: Colors.green),
             ];
 
             return Wrap(

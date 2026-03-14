@@ -813,6 +813,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           // Label
           copyable

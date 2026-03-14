@@ -1,5 +1,6 @@
 import 'package:admin_qr_manager/utils/CurrencyUtils.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/Transaction.dart';
 import 'package:intl/intl.dart';
 
@@ -108,7 +109,7 @@ class TransactionCard extends StatelessWidget {
               const SizedBox(height: 4),
               _infoRow(Icons.currency_rupee, 'Amount', CurrencyUtils.formatIndianCurrency(txn.amount / 100)),
               _infoRow(Icons.qr_code, 'QR Code ID', txn.qrCodeId),
-              _infoRow(Icons.receipt_long, 'RRN Number', txn.rrnNumber),
+              _infoRow(Icons.receipt_long, 'RRN Number', txn.rrnNumber, copyable: true),
               _infoRow(Icons.calendar_today, 'Created At', date),
               if(!(txn.status == '' || txn.status == 'normal'))
                 _infoRow(Icons.confirmation_number, 'Status: ', "${txn.status} Hold"),
@@ -121,15 +122,43 @@ class TransactionCard extends StatelessWidget {
 
   }
 
-  Widget _infoRow(IconData icon, String label, String value) {
+  Widget _infoRow(IconData icon, String label, String value, {bool copyable = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+
         children: [
           Icon(icon, size: 18, color: Colors.blueGrey),
           const SizedBox(width: 8),
           Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
-          Expanded(child: Text(value, overflow: TextOverflow.ellipsis)),
+          copyable
+              ? SelectableText(value)
+              : Text(value, overflow: TextOverflow.ellipsis),
+
+          if (copyable && value != '-' && value.isNotEmpty)
+            IconButton(
+              tooltip: 'Copy $label',
+              icon: const Icon(Icons.copy, size: 16),
+              padding: EdgeInsets.only(left: 10),
+              constraints: const BoxConstraints(),
+              visualDensity: VisualDensity.compact,
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: value));
+                // if (mounted) {
+                //   ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                //   ScaffoldMessenger.of(context).showSnackBar(
+                //     SnackBar(
+                //       content: Text('$label copied'),
+                //       duration: const Duration(seconds: 1),
+                //       behavior: SnackBarBehavior.floating,
+                //       margin: const EdgeInsets.all(12),
+                //     ),
+                //   );
+                // }
+              },
+            ),
+
         ],
       ),
     );
