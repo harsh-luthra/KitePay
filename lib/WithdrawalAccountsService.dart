@@ -9,7 +9,7 @@ class WithdrawalAccountsService {
 
   static final String _baseUrl = AppConstants.baseApiUrl;
 
-  // ✅ LIST user's accounts (paginated)
+  // ✅ LIST user's own accounts (paginated)
   static Future<PaginatedWithdrawalAccounts> fetchWithdrawalAccountsPaginated({
     required String jwtToken,
     String? cursor,
@@ -36,7 +36,38 @@ class WithdrawalAccountsService {
     throw Exception('Failed: ${resp.statusCode}');
   }
 
-  // ✅ CREATE new account
+  // ✅ LIST any user accounts (paginated)
+  static Future<PaginatedWithdrawalAccounts> fetchUserWithdrawalAccountsPaginated({
+    required String jwtToken,
+    required String userId,
+    String? cursor,
+  }) async {
+    final params = <String, String>{
+      'limit': '25',
+      'userId': userId,
+    };
+    if (cursor != null) params['cursor'] = cursor;
+
+    final uri = Uri.parse('$_baseUrl/withdrawal-accounts/admin_withdrawal_accounts').replace(queryParameters: params);
+    final resp = await http.get(
+        uri,
+        headers: {'Authorization': 'Bearer $jwtToken'}
+    );
+
+    if (resp.statusCode == 200) {
+      final data = jsonDecode(resp.body);
+      return PaginatedWithdrawalAccounts(
+        accounts: (data['accounts'] as List)
+            .map((a) => WithdrawalAccount.fromJson(a))
+            .toList(),
+        nextCursor: data['nextCursor'],
+        total: data['total'],
+      );
+    }
+    throw Exception('Failed: ${resp.statusCode}');
+  }
+
+  // ✅ CREATE Self new account
   static Future<WithdrawalAccount> createWithdrawalAccount({
     required String jwtToken,
     required WithdrawalAccount account,
@@ -57,7 +88,7 @@ class WithdrawalAccountsService {
     throw Exception('Create failed: ${resp.statusCode} - ${resp.body}');
   }
 
-  // ✅ UPDATE existing account
+  // ✅ UPDATE Self existing account
   static Future<WithdrawalAccount> updateWithdrawalAccount({
     required String jwtToken,
     required String accountId,
@@ -79,7 +110,7 @@ class WithdrawalAccountsService {
     throw Exception('Update failed: ${resp.statusCode}');
   }
 
-  // ✅ DELETE account
+  // ✅ DELETE Self account
   static Future<bool> deleteWithdrawalAccount({
     required String jwtToken,
     required String accountId,
@@ -91,6 +122,82 @@ class WithdrawalAccountsService {
     if (resp.statusCode == 200) return true;
     throw Exception('Delete failed: ${resp.statusCode}');
   }
+
+
+
+  // ✅ CREATE User's account
+  static Future<WithdrawalAccount> createUserWithdrawalAccount({
+    required String jwtToken,
+    required String userId,
+    required WithdrawalAccount account,
+  }) async {
+
+    final body = {
+      ...account.toJson(),
+      'userId': userId,  // Add to body
+    };
+
+    final resp = await http.post(
+      Uri.parse('$_baseUrl/withdrawal-accounts/admin_withdrawal_accounts'),
+      headers: {
+        'Authorization': 'Bearer $jwtToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    );
+
+    if (resp.statusCode == 201) {
+      final data = jsonDecode(resp.body);
+      return WithdrawalAccount.fromJson(data['account']);
+    }
+    throw Exception('Create failed: ${resp.statusCode} - ${resp.body}');
+  }
+
+  // ✅ UPDATE User's account
+  static Future<WithdrawalAccount> updateUserWithdrawalAccount({
+    required String jwtToken,
+    required String userId,
+    required String accountId,
+    required Map<String, dynamic> updates, // Partial: {"holderName": "..."}
+  }) async {
+
+    final resp = await http.put(
+      Uri.parse('$_baseUrl/withdrawal-accounts/admin_withdrawal_accounts/$accountId'),
+      headers: {
+        'Authorization': 'Bearer $jwtToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(updates),
+    );
+
+    if (resp.statusCode == 200) {
+      final data = jsonDecode(resp.body);
+      return WithdrawalAccount.fromJson(data['account']);
+    }
+    throw Exception('Update failed: ${resp.statusCode}');
+  }
+
+  // ✅ DELETE User's account
+  static Future<bool> deleteUserWithdrawalAccount({
+    required String jwtToken,
+    required String userId,
+    required String accountId,
+  }) async {
+
+    final body = {
+      'userId': userId,  // Add to body
+    };
+
+    final resp = await http.delete(
+      Uri.parse('$_baseUrl/withdrawal-accounts/admin_withdrawal_accounts/$accountId'),
+      headers: {'Authorization': 'Bearer $jwtToken'},
+      body: jsonEncode(body),
+    );
+    if (resp.statusCode == 200) return true;
+    throw Exception('Delete failed: ${resp.statusCode}');
+  }
+
+
 }
 
 // Models (create models/WithdrawalAccount.dart)

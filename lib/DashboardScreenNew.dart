@@ -259,13 +259,20 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       ),
       _MenuItem(
         id: 13,
-        label: 'Withdrawal Accounts',
-        icon: Icons.account_balance_outlined,
-        visibleFor: (_) => checkRole('admin') || checkRole('subadmin') || checkRole('user'),
-        builder: (user) => WithdrawalAccountsPage(),
+        label: 'My User Withdrawals',
+        icon: Icons.account_balance_wallet,
+        visibleFor: (_) => checkRole('subadmin'),
+        builder: (user) => ManageWithdrawalsNew(),
       ),
       _MenuItem(
         id: 14,
+        label: 'Withdrawal Accounts',
+        icon: Icons.account_balance_outlined,
+        visibleFor: (_) => checkRole('admin') || checkRole('subadmin') || checkRole('user'),
+        builder: (user) => WithdrawalAccountsPage(userMode: true, userMeta: widget.userMeta,),
+      ),
+      _MenuItem(
+        id: 15,
         label: 'Kitepay Wallet',
         icon: Icons.wallet,
         visibleFor: (_) => checkRole('admin') ,
@@ -273,7 +280,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       ),
       // WithdrawalAccountsPage
       _MenuItem(
-        id: 15,
+        id: 16,
         label: 'Manage Api Merchants',
         icon: Icons.developer_board,
         visibleFor: (labels) => checkRole('admin'),
@@ -515,7 +522,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         setState(() => socketConnected = connected);
       }
       if(status == SocketStatus.connected){
-        print("Connected");
+        print("Socket Connected");
         // speakQrAlert('रीयल-टाइम ट्रांज़ैक्शन्स सर्वर कनेक्ट हो गया है');
       }
     });
@@ -817,7 +824,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     );
   }
 
-
   // Future<void> loadUserMeta() async {
   //   String jwtToken = await AppWriteService().getJWT();
   //   userMetaGlobal = (await MyMetaApi.getMyMetaData(
@@ -827,14 +833,14 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   // }
 
   Future<void> loadConfig() async {
-    print("loading config");
+    // print("loading config");
     try{
-      final response = await http.get(Uri.parse('${AppConstants.baseApiUrl}/user/config')).timeout(Duration(seconds: 5));
+      final response = await http.get(Uri.parse('${AppConstants.baseApiUrl}/get_app_config')).timeout(Duration(seconds: 5));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print("got 200 config");
+        // print("got 200 config");
         if (data['success']) {
-          print("loaded config");
+          // print("loaded config");
           AppConfig().loadFromJson(data['config']);
         }
       }

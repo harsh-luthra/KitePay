@@ -461,7 +461,7 @@ Future<SubAdminDashboardData> fetchSubadminDashboard({
   try {
     final jwt = await AppWriteService().getJWT();
     final uri = Uri.parse('${AppConstants.baseApiUrl}/admin/dashboard/subadmin/$merchantId');
-    print(uri.toString());
+    // print(uri.toString());
     final resp = await http.get(
       uri,
       headers: {'Authorization': 'Bearer $jwt', 'Accept': 'application/json'},

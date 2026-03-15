@@ -1,10 +1,16 @@
+import 'package:admin_qr_manager/AppConfig.dart';
 import 'package:admin_qr_manager/WithdrawalAccountsService.dart'; // Your service from previous
 import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:admin_qr_manager/models/WithdrawalAccount.dart';
 import 'package:flutter/material.dart';
 
+import 'models/AppUser.dart';
+
 class WithdrawalAccountsPage extends StatefulWidget {
-  const WithdrawalAccountsPage({super.key});
+  final bool userMode;
+  final AppUser userMeta; // keep nullable if not always provided
+
+  const WithdrawalAccountsPage({super.key, required this.userMode, required this.userMeta});
 
   @override
   State<WithdrawalAccountsPage> createState() => _WithdrawalAccountsPageState();
@@ -20,10 +26,17 @@ class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
   void initState() {
     super.initState();
     _loadAccounts();
+    if(!widget.userMode){
+      String name = widget.userMeta.name;
+      String email = widget.userMeta.email;
+      print("Name: $name");
+      print("Email: $email");
+    }
   }
 
   Future<void> _loadAccounts({bool refresh = false}) async {
     if (refresh) {
+      // print("refreshing");
       _nextCursor = null;
       _accounts.clear();
     }
@@ -31,10 +44,18 @@ class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
 
     try {
       final jwtToken = await AppWriteService().getJWT();
-      final paginated = await WithdrawalAccountsService.fetchWithdrawalAccountsPaginated(
-        jwtToken: jwtToken,
-        cursor: _nextCursor,
-      );
+      late PaginatedWithdrawalAccounts paginated;
+      if(widget.userMode){
+         paginated = await WithdrawalAccountsService.fetchWithdrawalAccountsPaginated(
+          jwtToken: jwtToken,
+          cursor: _nextCursor,
+        );
+      }else{
+         paginated = await WithdrawalAccountsService.fetchUserWithdrawalAccountsPaginated(
+          jwtToken: jwtToken,
+          cursor: _nextCursor, userId: widget.userMeta.id,
+        );
+      }
       setState(() {
         _accounts.addAll(paginated.accounts);
         _nextCursor = paginated.nextCursor;
@@ -55,10 +76,17 @@ class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
 
     try {
       final jwtToken = await AppWriteService().getJWT();
-      await WithdrawalAccountsService.deleteWithdrawalAccount(
-        jwtToken: jwtToken,
-        accountId: accountId,
-      );
+      if(widget.userMode){
+        await WithdrawalAccountsService.deleteWithdrawalAccount(
+          jwtToken: jwtToken,
+          accountId: accountId,
+        );
+      }else{
+        await WithdrawalAccountsService.deleteUserWithdrawalAccount(
+          jwtToken: jwtToken,
+          accountId: accountId, userId: widget.userMeta.id,
+        );
+      }
       setState(() => _accounts.removeWhere((a) => a.id == accountId));
       _showSnackBar('Account deleted successfully');
     } catch (e) {
@@ -67,15 +95,15 @@ class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
   }
 
   void _editAccount(WithdrawalAccount account) {
-    _showAccountFormDialog(account: account, context: context, onSuccess: () => _loadAccounts(refresh: true),);
+    _showAccountFormDialog(account: account, context: context, onSuccess: () => _loadAccounts(refresh: true), userMode: widget.userMode, userMeta: widget.userMeta);
   }
 
   void _addNewAccount() {
-    if(_accounts.length >= 5) {
+    if(_accounts.length >= AppConfig().maxWithdrawalAccounts) {
       _showAccountLimitDialog();
       return;
     }
-    _showAccountFormDialog(context: context, onSuccess: () => _loadAccounts(refresh: true),);
+    _showAccountFormDialog(context: context, onSuccess: () => _loadAccounts(refresh: true), userMode: widget.userMode, userMeta: widget.userMeta);
   }
 
   Future<void> _showAccountLimitDialog() async {
@@ -143,7 +171,6 @@ class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
     );
   }
 
-
   Future<bool?> _showConfirmDialog({
     required String title,
     required String message,
@@ -178,16 +205,17 @@ class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Withdrawal Accounts'),
+        title: widget.userMode ? Text('Your Withdrawal Accounts') : Text('Withdrawal Accounts Of: ${widget.userMeta.email}'),
         actions: [
-          if(!_accounts.isEmpty)
+          if(_accounts.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.add_box_outlined),
               onPressed: _addNewAccount,
             ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadAccounts,
+            // onPressed: _loadAccounts,
+            onPressed: () => _loadAccounts(refresh: true),
           ),
         ],
       ),
@@ -209,6 +237,8 @@ class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
             }
             final account = _accounts[index];
             return _AccountCard(
+              userMeta: widget.userMeta,
+              userMode: widget.userMode,
               account: account,
               onEdit: () => _editAccount(account),
               onDelete: () => _deleteAccount(account.id!),
@@ -263,11 +293,15 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _AccountCard extends StatelessWidget {
+  final AppUser userMeta;
+  final bool userMode;
   final WithdrawalAccount account;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _AccountCard({
+    required this.userMeta,
+    required this.userMode,
     required this.account,
     required this.onEdit,
     required this.onDelete,
@@ -309,6 +343,7 @@ class _AccountCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                if(AppConfig().userCanEditWithdrawalAccounts || (!userMode))
                 PopupMenuButton<String>(
                   onSelected: (value) {
                     if (value == 'edit') onEdit();
@@ -364,7 +399,7 @@ class _LoadMoreTile extends StatelessWidget {
 }
 
 // 🔹 Dialog Form (matches WithdrawalFormPage design)
-void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext context, VoidCallback? onSuccess}) {
+void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext context, VoidCallback? onSuccess, required bool userMode, required AppUser userMeta}) {
   final isEdit = account != null;
   final notesController = TextEditingController(text: account?.notes);
   final upiIdController = TextEditingController(text: account?.upiId);
@@ -560,28 +595,54 @@ void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext c
                 };
 
                 if (isEdit) {
-                  await WithdrawalAccountsService.updateWithdrawalAccount(
-                    jwtToken: jwtToken,
-                    accountId: account!.id!,
-                    updates: updates,
-                  );
+                  if(userMode) {
+                    await WithdrawalAccountsService.updateWithdrawalAccount(
+                      jwtToken: jwtToken,
+                      accountId: account!.id!,
+                      updates: updates,
+                    );
+                  }else{
+                    await WithdrawalAccountsService.updateUserWithdrawalAccount(
+                      jwtToken: jwtToken,
+                      accountId: account!.id!,
+                      updates: updates, userId: userMeta.id,
+                    );
+                  }
                 } else {
-                  await WithdrawalAccountsService.createWithdrawalAccount(
-                    jwtToken: jwtToken,
-                    account: WithdrawalAccount(
-                      mode: currentMode,
-                      holderName: holderNameController.text.trim(),
-                      upiId: currentMode == 'upi' ? upiIdController.text.trim() : null,
-                      accountNumber: currentMode == 'bank' ? accountNumberController.text.trim() : null,
-                      ifscCode: currentMode == 'bank' ? ifscController.text.trim().toUpperCase() : null,
-                      bankName: currentMode == 'bank' ? bankNameController.text.trim() : null,
-                      notes: notesController.text.trim().isNotEmpty ? notesController.text.trim() : null,
-                    ),
-                  );
+                  if(userMode){
+                    await WithdrawalAccountsService.createWithdrawalAccount(
+                      jwtToken: jwtToken,
+                      account: WithdrawalAccount(
+                        mode: currentMode,
+                        holderName: holderNameController.text.trim(),
+                        upiId: currentMode == 'upi' ? upiIdController.text.trim() : null,
+                        accountNumber: currentMode == 'bank' ? accountNumberController.text.trim() : null,
+                        ifscCode: currentMode == 'bank' ? ifscController.text.trim().toUpperCase() : null,
+                        bankName: currentMode == 'bank' ? bankNameController.text.trim() : null,
+                        notes: notesController.text.trim().isNotEmpty ? notesController.text.trim() : null,
+                      ),
+                    );
+                  }else{
+                    await WithdrawalAccountsService.createUserWithdrawalAccount(
+                      jwtToken: jwtToken,
+                      account: WithdrawalAccount(
+                        mode: currentMode,
+                        holderName: holderNameController.text.trim(),
+                        upiId: currentMode == 'upi' ? upiIdController.text.trim() : null,
+                        accountNumber: currentMode == 'bank' ? accountNumberController.text.trim() : null,
+                        ifscCode: currentMode == 'bank' ? ifscController.text.trim().toUpperCase() : null,
+                        bankName: currentMode == 'bank' ? bankNameController.text.trim() : null,
+                        notes: notesController.text.trim().isNotEmpty ? notesController.text.trim() : null,
+                      ), userId: userMeta.id,
+                    );
+                  }
                 }
 
                 Navigator.pop(context);
                 onSuccess?.call();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Operation Processed Successfully')),
+                );
               } catch (e) {
                 setDialogState(() => _isDialogLoading = false);
                 ScaffoldMessenger.of(context).showSnackBar(

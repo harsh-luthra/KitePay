@@ -955,10 +955,16 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                   if (r.mode != 'upi') _buildInfoRow("Acc No.", r.accountNumber , copyable: true),
                   if (r.mode != 'upi') _buildInfoRow("IFSC", r.ifscCode , copyable: true),
                   _buildInfoRow("Requested at", formatToIST(r.createdAt.toString())),
-                  if (r.status == 'approved' && r.utrNumber?.isNotEmpty == true)
+                  if (r.status == 'approved' && r.utrNumber?.isNotEmpty == true)...[
                     _buildInfoRow("UTR", r.utrNumber , copyable: true),
-                  if (r.status == 'rejected' && r.rejectionReason?.isNotEmpty == true)
+                    if(r.processedAt != null)
+                    _buildInfoRow("Approved at", formatToIST(r.processedAt.toString())),
+                  ],
+                  if (r.status == 'rejected' && r.rejectionReason?.isNotEmpty == true)...[
                     _buildInfoRow("Reason", r.rejectionReason, copyable: true),
+                    if(r.processedAt != null)
+                    _buildInfoRow("Rejected at", formatToIST(r.processedAt.toString())),
+                  ],
                   if(getAppUserRole(r.userId) == "user")
                     _buildInfoRow("Managed By:", getAppUserNameEmail(getAppUserParentId(r.userId))),
                 ];
