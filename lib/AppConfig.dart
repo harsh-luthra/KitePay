@@ -25,6 +25,10 @@ class AppConfig {
 
   late double qrLimitTodayPayIn;
 
+  int maxWithdrawalAccounts = 5;
+
+  bool userCanEditWithdrawalAccounts = false;
+
   void loadFromJson(Map<String, dynamic> json) {
     maxWithdrawalAmount = json['max_withdrawal_amount'] ?? 0;
     minWithdrawalAmount = json['min_withdrawal_amount'] ?? 0;
@@ -37,6 +41,10 @@ class AppConfig {
 
     qrLimitTodayPayIn = (json['qr_limit_today_pay_in'] ?? 0).toDouble() ?? defaultQrLimitTodayPayIn;
 
+    maxWithdrawalAccounts = json['max_withdrawal_accounts'] ?? 5;
+
+    userCanEditWithdrawalAccounts = json['user_can_edit_withdrawal_accounts'] ?? false;
+
     // print("min_commission $minCommission");
     // print("max_commission $maxCommission");
 
@@ -45,6 +53,10 @@ class AppConfig {
     // print("transaction_fee_percent: $transactionFeePercent");
     // print("max_withdrawal_requests: $maxWithdrawalrequests");
     // print("overhead_balance_required: $overheadBalanceRequired");
+
+    // print("maxWithdrawalAccounts: $maxWithdrawalAccounts");
+    //
+    // print("userCanEditWithdrawalAccounts: $userCanEditWithdrawalAccounts");
 
   }
 

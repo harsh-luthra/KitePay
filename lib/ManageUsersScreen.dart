@@ -4,6 +4,7 @@ import 'package:admin_qr_manager/AppConstants.dart';
 import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:admin_qr_manager/MyMetaApi.dart';
 import 'package:admin_qr_manager/UserDashboardPage.dart';
+import 'package:admin_qr_manager/WithdrawalAccountsPage.dart';
 import 'package:admin_qr_manager/widget/TransactionCardShimmer.dart';
 import 'package:admin_qr_manager/widget/UsersCardShimmer.dart';
 import 'package:flutter/material.dart';
@@ -1795,7 +1796,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                           ),
                         if (user.role == 'subadmin' &&
                             (userMeta.role == 'admin' ||
-                                userMeta.role == 'subadmin' ||
                                 (userMeta.role == 'employee' &&
                                     userMeta.labels.contains(
                                       AppConstants.viewAllTransactions,
@@ -1836,6 +1836,46 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                               ),
                             );
                           }, color: Colors.teal),
+                        // View Withdrawal Accounts of SubAdmin (Merchants) and Users
+                        if (user.role == 'user' &&
+                            (userMeta.role == 'admin' ||
+                                userMeta.role == 'subadmin' ||
+                                (userMeta.role == 'employee' &&
+                                    userMeta.labels.contains(
+                                      AppConstants.viewAllTransactions,
+                                    ))))
+                          _iconBtn(Icons.account_balance_outlined, 'View Withdrawal Accounts', () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (_) => WithdrawalAccountsPage(
+                                      userMode: false,
+                                      userMeta: user,
+                                ),
+                              ),
+                            );
+                          }, color: Colors.teal),
+
+                        if (user.role == 'subadmin' &&
+                            (userMeta.role == 'admin' ||
+                                (userMeta.role == 'employee' &&
+                                    userMeta.labels.contains(
+                                      AppConstants.viewAllTransactions,
+                                    ))))
+                          _iconBtn(Icons.account_balance_outlined, 'View Withdrawal Accounts', () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (_) => WithdrawalAccountsPage(
+                                  userMode: false,
+                                  userMeta: user,
+                                ),
+                              ),
+                            );
+                          }, color: Colors.teal),
+
                       ],
                     ),
                 ],

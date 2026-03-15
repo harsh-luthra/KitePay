@@ -205,7 +205,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
               Navigator.pop(context); // Close dialog
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const WithdrawalAccountsPage()),
+                MaterialPageRoute(builder: (context) => WithdrawalAccountsPage(userMode: true, userMeta: UserMeta,)),
               ).then((_) {
                 // ✅ Refresh accounts when returning
                 if (mounted) {
@@ -246,7 +246,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
               Navigator.pop(context); // Close dialog
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const WithdrawalAccountsPage()),
+                MaterialPageRoute(builder: (context) => WithdrawalAccountsPage(userMode: true, userMeta: UserMeta, )),
               ).then((_) {
                 // ✅ Refresh accounts when returning
                 if (mounted) {
@@ -377,7 +377,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                           metricChip('Today', inr(qr.todayTotalPayIn ?? 0), Colors.indigo, Icons.today),
                           metricChip('Received', inr(qr.totalPayInAmount ?? 0), Colors.deepPurple, Icons.account_balance_wallet),
                           metricChip('Total Available', inr(qr.amountAvailableForWithdrawal ?? 0), Colors.green, Icons.savings),
-                          metricChip('Can Withdraw Today', inr(qr.canWithdrawToday()), Colors.green, Icons.savings),
+                          metricChip('Withdrawable Amount', inr(qr.canWithdrawToday()), Colors.green, Icons.savings),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -1572,7 +1572,7 @@ class _SelectedQrCard extends StatelessWidget {
                       Colors.green,
                     ),
                     metricTile(
-                      'Can Withdrawal Today',
+                      'Withdrawable Amount',
                       inr(qr.canWithdrawToday()),
                       Icons.savings,
                       Colors.green,

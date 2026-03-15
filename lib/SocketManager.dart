@@ -89,7 +89,7 @@ class SocketManager {
           subscribeQrAlert();
         }
         _connController.add(SocketStatus.connected);
-        print("socket Connected Single");
+        // print("socket Connected Single");
       })
       ..onReconnect((_) {
         subscribeQrIds(qrIds);

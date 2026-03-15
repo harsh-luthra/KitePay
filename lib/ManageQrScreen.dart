@@ -62,6 +62,11 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
   bool showingFilters = false;
 
+  // Search state
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -101,6 +106,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   @override
   void dispose() {
     _qrIdController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -184,17 +190,26 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
 // Apply local filter to qrCodes according to current dropdown state
   List<QrCode> get _visibleQrCodes {
+    List<QrCode> scopeFiltered;
     switch (_managerScope) {
       case 'ALL':
-        return _qrCodes;
+        scopeFiltered = _qrCodes;
+        break;
       case 'UNASSIGNED':
-        return _qrCodes.where((q) => q.assignedUserId == null || q.managedByUserId == null).toList();
+        scopeFiltered = _qrCodes.where((q) => q.assignedUserId == null || q.managedByUserId == null).toList();
+        break;
       case 'SUBADMIN':
         if (_selectedSubadmin == null) return const <QrCode>[];
-        return _qrCodes.where((q) => q.managedByUserId == _selectedSubadmin!.id).toList();
+        scopeFiltered = _qrCodes.where((q) => q.managedByUserId == _selectedSubadmin!.id).toList();
+        break;
       default:
-        return _qrCodes;
+        scopeFiltered = _qrCodes;
     }
+
+    // Apply search filter
+    if (_searchQuery.trim().isEmpty) return scopeFiltered;
+    final q = _searchQuery.trim().toLowerCase();
+    return scopeFiltered.where((qr) => qr.qrId.toLowerCase().contains(q)).toList();
   }
 
   Future<void> _assignUser(String? qrId, String? fileId, {QrCode? qr}) async {
@@ -1474,25 +1489,55 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       key: _scaffoldMessengerKey,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.userMode ? 'My QR Codes' : 'Manage All QR Codes'),
+          title: _isSearching
+              ? TextField(
+            controller: _searchController,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Search by QR ID...',
+              border: InputBorder.none,
+              hintStyle: TextStyle(color: Colors.black),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.close, color: Colors.black),
+                tooltip: 'Clear search',
+                onPressed: () {
+                  setState(() {
+                    _searchController.clear();
+                    _searchQuery = '';
+                    _isSearching = false;
+                  });
+                },
+              ),
+            ),
+            style: const TextStyle(color: Colors.black),
+            onChanged: (val) => setState(() => _searchQuery = val),
+          )
+              : Text(widget.userMode ? 'My QR Codes' : 'Manage All QR Codes'),
           actions: [
-            if(widget.userMeta.role == 'admin')
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Toggle Filters: '),
-                Switch.adaptive(
-                  value: showingFilters,
-                  onChanged: (val) => setState(() => showingFilters = val),
+            if (!_isSearching) ...[
+              if (widget.userMeta.role == 'admin')
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Toggle Filters: '),
+                    Switch.adaptive(
+                      value: showingFilters,
+                      onChanged: (val) => setState(() => showingFilters = val),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: (_jwtToken != null && !_isProcessing)
-                  ? (widget.userMode ? _fetchOnlyUserQrCodes : _fetchQrCodes)
-                  : null,
-            ),
+              IconButton(
+                icon: const Icon(Icons.search),
+                tooltip: 'Search QR',
+                onPressed: () => setState(() => _isSearching = true),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: (_jwtToken != null && !_isProcessing)
+                    ? (widget.userMode ? _fetchOnlyUserQrCodes : _fetchQrCodes)
+                    : null,
+              ),
+            ],
           ],
         ),
         body: _isLoading
@@ -1816,7 +1861,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             children: [
               Icon(qrCode.isActive ? Icons.check_circle : Icons.cancel, size: 16, color: statusColor),
               const SizedBox(width: 6),
-              Text(qrCode.isActive ? 'ACTIVE' : 'INACTIVE', style: TextStyle(color: statusColor, fontWeight: FontWeight.w600)),
+              Text(qrCode.isActive ? 'ACTIVE' : 'Suspicious', style: TextStyle(color: statusColor, fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -1891,6 +1936,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   Widget _rightMetricsBlock(QrCode qrCode, String formattedDate) {
     final bool isAdmin = widget.userMeta.role == "admin";
     final bool isSubAdmin = widget.userMeta.role == "subadmin";
+    final bool isEmployee = widget.userMeta.role == "employee";
     String inr(num p) => CurrencyUtils.formatIndianCurrency(p / 100);
 
     Widget metric(String label, String value, {IconData? icon, Color? color}) {
@@ -1990,12 +2036,12 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
               metricTile('Transactions',
                   CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions ?? 0),
                   icon: Icons.receipt_long, color: Colors.teal),
-              if (isAdmin || isSubAdmin)
-                metricTile('Amount Received', inr(qrCode.totalPayInAmount ?? 0),
+              if (isAdmin || isSubAdmin || isEmployee)
+                metricTile('Total Amount Rec', inr(qrCode.totalPayInAmount ?? 0),
                     icon: Icons.account_balance_wallet, color: Colors.deepPurple),
               metricTile('Avail. Withdrawal', inr(qrCode.amountAvailableForWithdrawal ?? 0),
                   icon: Icons.savings, color: Colors.green),
-              metricTile('Can Withdraw Today', inr(qrCode.canWithdrawToday() ?? 0),
+              metricTile('Withdrawable Amount', inr(qrCode.canWithdrawToday() ?? 0),
                   icon: Icons.savings, color: Colors.green),
             ];
 

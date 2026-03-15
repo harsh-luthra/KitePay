@@ -17,6 +17,7 @@ class WithdrawalRequest {
   final String? utrNumber;
   final String? rejectionReason;
   final DateTime? createdAt;
+  final DateTime? processedAt;
 
   WithdrawalRequest({
     this.id,
@@ -35,6 +36,7 @@ class WithdrawalRequest {
     this.utrNumber,
     this.rejectionReason,
     this.createdAt,
+    this.processedAt,
   });
 
   /// Convert object to JSON map for API request
@@ -55,6 +57,7 @@ class WithdrawalRequest {
     'utrNumber': utrNumber,
     'rejectionReason': rejectionReason,
     'createdAt': createdAt?.toIso8601String(),
+    'processedAt': createdAt?.toIso8601String(),
   };
 
   /// Create object from JSON (e.g. from API response)
@@ -75,14 +78,14 @@ class WithdrawalRequest {
       status: json['status'],
       utrNumber: json['utrNumber'],
       rejectionReason: json['rejectionReason'],
-      createdAt:
-      json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      processedAt: json['processedAt'] != null ? DateTime.parse(json['processedAt']) : null,
     );
   }
 
   @override
   String toString() {
-    return 'WithdrawalRequest{id: $id, userId: $userId, qrId: $qrId, holderName: $holderName, amount: $amount, mode: $mode, upiId: $upiId, bankName: $bankName, accountNumber: $accountNumber, ifscCode: $ifscCode, status: $status, utrNumber: $utrNumber, rejectionReason: $rejectionReason, createdAt: $createdAt}';
+    return 'WithdrawalRequest{id: $id, userId: $userId, qrId: $qrId, holderName: $holderName, amount: $amount, mode: $mode, upiId: $upiId, bankName: $bankName, accountNumber: $accountNumber, ifscCode: $ifscCode, status: $status, utrNumber: $utrNumber, rejectionReason: $rejectionReason, createdAt: $createdAt, processedAt: $processedAt}';
   }
 
 }
