@@ -9,10 +9,11 @@ import 'AppConstants.dart';
 import 'AppWriteService.dart';
 
 class SubAdminDashboardPage extends StatefulWidget {
-  final AppUser userMeta; // keep nullable if not always provided
+  final AppUser userMeta;
   final bool showUserTitle;
 
   const SubAdminDashboardPage({super.key, required this.userMeta, required this.showUserTitle});
+
   @override
   State<SubAdminDashboardPage> createState() => _SubAdminDashboardPageState();
 }
@@ -20,7 +21,7 @@ class SubAdminDashboardPage extends StatefulWidget {
 class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
   late Future<SubAdminDashboardData> _future;
   bool _refreshing = false;
-  bool _showFullNumbers = false; // NEW
+  bool _showFullNumbers = false;
 
   @override
   void initState() {
@@ -48,7 +49,9 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.showUserTitle ? 'Merchant Dashboard - ${widget.userMeta.email}' : 'Merchant Dashboard'),
+        title: Text(widget.showUserTitle
+            ? 'Merchant Dashboard - ${widget.userMeta.email}'
+            : 'Merchant Dashboard'),
         actions: [
           IconButton(
             tooltip: _showFullNumbers ? 'Show compact numbers' : 'Show full numbers',
@@ -61,7 +64,7 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                 ? const SizedBox(
                 width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.refresh),
-            onPressed: _refreshing ? null : () { _refresh(); }, // no async here
+            onPressed: _refreshing ? null : () { _refresh(); },
           ),
         ],
       ),
@@ -95,20 +98,28 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+
+                // ════════════════════════════════════════════════════════════
+                // 1. ALL MANAGED QRs  (indigo)
+                // ════════════════════════════════════════════════════════════
+                _SectionHeader(label: 'Managed QRs', color: Colors.indigo),
+
                 _Section(
-                  title: 'Overview',
+                  title: 'All Managed QR — Overview',
+                  accentColor: Colors.indigo,
                   children: [
                     _metricGrid([
-                      _metric('Total Transactions', data.totalTxCount, Icons.swap_horiz, Colors.indigo),
+                      _metric('Total QRs Assigned', data.totalQrsAssignedToMerchant, Icons.assignment_ind, Colors.indigo),
+                      _metric('Total Transactions', data.totalTxCount, Icons.swap_horiz, Colors.indigo.shade300),
                       _money('Total Pay-In', data.totalAmountReceived, Icons.account_balance_wallet, Colors.teal),
                       _money('Today Pay-In', data.todayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
-                      _money('Merchant Profit', data.totalMerchantProfit, Icons.wallet, Colors.orange),
-                      _metric('QRs Assigned to Merchant', data.totalQrsAssignedToMerchant, Icons.assignment_ind, Colors.cyan),
                     ]),
                   ],
                 ),
+
                 _Section(
-                  title: 'QR Breakdown',
+                  title: 'All Managed QR — Breakdown',
+                  accentColor: Colors.indigo,
                   children: [
                     _metricGrid([
                       _metric('QRs Active', data.qrCodesActive, Icons.check_circle, Colors.green.shade700),
@@ -116,27 +127,131 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                     ]),
                   ],
                 ),
-                // _Section(
-                //   title: 'Transaction Types',
-                //   children: [
-                //     _metricGrid([
-                //       _moneyPair('Chargebacks', data.chargebackCount, data.chargebackAmount, Colors.red.shade600, Icons.report),
-                //       _moneyPair('Cyber', data.cyberCount, data.cyberAmount, Colors.pink.shade600, Icons.warning_amber),
-                //       _moneyPair('Refunds', data.refundCount, data.refundAmount, Colors.orange.shade700, Icons.undo),
-                //     ]),
-                //   ],
-                // ),
+
                 _Section(
-                  title: 'Payouts',
+                  title: 'All Managed QR — Payouts',
+                  accentColor: Colors.indigo,
                   children: [
                     _metricGrid([
                       _money('Amount Paid', data.totalAmountPaid, Icons.outbox, Colors.green),
                       _money('Pending Withdrawals', data.totalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
-                      _money('Available Amount', data.totalAvailableAmount, Icons.pending_actions, Colors.deepOrangeAccent),
-                      _money('Amount OnHold', data.totalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
+                      _money('Available Amount', data.totalAvailableAmount, Icons.account_balance, Colors.teal),
+                      _money('Withdrawable Amount', data.withdrawableAmount, Icons.savings, Colors.cyan.shade700),
+                      _money('Amount On Hold', data.totalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
+                      _money('Commission On Hold', data.totalCommissionOnHold, Icons.savings_outlined, Colors.purple),
+                      _money('Commission Paid', data.totalCommissionPaid, Icons.payments, Colors.purpleAccent),
                     ]),
                   ],
                 ),
+
+                const SizedBox(height: 6),
+
+                // ════════════════════════════════════════════════════════════
+                // 2. ALL SELF ASSIGNED QRs  (purple)
+                // ════════════════════════════════════════════════════════════
+                _SectionHeader(label: 'Self Assigned QRs', color: Colors.purple),
+
+                _Section(
+                  title: 'Self Assigned QR — Overview',
+                  accentColor: Colors.purple,
+                  children: [
+                    _metricGrid([
+                      _metric('Total Self QRs', data.totalSelfAssignedQrs, Icons.qr_code, Colors.purple),
+                      _metric('Self Transactions', data.selfTotalTxCount, Icons.swap_horiz, Colors.purple.shade300),
+                      _money('Total Self Pay-In', data.selfTotalAmountReceived, Icons.account_balance_wallet, Colors.teal),
+                      _money('Today Self Pay-In', data.todayPayInSelfAssignedQrs, Icons.today_rounded, Colors.blueGrey),
+                    ]),
+                  ],
+                ),
+
+                _Section(
+                  title: 'Self Assigned QR — Breakdown',
+                  accentColor: Colors.purple,
+                  children: [
+                    _metricGrid([
+                      _metric('Self QRs Active', data.selfQrCodesActive, Icons.check_circle, Colors.green.shade700),
+                      _metric('Self QRs Disabled', data.selfQrCodesDisabled, Icons.disabled_by_default, Colors.red.shade700),
+                    ]),
+                  ],
+                ),
+
+                _Section(
+                  title: 'Self Assigned QR — Payouts',
+                  accentColor: Colors.purple,
+                  children: [
+                    _metricGrid([
+                      _money('Self Amount Paid', data.selfTotalAmountPaid, Icons.outbox, Colors.green),
+                      _money('Self Pending Withdrawals', data.selfTotalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
+                      _money('Self Available Amount', data.selfTotalAvailableAmount, Icons.account_balance, Colors.teal),
+                      _money('Self Withdrawable Amount', data.selfWithdrawableAmount, Icons.savings, Colors.cyan.shade700),
+                      _money('Self Amount On Hold', data.selfTotalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
+                      _money('Self Commission On Hold', data.selfTotalCommissionOnHold, Icons.savings_outlined, Colors.purple),
+                      _money('Self Commission Paid', data.selfTotalAmountPaid, Icons.payments, Colors.purpleAccent),
+                    ]),
+                  ],
+                ),
+
+                const SizedBox(height: 6),
+
+                // ════════════════════════════════════════════════════════════
+                // 3. ALL USER ASSIGNED QRs  (teal)
+                // ════════════════════════════════════════════════════════════
+                _SectionHeader(label: 'User Assigned QRs', color: Colors.teal),
+
+                _Section(
+                  title: 'User Assigned QR — Overview',
+                  accentColor: Colors.teal,
+                  children: [
+                    _metricGrid([
+                      _metric('Total User QRs', data.totalUserAssignedQrs, Icons.qr_code_2, Colors.teal),
+                      _metric('User Transactions', data.userTotalTxCount, Icons.swap_horiz, Colors.teal.shade300),
+                      _money('Total User Pay-In', data.userTotalAmountReceived, Icons.account_balance_wallet, Colors.teal),
+                      _money('Today User Pay-In', data.todayPayInUserAssignedQrs, Icons.today_rounded, Colors.blueGrey),
+                    ]),
+                  ],
+                ),
+
+                _Section(
+                  title: 'User Assigned QR — Breakdown',
+                  accentColor: Colors.teal,
+                  children: [
+                    _metricGrid([
+                      _metric('User QRs Active', data.userQrCodesActive, Icons.check_circle, Colors.green.shade700),
+                      _metric('User QRs Disabled', data.userQrCodesDisabled, Icons.disabled_by_default, Colors.red.shade700),
+                    ]),
+                  ],
+                ),
+
+                _Section(
+                  title: 'User Assigned QR — Payouts',
+                  accentColor: Colors.teal,
+                  children: [
+                    _metricGrid([
+                      _money('User Amount Paid', data.userTotalAmountPaid, Icons.outbox, Colors.green),
+                      _money('User Pending Withdrawals', data.userTotalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
+                      _money('User Available Amount', data.userTotalAvailableAmount, Icons.account_balance, Colors.teal),
+                      _money('User Withdrawable Amount', data.userWithdrawableAmount, Icons.savings, Colors.cyan.shade700),
+                      _money('User Amount On Hold', data.userTotalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
+                      _money('User Commission On Hold', data.userTotalCommissionOnHold, Icons.savings_outlined, Colors.purple),
+                      _money('User Commission Paid', data.userTotalCommissionPaid, Icons.payments, Colors.purpleAccent),
+                    ]),
+                  ],
+                ),
+
+                const SizedBox(height: 6),
+
+                // ════════════════════════════════════════════════════════════
+                // 4. OTHER
+                // ════════════════════════════════════════════════════════════
+                _Section(
+                  title: 'Merchant Profit',
+                  children: [
+                    _metricGrid([
+                      _money('Total Merchant Profit', data.totalMerchantProfit, Icons.wallet, Colors.orange),
+                    ]),
+                  ],
+                ),
+
                 _Section(
                   title: 'Users & Merchants',
                   children: [
@@ -147,6 +262,7 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                     ]),
                   ],
                 ),
+
                 _Section(
                   title: 'Memberships',
                   children: [
@@ -156,8 +272,8 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                     ]),
                   ],
                 ),
+
                 const SizedBox(height: 24),
-                // Footer last updated
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -181,9 +297,9 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
       final cross = w > 1400 ? 5 : w > 1100 ? 4 : w > 800 ? 3 : w > 520 ? 2 : 1;
       return GridView.count(
         crossAxisCount: cross,
-        mainAxisSpacing: 8,       // was 12
-        crossAxisSpacing: 8,      // was 12
-        childAspectRatio: 3.4,    // was 2.6
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 3.4,
         physics: const NeverScrollableScrollPhysics(),
         shrinkWrap: true,
         children: items,
@@ -191,31 +307,11 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
     });
   }
 
-  Widget _metric(String title, int value, IconData icon, Color color) {
-    return _metricCard(
-      title: title,
-      leading: Icon(icon, color: color),
-      value: formatCount(value),
-      color: color,
-    );
-  }
+  Widget _metric(String title, int value, IconData icon, Color color) =>
+      _metricCard(title: title, leading: Icon(icon, color: color), value: formatCount(value), color: color);
 
-  Widget _money(String title, int paise, IconData icon, Color color) {
-    final formatted = formatMoneyPaise(paise);
-    return _metricCard(title: title, leading: Icon(icon, color: color), value: formatted, color: color);
-  }
-
-// Optional: for count + amount combos
-  Widget _moneyPair(String title, int count, int paise, Color color, IconData icon) {
-    final amt = formatMoneyPaise(paise);
-    final cnt = formatCount(count);
-    return _metricCard(
-      title: title,
-      leading: Icon(icon, color: color),
-      value: '$cnt • $amt',
-      color: color,
-    );
-  }
+  Widget _money(String title, int paise, IconData icon, Color color) =>
+      _metricCard(title: title, leading: Icon(icon, color: color), value: formatMoneyPaise(paise), color: color);
 
   Widget _metricCard({
     required String title,
@@ -226,27 +322,28 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
     return Tooltip(
       message: title,
       child: Container(
-        padding: const EdgeInsets.all(8), // was 12
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(10), // was 12
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color.withOpacity(0.15)),
         ),
         child: Row(
           children: [
             Container(
-              width: 32, height: 32,             // was 38
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: color.withOpacity(0.10),
                 borderRadius: BorderRadius.circular(8),
               ),
               alignment: Alignment.center,
-              child: IconTheme(                     // smaller icon
+              child: IconTheme(
                 data: IconThemeData(size: 18, color: color),
                 child: leading,
               ),
             ),
-            const SizedBox(width: 8),              // was 12
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,14 +351,14 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontSize: 11, color: Colors.black54), // was 12
+                    style: const TextStyle(fontSize: 11, color: Colors.black54),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4), // was 6
+                  const SizedBox(height: 4),
                   Text(
                     value,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700), // was 18
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -275,49 +372,82 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
   }
 
   String formatCount(num value) {
-    if (_showFullNumbers) {
-      return NumberFormat.decimalPattern('en_IN').format(value);
-    }
+    if (_showFullNumbers) return NumberFormat.decimalPattern('en_IN').format(value);
     return NumberFormat.compact(locale: 'en_IN').format(value);
   }
 
   String formatMoneyPaise(int paise) {
     final rupees = paise / 100.0;
     if (_showFullNumbers) {
-      // Full: ₹12,34,567.89
       return NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(rupees);
     }
-    // Compact: ₹12.3L, ₹1.2Cr
     return NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹').format(rupees);
   }
-
-
 }
 
-// ===== Sections and skeleton =====
+// ===== Section group header =====
+
+class _SectionHeader extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _SectionHeader({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, top: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 18,
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: color, letterSpacing: 0.3),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Divider(color: color.withOpacity(0.25), thickness: 1)),
+        ],
+      ),
+    );
+  }
+}
+
+// ===== Section card =====
 
 class _Section extends StatelessWidget {
   final String title;
   final List<Widget> children;
-  const _Section({required this.title, required this.children});
+  final Color? accentColor;
+  const _Section({required this.title, required this.children, this.accentColor});
 
   @override
-  @override
   Widget build(BuildContext context) {
+    final color = accentColor ?? Colors.blueGrey;
     return Card(
-      margin: const EdgeInsets.only(bottom: 10), // was 14
+      margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10), // was 12
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              const Icon(Icons.dashboard_customize, size: 16, color: Colors.blueGrey), // was 18
-              const SizedBox(width: 6), // was 8
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), // smaller
+              Icon(Icons.dashboard_customize, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: accentColor == null ? null : color,
+                ),
+              ),
             ]),
-            const SizedBox(height: 8), // was 12
+            const SizedBox(height: 8),
             ...children,
           ],
         ),
@@ -325,6 +455,8 @@ class _Section extends StatelessWidget {
     );
   }
 }
+
+// ===== Skeleton =====
 
 class _SubadminDashboardSkeleton extends StatelessWidget {
   const _SubadminDashboardSkeleton();
@@ -342,81 +474,132 @@ class _SubadminDashboardSkeleton extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        ...List.generate(4, (_) => Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: GridView.count(
-              crossAxisCount: 2,
-              childAspectRatio: 2.6,
-              physics: const NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              children: List.generate(4, (_) => shimmerBox()),
+        ...List.generate(
+          9,
+              (_) => Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: GridView.count(
+                crossAxisCount: 2,
+                childAspectRatio: 2.6,
+                physics: const NeverScrollableScrollPhysics(),
+                shrinkWrap: true,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                children: List.generate(4, (_) => shimmerBox()),
+              ),
             ),
           ),
-        )),
+        ),
       ],
     );
   }
 }
 
-// ===== Data model + API (mock now) =====
+// ===== Data model =====
 
 class SubAdminDashboardData {
-  // Overview
+  // ── Managed QRs ───────────────────────────────────────────────────────────
+  final int totalQrsAssignedToMerchant;
+  final int todayPayInAllQrs;
   final int totalTxCount;
   final int totalAmountReceived;
-  final int todayPayInAllQrs;
   final int totalAvailableAmount;
-  final int totalMerchantProfit;
-  final int totalQrsAssignedToMerchant;
-
-  // QR breakdown
+  final int withdrawableAmount;
   final int qrCodesActive;
   final int qrCodesDisabled;
-
-  // Transaction types
-  // final int chargebackCount;
-  // final int chargebackAmount;
-  // final int cyberCount;
-  // final int cyberAmount;
-  // final int refundCount;
-  // final int refundAmount;
-
-  // Payouts
   final int totalAmountPaid;
   final int totalWithdrawalPendingAmount;
   final int totalAmountOnHold;
+  final int totalCommissionOnHold;
+  final int totalCommissionPaid;
 
-  // Users/Merchants
+  // ── Self Assigned QRs ─────────────────────────────────────────────────────
+  final int totalSelfAssignedQrs;
+  final int todayPayInSelfAssignedQrs;
+  final int selfTotalTxCount;
+  final int selfTotalAmountReceived;
+  final int selfTotalAvailableAmount;
+  final int selfWithdrawableAmount;
+  final int selfQrCodesActive;
+  final int selfQrCodesDisabled;
+  final int selfTotalAmountPaid;
+  final int selfTotalWithdrawalPendingAmount;
+  final int selfTotalAmountOnHold;
+  final int selfTotalCommissionOnHold;
+  final int selfTotalCommissionPaid;
+
+  // ── User Assigned QRs ─────────────────────────────────────────────────────
+  final int totalUserAssignedQrs;
+  final int todayPayInUserAssignedQrs;
+  final int userTotalTxCount;
+  final int userTotalAmountReceived;
+  final int userTotalAvailableAmount;
+  final int userWithdrawableAmount;
+  final int userQrCodesActive;
+  final int userQrCodesDisabled;
+  final int userTotalAmountPaid;
+  final int userTotalWithdrawalPendingAmount;
+  final int userTotalAmountOnHold;
+  final int userTotalCommissionOnHold;
+  final int userTotalCommissionPaid;
+
+  // ── Other ─────────────────────────────────────────────────────────────────
+  final int totalMerchantProfit;
   final int activeUsers;
   final int disabledUsers;
   final int totalUsers;
-
-  // Memberships
   final int totalMembershipPurchased;
   final int pendingMembershipUsers;
 
   const SubAdminDashboardData({
+    required this.totalQrsAssignedToMerchant,
+    required this.todayPayInAllQrs,
     required this.totalTxCount,
     required this.totalAmountReceived,
-    required this.todayPayInAllQrs,
     required this.totalAvailableAmount,
-    required this.totalMerchantProfit,
-    required this.totalQrsAssignedToMerchant,
+    required this.withdrawableAmount,
     required this.qrCodesActive,
     required this.qrCodesDisabled,
-    // required this.chargebackCount,
-    // required this.chargebackAmount,
-    // required this.cyberCount,
-    // required this.cyberAmount,
-    // required this.refundCount,
-    // required this.refundAmount,
     required this.totalAmountPaid,
     required this.totalWithdrawalPendingAmount,
     required this.totalAmountOnHold,
+    required this.totalCommissionOnHold,
+    required this.totalCommissionPaid,
+
+
+    required this.totalSelfAssignedQrs,
+    required this.todayPayInSelfAssignedQrs,
+    required this.selfTotalTxCount,
+    required this.selfTotalAmountReceived,
+    required this.selfTotalAvailableAmount,
+    required this.selfWithdrawableAmount,
+    required this.selfQrCodesActive,
+    required this.selfQrCodesDisabled,
+    required this.selfTotalAmountPaid,
+    required this.selfTotalWithdrawalPendingAmount,
+    required this.selfTotalAmountOnHold,
+    required this.selfTotalCommissionOnHold,
+    required this.selfTotalCommissionPaid,
+
+
+    required this.totalUserAssignedQrs,
+    required this.todayPayInUserAssignedQrs,
+    required this.userTotalTxCount,
+    required this.userTotalAmountReceived,
+    required this.userTotalAvailableAmount,
+    required this.userWithdrawableAmount,
+    required this.userQrCodesActive,
+    required this.userQrCodesDisabled,
+    required this.userTotalAmountPaid,
+    required this.userTotalWithdrawalPendingAmount,
+    required this.userTotalAmountOnHold,
+    required this.userTotalCommissionOnHold,
+    required this.userTotalCommissionPaid,
+
+
+    required this.totalMerchantProfit,
     required this.activeUsers,
     required this.disabledUsers,
     required this.totalUsers,
@@ -424,36 +607,65 @@ class SubAdminDashboardData {
     required this.pendingMembershipUsers,
   });
 
-  factory SubAdminDashboardData.fromJson(Map<String, dynamic> j) => SubAdminDashboardData(
-      totalTxCount: j['totalTxCount'],
-      totalAmountReceived: j['totalAmountReceived'],
-      todayPayInAllQrs: j['todayPayInAllQrs'],
-      totalAvailableAmount: j['totalAvailableAmount'],
-      totalMerchantProfit: j['totalMerchantProfit'],
-      totalQrsAssignedToMerchant: j['totalQrsAssignedToMerchant'],
-      qrCodesActive: j['qrCodesActive'],
-      qrCodesDisabled : j['qrCodesDisabled'],
-      // chargebackCount: j['chargebackCount'],
-      // chargebackAmount: j['chargebackAmount'],
-      // cyberCount: j['cyberCount'],
-      // cyberAmount: j['cyberAmount'],
-      // refundCount: j['refundCount'],
-      // refundAmount: j['refundAmount'],
-      totalAmountPaid: j['totalAmountPaid'],
-      totalWithdrawalPendingAmount: j['totalWithdrawalPendingAmount'],
-      totalAmountOnHold : j['totalAmountOnHold'],
-      activeUsers: j['activeUsers'],
-      disabledUsers: j['disabledUsers'],
-      totalUsers: j['totalUsers'],
-      totalMembershipPurchased: j['totalMembershipPurchased'],
-      pendingMembershipUsers: j['pendingMembershipUsers'],
-     );
+  factory SubAdminDashboardData.fromJson(Map<String, dynamic> j) =>
+      SubAdminDashboardData(
+        // Managed QRs
+        totalQrsAssignedToMerchant:    j['totalQrsAssignedToMerchant'],
+        todayPayInAllQrs:              j['todayPayInAllQrs'],
+        totalTxCount:                  j['totalTxCount'],
+        totalAmountReceived:           j['totalAmountReceived'],
+        totalAvailableAmount:          j['totalAvailableAmount'],
+        withdrawableAmount:            j['withdrawableAmount'],
+        qrCodesActive:                 j['qrCodesActive'],
+        qrCodesDisabled:               j['qrCodesDisabled'],
+        totalAmountPaid:               j['totalAmountPaid'],
+        totalWithdrawalPendingAmount:  j['totalWithdrawalPendingAmount'],
+        totalAmountOnHold:             j['totalAmountOnHold'],
+        totalCommissionOnHold:             j['totalCommissionOnHold'],
+        totalCommissionPaid:             j['totalCommissionPaid'],
+
+        // Self Assigned QRs
+        totalSelfAssignedQrs:              j['totalSelfAssignedQrs'],
+        todayPayInSelfAssignedQrs:         j['todayPayInSelfAssignedQrs'],
+        selfTotalTxCount:                  j['selfTotalTxCount'],
+        selfTotalAmountReceived:           j['selfTotalAmountReceived'],
+        selfTotalAvailableAmount:          j['selfTotalAvailableAmount'],
+        selfWithdrawableAmount:            j['selfWithdrawableAmount'],
+        selfQrCodesActive:                 j['selfQrCodesActive'],
+        selfQrCodesDisabled:               j['selfQrCodesDisabled'],
+        selfTotalAmountPaid:               j['selfTotalAmountPaid'],
+        selfTotalWithdrawalPendingAmount:  j['selfTotalWithdrawalPendingAmount'],
+        selfTotalAmountOnHold:             j['selfTotalAmountOnHold'],
+        selfTotalCommissionOnHold:         j['selfTotalCommissionOnHold'],
+        selfTotalCommissionPaid:           j['selfTotalCommissionPaid'],
+
+        // User Assigned QRs
+        totalUserAssignedQrs:              j['totalUserAssignedQrs'],
+        todayPayInUserAssignedQrs:         j['todayPayInUserAssignedQrs'],
+        userTotalTxCount:                  j['userTotalTxCount'],
+        userTotalAmountReceived:           j['userTotalAmountReceived'],
+        userTotalAvailableAmount:          j['userTotalAvailableAmount'],
+        userWithdrawableAmount:            j['userWithdrawableAmount'],
+        userQrCodesActive:                 j['userQrCodesActive'],
+        userQrCodesDisabled:               j['userQrCodesDisabled'],
+        userTotalAmountPaid:               j['userTotalAmountPaid'],
+        userTotalWithdrawalPendingAmount:  j['userTotalWithdrawalPendingAmount'],
+        userTotalAmountOnHold:             j['userTotalAmountOnHold'],
+        userTotalCommissionOnHold:         j['userTotalCommissionOnHold'],
+        userTotalCommissionPaid:           j['userTotalCommissionPaid'],
+
+        // Other
+        totalMerchantProfit:       j['totalMerchantProfit'],
+        activeUsers:               j['activeUsers'],
+        disabledUsers:             j['disabledUsers'],
+        totalUsers:                j['totalUsers'],
+        totalMembershipPurchased:  j['totalMembershipPurchased'],
+        pendingMembershipUsers:    j['pendingMembershipUsers'],
+      );
 }
 
-SubAdminDashboardData? _cache;
-DateTime? _cacheAt;
+// ===== API fetch =====
 
-// Fetch API with fallback to dummy
 Future<SubAdminDashboardData> fetchSubadminDashboard({
   required String merchantId,
   bool force = false,
@@ -461,140 +673,74 @@ Future<SubAdminDashboardData> fetchSubadminDashboard({
   try {
     final jwt = await AppWriteService().getJWT();
     final uri = Uri.parse('${AppConstants.baseApiUrl}/admin/dashboard/subadmin/$merchantId');
-    // print(uri.toString());
     final resp = await http.get(
       uri,
       headers: {'Authorization': 'Bearer $jwt', 'Accept': 'application/json'},
     );
 
     if (resp.statusCode != 200) {
-      // Fallback to dummy
       throw Exception('Failed to fetch dashboard: ${resp.statusCode} ${resp.body}');
     }
 
     final Map<String, dynamic> raw = json.decode(resp.body) as Map<String, dynamic>;
-    // Normalize any nulls
-    final normalized = <String, dynamic>{
-      'totalTxCount': raw['totalTxCount'] ?? 0,
-      'totalAmountReceived': raw['totalAmountReceived'] ?? 0,
-      'todayPayInAllQrs': raw['todayPayInAllQrs'] ?? 0,
-      'totalAvailableAmount': raw['totalAvailableAmount'] ?? 0,
-      'totalMerchantProfit': raw['totalMerchantProfit'] ?? 0,
-      'totalQrsAssignedToMerchant': raw['totalQrsAssignedToMerchant'] ?? 0,
-      'qrCodesActive': raw['qrCodesActive'] ?? 0,
-      'qrCodesDisabled': raw['qrCodesDisabled'] ?? 0,
-      'totalAmountPaid': raw['totalAmountPaid'] ?? 0,
-      'totalWithdrawalPendingAmount': raw['totalWithdrawalPendingAmount'] ?? 0,
-      'totalAmountOnHold': raw['totalAmountOnHold'] ?? 0,
-      'activeUsers': raw['activeUsers'] ?? 0,
-      'disabledUsers': raw['disabledUsers'] ?? 0,
-      'totalUsers': raw['totalUsers'] ?? 0,
-      'totalMembershipPurchased': raw['totalMembershipPurchased'] ?? 0,
-      'pendingMembershipUsers': raw['pendingMembershipUsers'] ?? 0,
-    };
 
-    // print(normalized);
+    final normalized = <String, dynamic>{
+      // Managed QRs
+      'totalQrsAssignedToMerchant':    raw['totalQrsAssignedToMerchant']    ?? 0,
+      'todayPayInAllQrs':              raw['todayPayInAllQrs']              ?? 0,
+      'totalTxCount':                  raw['totalTxCount']                  ?? 0,
+      'totalAmountReceived':           raw['totalAmountReceived']           ?? 0,
+      'totalAvailableAmount':          raw['totalAvailableAmount']          ?? 0,
+      'withdrawableAmount':            raw['withdrawableAmount']            ?? 0,
+      'qrCodesActive':                 raw['qrCodesActive']                 ?? 0,
+      'qrCodesDisabled':               raw['qrCodesDisabled']               ?? 0,
+      'totalAmountPaid':               raw['totalAmountPaid']               ?? 0,
+      'totalWithdrawalPendingAmount':  raw['totalWithdrawalPendingAmount']  ?? 0,
+      'totalAmountOnHold':             raw['totalAmountOnHold']             ?? 0,
+      'totalCommissionOnHold':             raw['totalCommissionOnHold']             ?? 0,
+      'totalCommissionPaid':             raw['totalCommissionPaid']             ?? 0,
+
+      // Self Assigned QRs
+      'totalSelfAssignedQrs':              raw['totalSelfAssignedQrs']              ?? 0,
+      'todayPayInSelfAssignedQrs':         raw['todayPayInSelfAssignedQrs']         ?? 0,
+      'selfTotalTxCount':                  raw['selfTotalTxCount']                  ?? 0,
+      'selfTotalAmountReceived':           raw['selfTotalAmountReceived']           ?? 0,
+      'selfTotalAvailableAmount':          raw['selfTotalAvailableAmount']          ?? 0,
+      'selfWithdrawableAmount':            raw['selfWithdrawableAmount']            ?? 0,
+      'selfQrCodesActive':                 raw['selfQrCodesActive']                 ?? 0,
+      'selfQrCodesDisabled':               raw['selfQrCodesDisabled']               ?? 0,
+      'selfTotalAmountPaid':               raw['selfTotalAmountPaid']               ?? 0,
+      'selfTotalWithdrawalPendingAmount':  raw['selfTotalWithdrawalPendingAmount']  ?? 0,
+      'selfTotalAmountOnHold':             raw['selfTotalAmountOnHold']             ?? 0,
+      'selfTotalCommissionOnHold':             raw['selfTotalCommissionOnHold']             ?? 0,
+      'selfTotalCommissionPaid':             raw['selfTotalCommissionPaid']             ?? 0,
+
+      // User Assigned QRs
+      'totalUserAssignedQrs':              raw['totalUserAssignedQrs']              ?? 0,
+      'todayPayInUserAssignedQrs':         raw['todayPayInUserAssignedQrs']         ?? 0,
+      'userTotalTxCount':                  raw['userTotalTxCount']                  ?? 0,
+      'userTotalAmountReceived':           raw['userTotalAmountReceived']           ?? 0,
+      'userTotalAvailableAmount':          raw['userTotalAvailableAmount']          ?? 0,
+      'userWithdrawableAmount':            raw['userWithdrawableAmount']            ?? 0,
+      'userQrCodesActive':                 raw['userQrCodesActive']                 ?? 0,
+      'userQrCodesDisabled':               raw['userQrCodesDisabled']               ?? 0,
+      'userTotalAmountPaid':               raw['userTotalAmountPaid']               ?? 0,
+      'userTotalWithdrawalPendingAmount':  raw['userTotalWithdrawalPendingAmount']  ?? 0,
+      'userTotalAmountOnHold':             raw['userTotalAmountOnHold']             ?? 0,
+      'userTotalCommissionOnHold':             raw['userTotalCommissionOnHold']             ?? 0,
+      'userTotalCommissionPaid':             raw['userTotalCommissionPaid']             ?? 0,
+
+      // Other
+      'totalMerchantProfit':       raw['totalMerchantProfit']       ?? 0,
+      'activeUsers':               raw['activeUsers']               ?? 0,
+      'disabledUsers':             raw['disabledUsers']             ?? 0,
+      'totalUsers':                raw['totalUsers']                ?? 0,
+      'totalMembershipPurchased':  raw['totalMembershipPurchased']  ?? 0,
+      'pendingMembershipUsers':    raw['pendingMembershipUsers']    ?? 0,
+    };
 
     return SubAdminDashboardData.fromJson(normalized);
   } catch (e) {
-    // Network or parsing error → fallback
     throw Exception('Failed to fetch dashboard');
   }
 }
-
-// Future<SubAdminDashboardData> fetchDashboardDummy({bool force = false}) async {
-//   final data = {
-//     'totalTxCount': 1250,
-//     'totalAmountReceived': 15235200,
-//     'totalMerchantProfit': 250000,
-//     'totalQrsAssignedToMerchant': 10,
-//     'qrCodesActive': 9,
-//     // If you also store disabled in backend, include it; else keep a default:
-//     'qrCodesDisabled': 1,
-//
-//     // 'chargebackCount': raw['chargebackCount'] ?? 0,
-//     // 'chargebackAmount': raw['chargebackAmount'] ?? 0,
-//     // 'cyberCount': raw['cyberCount'] ?? 0,
-//     // 'cyberAmount': raw['cyberAmount'] ?? 0,
-//     // 'refundCount': raw['refundCount'] ?? 0,
-//     // 'refundAmount': raw['refundAmount'] ?? 0,
-//
-//     'totalAmountPaid': 10235200,
-//     'totalWithdrawalPendingAmount': 5235200,
-//
-//     'activeUsers': 5,
-//     'disabledUsers': 1,
-//     'totalUsers': 6,
-//
-//     'totalMembershipPurchased': 5,
-//     'pendingMembershipUsers': 1,
-//   };
-//
-//   return SubAdminDashboardData.fromJson(data);
-// }
-//
-// Future<SubAdminDashboardData> fetchDashboard({bool force = false}) async {
-//   // if (!force && _cache != null && _cacheAt != null) {
-//   //   final age = DateTime.now().difference(_cacheAt!);
-//   //   if (age.inSeconds < 30) return _cache!;
-//   // }
-//
-//   final jwt = await AppWriteService().getJWT();
-//   final uri = Uri.parse('${AppConstants.baseApiUrl}/admin/dashboard/counters');
-//   final resp = await http.get(uri, headers: {'Authorization': 'Bearer $jwt', 'Accept': 'application/json'});
-//
-//   if (resp.statusCode != 200) {
-//     throw Exception('Failed to fetch dashboard: ${resp.statusCode} ${resp.body}');
-//   }
-//
-//   // print(resp.body);
-//
-//   final jsonMap = json.decode(resp.body) as Map<String, dynamic>;
-//   // final data = DashboardData.fromJson(jsonMap);
-//   //
-//   // _cache = data;
-//   // _cacheAt = DateTime.now();
-//   // return data;
-//
-//   final raw = json.decode(resp.body) as Map<String, dynamic>;
-//   final data = {
-//     'totalTxCount': raw['totalTxCount'] ?? 0,
-//     'totalAmountReceived': raw['totalAmountReceived'] ?? 0,
-//     'todayPayInAllQrs': raw['todayPayInAllQrs'] ?? 0,
-//     'totalAdminProfit': raw['totalAdminProfit'] ?? 0,
-//     'totalMerchantProfit': raw['totalMerchantProfit'] ?? 0,
-//     'totalQrsUploaded': raw['totalQrsUploaded'] ?? 0,
-//     'totalQrsAssignedToMerchant': raw['totalQrsAssignedToMerchant'] ?? 0,
-//     'totalPinelabsQrs': raw['totalPinelabsQrs'] ?? 0,
-//     'totalPaytmQrs': raw['totalPaytmQrs'] ?? 0,
-//     'totalOtherQrs': raw['totalOtherQrs'] ?? 0,
-//     'qrCodesActive': raw['qrCodesActive'] ?? 0,
-//     // If you also store disabled in backend, include it; else keep a default:
-//     'qrCodesDisabled': raw['qrCodesDisabled'] ?? 0,
-//
-//     'totalManualTx': raw['totalManualTx'] ?? 0,
-//     'totalApiTx': raw['totalApiTx'] ?? 0,
-//     'chargebackCount': raw['chargebackCount'] ?? 0,
-//     'chargebackAmount': raw['chargebackAmount'] ?? 0,
-//     'cyberCount': raw['cyberCount'] ?? 0,
-//     'cyberAmount': raw['cyberAmount'] ?? 0,
-//     'refundCount': raw['refundCount'] ?? 0,
-//     'refundAmount': raw['refundAmount'] ?? 0,
-//
-//     'totalAmountPaid': raw['totalAmountPaid'] ?? 0,
-//     'totalWithdrawalPendingAmount': raw['totalWithdrawalPendingAmount'] ?? 0,
-//
-//     'activeUsers': raw['activeUsers'] ?? 0,
-//     'disabledUsers': raw['disabledUsers'] ?? 0,
-//     'merchantActive': raw['merchantActive'] ?? 0,
-//     'merchantPending': raw['merchantPending'] ?? 0,
-//     'merchantDisabled': raw['merchantDisabled'] ?? 0,
-//     'totalUsers': raw['totalUsers'] ?? 0,
-//
-//     'totalMembershipPurchased': raw['totalMembershipPurchased'] ?? 0,
-//     'pendingMembershipUsers': raw['pendingMembershipUsers'] ?? 0,
-//   };
-//
-//   return SubAdminDashboardData.fromJson(data);
-//
-// }

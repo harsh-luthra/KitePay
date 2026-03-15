@@ -47,6 +47,45 @@ class WithdrawService {
     }
   }
 
+  static Future<Map<String, dynamic>> checkWithdrawalAllowedNow({required String jwtToken}) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/user/withdrawal_time_check'),
+        headers: {
+          'Authorization': 'Bearer $jwtToken',   // ✅ authenticateToken reads this
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        return {
+          'isAllowed': data['isAllowed'] ?? false,
+          'message': data['message'] ?? 'Unknown error.',
+        };
+      } else if (response.statusCode == 401) {
+        return {
+          'isAllowed': false,
+          'message': 'Session expired. Please log in again.',
+        };
+      } else {
+        return {
+          'isAllowed': false,
+          'message': 'Server error. Please try again later.',
+        };
+      }
+    } on TimeoutException {
+      return {
+        'isAllowed': false,
+        'message': 'Request timed out. Please check your internet connection.',
+      };
+    } catch (e) {
+      return {
+        'isAllowed': false,
+        'message': 'Something went wrong. Please try again.',
+      };
+    }
+  }
 
   static Future<bool> submitWithdrawRequest( {required String jwtToken, required WithdrawalRequest request } ) async {
     try {
@@ -150,7 +189,7 @@ class WithdrawService {
         if (cursor != null) 'cursor': cursor,
       };
 
-      final uri = Uri.parse('$_baseUrl/user/user_withdrawals').replace(queryParameters: qp);
+      final uri = Uri.parse('$_baseUrl/user/user_withdrawals_paginated').replace(queryParameters: qp);
       final response = await http.get(
         uri,
         headers: {

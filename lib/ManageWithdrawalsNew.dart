@@ -1086,15 +1086,60 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                 icon: const Icon(Icons.add),
                 tooltip: 'New Request',
                 onPressed: () async {
-                  if (shouldSkipIndependenceDayDialog() == false) {
-                    showIndependenceDayDialog(context);
+                  final allList = pages['all']!.items;
+
+                  // Check max pending limit first
+                  if (hasReachedMaxPending(allList, AppConfig().maxWithdrawalRequests)) {
+                    showMaxPendingDialog(context, AppConfig().maxWithdrawalRequests);
                     return;
                   }
-                  final allList = pages['all']!.items;
-                  if (!hasReachedMaxPending(allList, AppConfig().maxWithdrawalRequests)) {
+
+                  // Show loading indicator
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (_) => const Center(child: CircularProgressIndicator()),
+                  );
+
+                  // Check withdrawal time window from backend
+                  final jwtToken = await AppWriteService().getJWT();
+                  final result = await WithdrawService.checkWithdrawalAllowedNow(jwtToken: jwtToken);
+
+                  // Dismiss loading
+                  if (context.mounted) Navigator.of(context).pop();
+
+                  if (!result['isAllowed']) {
+                    // Show error dialog with backend message
+                    if (context.mounted) {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Row(
+                            children: [
+                              Icon(Icons.access_time, color: Colors.orange),
+                              SizedBox(width: 8),
+                              Text('Withdrawal Not Allowed'),
+                            ],
+                          ),
+                          content: Text(result['message']),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(),
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    return;
+                  }
+
+                  // All checks passed — navigate to form
+                  if (context.mounted) {
                     final ok = await Navigator.of(context).push<bool>(
                       MaterialPageRoute(builder: (_) => WithdrawalFormPage()),
                     );
+
                     if (ok == true) {
                       await _resetTab(filter, fetch: true);
                       pages['all'] = PageState<WithdrawalRequest>();
@@ -1103,8 +1148,6 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                       setState(() {});
                       _refreshAllForced();
                     }
-                  } else {
-                    showMaxPendingDialog(context, AppConfig().maxWithdrawalRequests);
                   }
                 },
               ),

@@ -121,6 +121,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                   children: [
                     _metricGrid([
                       _money('Available Amount', data.totalAvailableAmount, Icons.account_balance, Colors.green),
+                      _money('Withdrawable Amount', data.withdrawableAmount, Icons.account_balance_wallet, Colors.green),
                       _money('On Hold', data.totalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrange),
                       _money('Approved Withdrawals', data.totalWithdrawalApprovedAmount, Icons.outbox, Colors.blue),
                       _money('Pending Withdrawals', data.totalWithdrawalPendingAmount, Icons.pending_actions, Colors.orange),
@@ -327,6 +328,7 @@ class UserDashboardData {
   final int totalWithdrawalApprovedAmount; // sum of qr.withdrawalApprovedAmount (paise)
   final int totalWithdrawalPendingAmount;  // sum of qr.withdrawalRequestedAmount (paise)
   final int totalAvailableAmount;          // sum of qr.amountAvailableForWithdrawal (paise)
+  final int withdrawableAmount;            // withdrawableAmount = totalAvailableAmount - todayPayInAllQrs
   final int totalAmountOnHold;             // sum of qr.amountOnHold (paise)
 
   // Commission
@@ -343,6 +345,7 @@ class UserDashboardData {
     required this.totalWithdrawalApprovedAmount,
     required this.totalWithdrawalPendingAmount,
     required this.totalAvailableAmount,
+    required this.withdrawableAmount,
     required this.totalAmountOnHold,
     required this.totalCommissionOnHold,
     required this.totalCommissionPaid,
@@ -355,6 +358,7 @@ class UserDashboardData {
     qrCodesDisabled: j['qrCodesDisabled'] ?? 0,
     totalTxCount: j['totalTxCount'] ?? 0,
     totalAmountPayIn: j['totalAmountPayIn'] ?? 0,
+    withdrawableAmount: j['withdrawableAmount'] ?? 0,
     totalWithdrawalApprovedAmount: j['totalWithdrawalApprovedAmount'] ?? 0,
     totalWithdrawalPendingAmount: j['totalWithdrawalPendingAmount'] ?? 0,
     totalAvailableAmount: j['totalAvailableAmount'] ?? 0,
@@ -386,6 +390,7 @@ Future<UserDashboardData> fetchUserDashboard({required String userId}) async {
     'totalWithdrawalApprovedAmount': raw['totalWithdrawalApprovedAmount'] ?? 0,
     'totalWithdrawalPendingAmount': raw['totalWithdrawalPendingAmount'] ?? 0,
     'totalAvailableAmount': raw['totalAvailableAmount'] ?? 0,
+    'withdrawableAmount': raw['withdrawableAmount'] ?? 0,
     'totalAmountOnHold': raw['totalAmountOnHold'] ?? 0,
     'totalCommissionOnHold': raw['totalCommissionOnHold'] ?? 0,
     'totalCommissionPaid': raw['totalCommissionPaid'] ?? 0,

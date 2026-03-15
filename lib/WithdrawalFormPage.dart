@@ -97,7 +97,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
       setState(() {
         _withdrawalAccounts = paginated.accounts;
         _isLoadingAccounts = false;
-        print(_withdrawalAccounts);
+        // print(_withdrawalAccounts);
       });
     } catch (e) {
       setState(() => _isLoadingAccounts = false);
@@ -279,7 +279,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
       if (_qrCodesAssignedToMe.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            print("Loaded User Qr codes");
+            // print("Loaded User Qr codes");
             _showQrSelectionDialog();
           }
         });
@@ -441,16 +441,22 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                               final statusColor = qr.isActive ? Colors.green : Colors.red;
 
                               return InkWell(
-                                onDoubleTap: () {
+                                onDoubleTap: qr.isActive ? () {  // Also protect double-tap
                                   tempSelection = qr;
-                                  // commit selection
                                   setState(() => selectedQrCode = tempSelection);
                                   Navigator.pop(context);
                                   _scaffoldMessengerKey.currentState?.showSnackBar(
                                     SnackBar(content: Text('✅ Selected QR: ${qr.qrId}')),
                                   );
+                                } : null,
+                                // onTap: () => setLocal(() => tempSelection = qr),
+                                onTap: () {
+                                  if (!qr.isActive) {
+                                    _showInactiveQrDialog(context);
+                                    return;
+                                  }
+                                  setLocal(() => tempSelection = qr);
                                 },
-                                onTap: () => setLocal(() => tempSelection = qr),
                                 child: ListTile(
                                   leading: CircleAvatar(
                                     radius: 10,
@@ -538,6 +544,34 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
           ),
         );
       },
+    );
+  }
+
+  void _showInactiveQrDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Row(
+          children: [
+            Icon(Icons.error, color: Colors.red, size: 28),
+            SizedBox(width: 12),
+            Text('Inactive QR Code'),
+          ],
+        ),
+        content: const Text(
+          'Inactive QR codes cannot be used for withdrawal requests.\n\nPlease select an active QR code.',
+          style: TextStyle(fontSize: 15),
+        ),
+        actionsPadding: const EdgeInsets.all(16),
+        actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -724,7 +758,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
         preAmount: requestedAmount.toDouble(),
       );
 
-      print(preview);
+      // print(preview);
 
       if (preview == null) {
         await showResultDialog(
