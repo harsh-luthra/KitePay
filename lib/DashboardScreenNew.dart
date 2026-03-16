@@ -25,7 +25,6 @@ import 'CommissionSummaryBoardPage.dart';
 import 'ManageApiMerchantsNew.dart';
 import 'ManageUsersScreen.dart';
 import 'ManageQrScreen.dart';
-import 'ManageUsersScreenRefactor.dart';
 import 'ManageWithdrawalsNew.dart';
 import 'MemberShipPlansScreen.dart';
 import 'MyMetaApi.dart';

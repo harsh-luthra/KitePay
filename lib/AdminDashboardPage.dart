@@ -99,6 +99,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       _metric('Total Transactions', data.totalTxCount, Icons.swap_horiz, Colors.indigo),
                       _money('Total Pay-In', data.totalAmountReceived, Icons.account_balance_wallet, Colors.teal),
                       _money('Today Pay-In', data.todayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
+                      _money('Yesterday Pay-In', data.yesterdayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
                       _money('Admin Profit', data.totalAdminProfit, Icons.leaderboard, Colors.deepPurple),
                       _money('Merchant Profit', data.totalMerchantProfit, Icons.wallet, Colors.orange),
                       _metric('QR Codes Uploaded', data.totalQrsUploaded, Icons.qr_code_2, Colors.blueGrey),
@@ -110,7 +111,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   title: 'QR Breakdown',
                   children: [
                     _metricGrid([
-                      _metric('Pinelabs QRs', data.totalPinelabsQrs, Icons.qr_code_scanner, Colors.green),
+                      _metric('Pine-labs QRs', data.totalPinelabsQrs, Icons.qr_code_scanner, Colors.green),
                       _metric('Paytm QRs', data.totalPaytmQrs, Icons.qr_code_scanner, Colors.blue),
                       _metric('Other QRs', data.totalOtherQrs, Icons.qr_code_scanner, Colors.grey),
                       _metric('QRs Active', data.qrCodesActive, Icons.check_circle, Colors.green.shade700),
@@ -374,6 +375,7 @@ class DashboardData {
   final int totalTxCount;
   final int totalAmountReceived;
   final int todayPayInAllQrs;
+  final int yesterdayPayInAllQrs;
   final int totalAdminProfit;
   final int totalMerchantProfit;
   final int totalQrsUploaded;
@@ -416,6 +418,7 @@ class DashboardData {
     required this.totalTxCount,
     required this.totalAmountReceived,
     required this.todayPayInAllQrs,
+    required this.yesterdayPayInAllQrs,
     required this.totalAdminProfit,
     required this.totalMerchantProfit,
     required this.totalQrsUploaded,
@@ -449,6 +452,7 @@ class DashboardData {
       totalTxCount: j['totalTxCount'],
       totalAmountReceived: j['totalAmountReceived'],
       todayPayInAllQrs: j['todayPayInAllQrs'],
+      yesterdayPayInAllQrs: j['yesterdayPayInAllQrs'],
       totalAdminProfit: j['totalAdminProfit'],
       totalMerchantProfit: j['totalMerchantProfit'],
       totalQrsUploaded: j['totalQrsUploaded'],
@@ -519,6 +523,7 @@ Future<DashboardData> fetchDashboard({bool force = false}) async {
     'totalTxCount': raw['totalTxCount'] ?? 0,
     'totalAmountReceived': raw['totalAmountReceived'] ?? 0,
     'todayPayInAllQrs': raw['todayPayInAllQrs'] ?? 0,
+    'yesterdayPayInAllQrs': raw['yesterdayPayInAllQrs'] ?? 0,
     'totalAdminProfit': raw['totalAdminProfit'] ?? 0,
     'totalMerchantProfit': raw['totalMerchantProfit'] ?? 0,
     'totalQrsUploaded': raw['totalQrsUploaded'] ?? 0,

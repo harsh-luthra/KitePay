@@ -29,8 +29,8 @@ class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
     if(!widget.userMode){
       String name = widget.userMeta.name;
       String email = widget.userMeta.email;
-      print("Name: $name");
-      print("Email: $email");
+      // print("Name: $name");
+      // print("Email: $email");
     }
   }
 

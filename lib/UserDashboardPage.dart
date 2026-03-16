@@ -120,6 +120,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                   children: [
                     _metricGrid([
                       _money('Today Available Amount', data.totalAvailableAmount, Icons.account_balance, Colors.green),
+                      _money('Yesterday Pay-In', data.yesterdayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
                       _money('Today Pay-In', data.todayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
                       _money('Withdrawable Amount', data.withdrawableAmount, Icons.account_balance_wallet, Colors.green),
                       _money('On Hold', data.totalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrange),
@@ -317,6 +318,7 @@ class UserDashboardData {
   // QR breakdown
   final int totalQrs;
   final int todayPayInAllQrs;
+  final int yesterdayPayInAllQrs;
   final int qrCodesActive;
   final int qrCodesDisabled;
 
@@ -338,6 +340,7 @@ class UserDashboardData {
   const UserDashboardData({
     required this.totalQrs,
     required this.todayPayInAllQrs,
+    required this.yesterdayPayInAllQrs,
     required this.qrCodesActive,
     required this.qrCodesDisabled,
     required this.totalTxCount,
@@ -354,6 +357,7 @@ class UserDashboardData {
   factory UserDashboardData.fromJson(Map<String, dynamic> j) => UserDashboardData(
     totalQrs: j['totalQrs'] ?? 0,
     todayPayInAllQrs: j['todayPayInAllQrs'] ?? 0,
+    yesterdayPayInAllQrs: j['yesterdayPayInAllQrs'] ?? 0,
     qrCodesActive: j['qrCodesActive'] ?? 0,
     qrCodesDisabled: j['qrCodesDisabled'] ?? 0,
     totalTxCount: j['totalTxCount'] ?? 0,
@@ -383,6 +387,7 @@ Future<UserDashboardData> fetchUserDashboard({required String userId}) async {
   final normalized = <String, dynamic>{
     'totalQrs': raw['totalQrs'] ?? 0,
     'todayPayInAllQrs': raw['todayPayInAllQrs'] ?? 0,
+    'yesterdayPayInAllQrs': raw['yesterdayPayInAllQrs'] ?? 0,
     'qrCodesActive': raw['qrCodesActive'] ?? 0,
     'qrCodesDisabled': raw['qrCodesDisabled'] ?? 0,
     'totalTxCount': raw['totalTxCount'] ?? 0,

@@ -10,22 +10,22 @@ class AppWriteService {
   late final Databases databases;
   late final Storage storage;
 
-  /// Replace with your Appwrite values
-  static const String endpoint = 'https://fra.cloud.appwrite.io/v1'; // or your self-hosted URL
+  static const String endpoint = 'https://fra.cloud.appwrite.io/v1';
   static const String projectId = '688c98fd002bfe3cf596';
 
-// Define a key for your JWT in SharedPreferences
-  static const String jwtKey = 'appwrite_jwt';
+  static const String _jwtKey = 'appwrite_jwt';
+  static const String _jwtExpiryKey = 'appwrite_jwt_expiry';
 
-  factory AppWriteService() {
-    return _instance;
-  }
+  // Refresh 2 minutes before actual expiry to avoid edge cases
+  static const int _expiryBufferMinutes = 2;
+
+  factory AppWriteService() => _instance;
 
   AppWriteService._internal() {
     client = Client()
         .setEndpoint(endpoint)
         .setProject(projectId)
-        .setSelfSigned(status: true); // Only use true for development/self-hosted
+        .setSelfSigned(status: true);
 
     account = Account(client);
     databases = Databases(client);
@@ -44,77 +44,79 @@ class AppWriteService {
   }
 
   Future<String> getUserId() async {
-    if(await isLoggedIn()){
+    if (await isLoggedIn()) {
       final user = await account.get();
       return user.$id;
-    }else{
-      return "";
+    }
+    return "";
+  }
+
+  /// Returns a valid JWT, creating a new one if expired or missing.
+  /// Appwrite JWTs are valid for 15 minutes — we refresh 2 minutes early.
+  Future<String> getJWT() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    try {
+      final cachedJwt = prefs.getString(_jwtKey);
+      final expiryMillis = prefs.getInt(_jwtExpiryKey);
+
+      final bool isValid = cachedJwt != null &&
+          expiryMillis != null &&
+          _isTokenStillValid(cachedJwt, expiryMillis);
+
+      if (isValid) {
+        return cachedJwt!;
+      }
+    } catch (_) {
+      // Corrupted cache — fall through to generate a fresh token
+    }
+
+    return _fetchAndCacheNewJWT(prefs);
+  }
+
+  /// Checks both the stored expiry timestamp AND the JWT's own claims.
+  bool _isTokenStillValid(String jwt, int expiryMillis) {
+    final now = DateTime.now();
+    final storedExpiry = DateTime.fromMillisecondsSinceEpoch(expiryMillis);
+
+    // Fail fast if our own stored expiry has passed
+    if (now.isAfter(storedExpiry)) return false;
+
+    // Double-check the JWT's own expiry claim
+    try {
+      return !JwtDecoder.isExpired(jwt);
+    } catch (_) {
+      // Malformed JWT — treat as expired
+      return false;
     }
   }
 
-  // Get or create a JWT.
-  /// It will first try to retrieve a cached JWT from SharedPreferences.
-  /// If the JWT is expired or doesn't exist, it will create a new one and cache it.
-  Future<String> getJWT() async {
+  Future<String> _fetchAndCacheNewJWT(SharedPreferences prefs) async {
     try {
-      // SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
-      final cachedJwt = prefs.getString(jwtKey);
-
-      // Check if a JWT is cached and if it's still valid
-      if (cachedJwt != null && !JwtDecoder.isExpired(cachedJwt)) {
-        // print('Using cached JWT');
-        return cachedJwt;
-      }
-
-      // If no JWT is cached or it's expired, create a new one
-      // print('Generating new JWT');
       final jwtResponse = await account.createJWT();
       final newJwt = jwtResponse.jwt;
 
-      // Cache the new JWT for future use
-      await prefs.setString(jwtKey, newJwt);
+      // Appwrite JWTs live for 15 min — cache with a 2-min safety buffer
+      final expiry = DateTime.now()
+          .add(Duration(minutes: 15 - _expiryBufferMinutes))
+          .millisecondsSinceEpoch;
+
+      await prefs.setString(_jwtKey, newJwt);
+      await prefs.setInt(_jwtExpiryKey, expiry);
 
       return newJwt;
     } catch (e) {
-      // If an error occurs during API call or any other step,
-      // clear the old token and throw an exception.
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(jwtKey);
+      // Clean up stale cache so the next call tries again fresh
+      await prefs.remove(_jwtKey);
+      await prefs.remove(_jwtExpiryKey);
       throw Exception('JWT creation failed: $e');
     }
   }
 
-  /// Get a valid JWT, refreshing only after 13 minutes.
-  // Future<String> getJWT(Account account) async {
-  //   final prefs = await SharedPreferences.getInstance();
-  //   final now = DateTime.now();
-  //
-  //   final cachedJwt = prefs.getString(_jwtKey);
-  //   final expiryMillis = prefs.getInt(_expiryKey);
-  //   final expiry = expiryMillis != null ? DateTime.fromMillisecondsSinceEpoch(expiryMillis) : null;
-  //
-  //   if (cachedJwt != null && expiry != null && now.isBefore(expiry)) {
-  //     // Return cached token if still valid
-  //     return cachedJwt;
-  //   }
-  //
-  //   // Else create new JWT
-  //   try {
-  //     final jwtResponse = await account.createJWT();
-  //     final jwt = jwtResponse.jwt;
-  //
-  //     // Set expiry to 13 minutes from now (JWT is valid for 15)
-  //     final newExpiry = now.add(const Duration(minutes: 13));
-  //
-  //     // Save to SharedPreferences
-  //     await prefs.setString(_jwtKey, jwt);
-  //     await prefs.setInt(_expiryKey, newExpiry.millisecondsSinceEpoch);
-  //
-  //     return jwt;
-  //   } catch (e) {
-  //     throw Exception('JWT creation failed: $e');
-  //   }
-  // }
-
+  /// Call this on logout to wipe the cached token.
+  Future<void> clearJWT() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_jwtKey);
+    await prefs.remove(_jwtExpiryKey);
+  }
 }

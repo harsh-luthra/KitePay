@@ -124,6 +124,7 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                       _money('Amount Paid', data.totalAmountPaid, Icons.outbox, Colors.green),
                       _money('Pending Withdrawals', data.totalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
                       _money('Total Available Amount', data.totalAvailableAmount, Icons.account_balance, Colors.teal),
+                      _money('Yesterday Pay-In', data.yesterdayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
                       _money('Today Pay-In', data.todayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
                       _money('Withdrawable Amount', data.withdrawableAmount, Icons.savings, Colors.cyan.shade700),
                       _money('Amount On Hold', data.totalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
@@ -172,6 +173,7 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                       _money('Self Pending Withdrawals', data.selfTotalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
                       _money('Self Total Available Amount', data.selfTotalAvailableAmount, Icons.account_balance, Colors.teal),
                       _money('Self Today Pay-In', data.todayPayInSelfAssignedQrs, Icons.today_rounded, Colors.blueGrey),
+                      _money('Self Yesterday Pay-In', data.yesterdayPayInSelfAssignedQrs, Icons.today_rounded, Colors.blueGrey),
                       _money('Self Withdrawable Amount', data.selfWithdrawableAmount, Icons.savings, Colors.cyan.shade700),
                       _money('Self Amount On Hold', data.selfTotalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
                       _money('Self Commission On Hold', data.selfTotalCommissionOnHold, Icons.savings_outlined, Colors.purple),
@@ -219,6 +221,7 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                       _money('User Pending Withdrawals', data.userTotalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
                       _money('User Total Available Amount', data.userTotalAvailableAmount, Icons.account_balance, Colors.teal),
                       _money('User Today Pay-In', data.todayPayInUserAssignedQrs, Icons.today_rounded, Colors.blueGrey),
+                      _money('User Yesterday Pay-In', data.yesterdayPayInUserAssignedQrs, Icons.today_rounded, Colors.blueGrey),
                       _money('User Withdrawable Amount', data.userWithdrawableAmount, Icons.savings, Colors.cyan.shade700),
                       _money('User Amount On Hold', data.userTotalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
                       _money('User Commission On Hold', data.userTotalCommissionOnHold, Icons.savings_outlined, Colors.purple),
@@ -503,6 +506,7 @@ class SubAdminDashboardData {
   // ── Managed QRs ───────────────────────────────────────────────────────────
   final int totalQrsAssignedToMerchant;
   final int todayPayInAllQrs;
+  final int yesterdayPayInAllQrs;
   final int totalTxCount;
   final int totalAmountReceived;
   final int totalAvailableAmount;
@@ -518,6 +522,7 @@ class SubAdminDashboardData {
   // ── Self Assigned QRs ─────────────────────────────────────────────────────
   final int totalSelfAssignedQrs;
   final int todayPayInSelfAssignedQrs;
+  final int yesterdayPayInSelfAssignedQrs;
   final int selfTotalTxCount;
   final int selfTotalAmountReceived;
   final int selfTotalAvailableAmount;
@@ -533,6 +538,7 @@ class SubAdminDashboardData {
   // ── User Assigned QRs ─────────────────────────────────────────────────────
   final int totalUserAssignedQrs;
   final int todayPayInUserAssignedQrs;
+  final int yesterdayPayInUserAssignedQrs;
   final int userTotalTxCount;
   final int userTotalAmountReceived;
   final int userTotalAvailableAmount;
@@ -556,6 +562,7 @@ class SubAdminDashboardData {
   const SubAdminDashboardData({
     required this.totalQrsAssignedToMerchant,
     required this.todayPayInAllQrs,
+    required this.yesterdayPayInAllQrs,
     required this.totalTxCount,
     required this.totalAmountReceived,
     required this.totalAvailableAmount,
@@ -571,6 +578,7 @@ class SubAdminDashboardData {
 
     required this.totalSelfAssignedQrs,
     required this.todayPayInSelfAssignedQrs,
+    required this.yesterdayPayInSelfAssignedQrs,
     required this.selfTotalTxCount,
     required this.selfTotalAmountReceived,
     required this.selfTotalAvailableAmount,
@@ -586,6 +594,7 @@ class SubAdminDashboardData {
 
     required this.totalUserAssignedQrs,
     required this.todayPayInUserAssignedQrs,
+    required this.yesterdayPayInUserAssignedQrs,
     required this.userTotalTxCount,
     required this.userTotalAmountReceived,
     required this.userTotalAvailableAmount,
@@ -612,6 +621,7 @@ class SubAdminDashboardData {
         // Managed QRs
         totalQrsAssignedToMerchant:    j['totalQrsAssignedToMerchant'],
         todayPayInAllQrs:              j['todayPayInAllQrs'],
+        yesterdayPayInAllQrs:          j['yesterdayPayInAllQrs'],
         totalTxCount:                  j['totalTxCount'],
         totalAmountReceived:           j['totalAmountReceived'],
         totalAvailableAmount:          j['totalAvailableAmount'],
@@ -627,6 +637,7 @@ class SubAdminDashboardData {
         // Self Assigned QRs
         totalSelfAssignedQrs:              j['totalSelfAssignedQrs'],
         todayPayInSelfAssignedQrs:         j['todayPayInSelfAssignedQrs'],
+        yesterdayPayInSelfAssignedQrs:     j['yesterdayPayInSelfAssignedQrs'],
         selfTotalTxCount:                  j['selfTotalTxCount'],
         selfTotalAmountReceived:           j['selfTotalAmountReceived'],
         selfTotalAvailableAmount:          j['selfTotalAvailableAmount'],
@@ -642,6 +653,7 @@ class SubAdminDashboardData {
         // User Assigned QRs
         totalUserAssignedQrs:              j['totalUserAssignedQrs'],
         todayPayInUserAssignedQrs:         j['todayPayInUserAssignedQrs'],
+        yesterdayPayInUserAssignedQrs:     j['yesterdayPayInUserAssignedQrs'],
         userTotalTxCount:                  j['userTotalTxCount'],
         userTotalAmountReceived:           j['userTotalAmountReceived'],
         userTotalAvailableAmount:          j['userTotalAvailableAmount'],
@@ -688,6 +700,7 @@ Future<SubAdminDashboardData> fetchSubadminDashboard({
       // Managed QRs
       'totalQrsAssignedToMerchant':    raw['totalQrsAssignedToMerchant']    ?? 0,
       'todayPayInAllQrs':              raw['todayPayInAllQrs']              ?? 0,
+      'yesterdayPayInAllQrs':          raw['yesterdayPayInAllQrs']          ?? 0,
       'totalTxCount':                  raw['totalTxCount']                  ?? 0,
       'totalAmountReceived':           raw['totalAmountReceived']           ?? 0,
       'totalAvailableAmount':          raw['totalAvailableAmount']          ?? 0,
@@ -697,12 +710,13 @@ Future<SubAdminDashboardData> fetchSubadminDashboard({
       'totalAmountPaid':               raw['totalAmountPaid']               ?? 0,
       'totalWithdrawalPendingAmount':  raw['totalWithdrawalPendingAmount']  ?? 0,
       'totalAmountOnHold':             raw['totalAmountOnHold']             ?? 0,
-      'totalCommissionOnHold':             raw['totalCommissionOnHold']             ?? 0,
-      'totalCommissionPaid':             raw['totalCommissionPaid']             ?? 0,
+      'totalCommissionOnHold':         raw['totalCommissionOnHold']         ?? 0,
+      'totalCommissionPaid':           raw['totalCommissionPaid']           ?? 0,
 
       // Self Assigned QRs
       'totalSelfAssignedQrs':              raw['totalSelfAssignedQrs']              ?? 0,
       'todayPayInSelfAssignedQrs':         raw['todayPayInSelfAssignedQrs']         ?? 0,
+      'yesterdayPayInSelfAssignedQrs':     raw['yesterdayPayInSelfAssignedQrs']     ?? 0,
       'selfTotalTxCount':                  raw['selfTotalTxCount']                  ?? 0,
       'selfTotalAmountReceived':           raw['selfTotalAmountReceived']           ?? 0,
       'selfTotalAvailableAmount':          raw['selfTotalAvailableAmount']          ?? 0,
@@ -712,12 +726,13 @@ Future<SubAdminDashboardData> fetchSubadminDashboard({
       'selfTotalAmountPaid':               raw['selfTotalAmountPaid']               ?? 0,
       'selfTotalWithdrawalPendingAmount':  raw['selfTotalWithdrawalPendingAmount']  ?? 0,
       'selfTotalAmountOnHold':             raw['selfTotalAmountOnHold']             ?? 0,
-      'selfTotalCommissionOnHold':             raw['selfTotalCommissionOnHold']             ?? 0,
-      'selfTotalCommissionPaid':             raw['selfTotalCommissionPaid']             ?? 0,
+      'selfTotalCommissionOnHold':         raw['selfTotalCommissionOnHold']         ?? 0,
+      'selfTotalCommissionPaid':           raw['selfTotalCommissionPaid']           ?? 0,
 
       // User Assigned QRs
       'totalUserAssignedQrs':              raw['totalUserAssignedQrs']              ?? 0,
       'todayPayInUserAssignedQrs':         raw['todayPayInUserAssignedQrs']         ?? 0,
+      'yesterdayPayInUserAssignedQrs':     raw['yesterdayPayInUserAssignedQrs']     ?? 0,
       'userTotalTxCount':                  raw['userTotalTxCount']                  ?? 0,
       'userTotalAmountReceived':           raw['userTotalAmountReceived']           ?? 0,
       'userTotalAvailableAmount':          raw['userTotalAvailableAmount']          ?? 0,

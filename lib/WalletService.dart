@@ -13,9 +13,9 @@ class WalletService {
     required String jwtToken,
     bool debugPrint = true,
   }) async {
-    print('🔍 [WalletService] Fetching balance...');
-    print('📡 URL: $_baseUrl/wallet/balance');
-    print('🔑 Token: ${jwtToken.substring(0, 20)}...');
+    // print('🔍 [WalletService] Fetching balance...');
+    // print('📡 URL: $_baseUrl/wallet/balance');
+    // print('🔑 Token: ${jwtToken.substring(0, 20)}...');
 
     final resp = await http.get(
       Uri.parse('$_baseUrl/wallet/balance'),
@@ -25,17 +25,17 @@ class WalletService {
       },
     );
 
-    print('📄 Response: ${resp.body}...');
-    print('📊 [WalletService] Balance Response: ${resp.statusCode}');
+    // print('📄 Response: ${resp.body}...');
+    // print('📊 [WalletService] Balance Response: ${resp.statusCode}');
 
     if (resp.statusCode == 200) {
       final data = jsonDecode(resp.body);
-      print('✅ [WalletService] Balance fetched: ${data['balance']}');
+      // print('✅ [WalletService] Balance fetched: ${data['balance']}');
       return Wallet.fromJson(data);
     }
 
-    print('❌ [WalletService] Balance failed: ${resp.statusCode}');
-    print('📄 Error body: ${resp.body}');
+    // print('❌ [WalletService] Balance failed: ${resp.statusCode}');
+    // print('📄 Error body: ${resp.body}');
     throw WalletServiceException(
       'Balance fetch failed: ${resp.statusCode}',
       statusCode: resp.statusCode,
@@ -48,13 +48,12 @@ class WalletService {
     required String jwtToken,
     String? cursor,
     int limit = 25,
-    bool debugPrint = true,
+    bool debugPrint = false,
   }) async {
     final params = {'limit': limit.toString()};
     if (cursor != null) params['cursor'] = cursor;
 
-    final uri = Uri.parse('$_baseUrl/wallet/transactions')
-        .replace(queryParameters: params);
+    final uri = Uri.parse('$_baseUrl/wallet/transactions').replace(queryParameters: params);
 
     if (debugPrint) {
       print('🔍 [WalletService] Fetching transactions...');

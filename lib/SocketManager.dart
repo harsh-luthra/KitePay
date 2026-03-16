@@ -57,7 +57,7 @@ class SocketManager {
     _socket ??= IO.io(
       url,
       IO.OptionBuilder()
-            .setTransports(<String>['websocket'])
+          .setTransports(<String>['websocket'])
           .setAuth({'token': jwt})
           .enableReconnection()
           .enableForceNew()

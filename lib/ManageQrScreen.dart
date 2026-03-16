@@ -112,7 +112,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
   Future<void> checkQrLimitTodayPayin() async {
 
-    print("Checking QR Today Limit Value: ${QR_PayIn_Today_limit}");
+    // print("Checking QR Today Limit Value: ${QR_PayIn_Today_limit}");
     for (QrCode qr in _qrCodes){
       int? todayPayIn = qr.todayTotalPayIn;
       if(todayPayIn! >= QR_PayIn_Today_limit){
