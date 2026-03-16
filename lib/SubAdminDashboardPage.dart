@@ -112,18 +112,6 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                       _metric('Total QRs Assigned', data.totalQrsAssignedToMerchant, Icons.assignment_ind, Colors.indigo),
                       _metric('Total Transactions', data.totalTxCount, Icons.swap_horiz, Colors.indigo.shade300),
                       _money('Total Pay-In', data.totalAmountReceived, Icons.account_balance_wallet, Colors.teal),
-                      _money('Today Pay-In', data.todayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
-                    ]),
-                  ],
-                ),
-
-                _Section(
-                  title: 'All Managed QR — Breakdown',
-                  accentColor: Colors.indigo,
-                  children: [
-                    _metricGrid([
-                      _metric('QRs Active', data.qrCodesActive, Icons.check_circle, Colors.green.shade700),
-                      _metric('QRs Disabled', data.qrCodesDisabled, Icons.disabled_by_default, Colors.red.shade700),
                     ]),
                   ],
                 ),
@@ -135,11 +123,23 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                     _metricGrid([
                       _money('Amount Paid', data.totalAmountPaid, Icons.outbox, Colors.green),
                       _money('Pending Withdrawals', data.totalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
-                      _money('Available Amount', data.totalAvailableAmount, Icons.account_balance, Colors.teal),
+                      _money('Total Available Amount', data.totalAvailableAmount, Icons.account_balance, Colors.teal),
+                      _money('Today Pay-In', data.todayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
                       _money('Withdrawable Amount', data.withdrawableAmount, Icons.savings, Colors.cyan.shade700),
                       _money('Amount On Hold', data.totalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
                       _money('Commission On Hold', data.totalCommissionOnHold, Icons.savings_outlined, Colors.purple),
                       _money('Commission Paid', data.totalCommissionPaid, Icons.payments, Colors.purpleAccent),
+                    ]),
+                  ],
+                ),
+
+                _Section(
+                  title: 'All Managed QR — Breakdown',
+                  accentColor: Colors.indigo,
+                  children: [
+                    _metricGrid([
+                      _metric('QRs Active', data.qrCodesActive, Icons.check_circle, Colors.green.shade700),
+                      _metric('QRs Disabled', data.qrCodesDisabled, Icons.disabled_by_default, Colors.red.shade700),
                     ]),
                   ],
                 ),
@@ -156,10 +156,26 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                   accentColor: Colors.purple,
                   children: [
                     _metricGrid([
-                      _metric('Total Self QRs', data.totalSelfAssignedQrs, Icons.qr_code, Colors.purple),
+                      _metric('Self Total QRs', data.totalSelfAssignedQrs, Icons.qr_code, Colors.purple),
                       _metric('Self Transactions', data.selfTotalTxCount, Icons.swap_horiz, Colors.purple.shade300),
-                      _money('Total Self Pay-In', data.selfTotalAmountReceived, Icons.account_balance_wallet, Colors.teal),
-                      _money('Today Self Pay-In', data.todayPayInSelfAssignedQrs, Icons.today_rounded, Colors.blueGrey),
+                      _money('Self Total Pay-In', data.selfTotalAmountReceived, Icons.account_balance_wallet, Colors.teal),
+                    ]),
+                  ],
+                ),
+
+                _Section(
+                  title: 'Self Assigned QR — Payouts',
+                  accentColor: Colors.purple,
+                  children: [
+                    _metricGrid([
+                      _money('Self Amount Paid', data.selfTotalAmountPaid, Icons.outbox, Colors.green),
+                      _money('Self Pending Withdrawals', data.selfTotalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
+                      _money('Self Total Available Amount', data.selfTotalAvailableAmount, Icons.account_balance, Colors.teal),
+                      _money('Self Today Pay-In', data.todayPayInSelfAssignedQrs, Icons.today_rounded, Colors.blueGrey),
+                      _money('Self Withdrawable Amount', data.selfWithdrawableAmount, Icons.savings, Colors.cyan.shade700),
+                      _money('Self Amount On Hold', data.selfTotalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
+                      _money('Self Commission On Hold', data.selfTotalCommissionOnHold, Icons.savings_outlined, Colors.purple),
+                      _money('Self Commission Paid', data.selfTotalAmountPaid, Icons.payments, Colors.purpleAccent),
                     ]),
                   ],
                 ),
@@ -175,22 +191,6 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                   ],
                 ),
 
-                _Section(
-                  title: 'Self Assigned QR — Payouts',
-                  accentColor: Colors.purple,
-                  children: [
-                    _metricGrid([
-                      _money('Self Amount Paid', data.selfTotalAmountPaid, Icons.outbox, Colors.green),
-                      _money('Self Pending Withdrawals', data.selfTotalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
-                      _money('Self Available Amount', data.selfTotalAvailableAmount, Icons.account_balance, Colors.teal),
-                      _money('Self Withdrawable Amount', data.selfWithdrawableAmount, Icons.savings, Colors.cyan.shade700),
-                      _money('Self Amount On Hold', data.selfTotalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
-                      _money('Self Commission On Hold', data.selfTotalCommissionOnHold, Icons.savings_outlined, Colors.purple),
-                      _money('Self Commission Paid', data.selfTotalAmountPaid, Icons.payments, Colors.purpleAccent),
-                    ]),
-                  ],
-                ),
-
                 const SizedBox(height: 6),
 
                 // ════════════════════════════════════════════════════════════
@@ -200,16 +200,34 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
 
                 _Section(
                   title: 'User Assigned QR — Overview',
-                  accentColor: Colors.teal,
+                  accentColor: Colors.purple,
                   children: [
                     _metricGrid([
-                      _metric('Total User QRs', data.totalUserAssignedQrs, Icons.qr_code_2, Colors.teal),
-                      _metric('User Transactions', data.userTotalTxCount, Icons.swap_horiz, Colors.teal.shade300),
-                      _money('Total User Pay-In', data.userTotalAmountReceived, Icons.account_balance_wallet, Colors.teal),
-                      _money('Today User Pay-In', data.todayPayInUserAssignedQrs, Icons.today_rounded, Colors.blueGrey),
+                      _metric('User Total QRs', data.totalUserAssignedQrs, Icons.qr_code, Colors.purple),
+                      _metric('User Transactions', data.userTotalTxCount, Icons.swap_horiz, Colors.purple.shade300),
+                      _money('User Total Pay-In', data.userTotalAmountReceived, Icons.account_balance_wallet, Colors.teal),
                     ]),
                   ],
                 ),
+
+                _Section(
+                  title: 'User Assigned QR — Payouts',
+                  accentColor: Colors.teal,
+                  children: [
+                    _metricGrid([
+                      _money('User Amount Paid', data.userTotalAmountPaid, Icons.outbox, Colors.green),
+                      _money('User Pending Withdrawals', data.userTotalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
+                      _money('User Total Available Amount', data.userTotalAvailableAmount, Icons.account_balance, Colors.teal),
+                      _money('User Today Pay-In', data.todayPayInUserAssignedQrs, Icons.today_rounded, Colors.blueGrey),
+                      _money('User Withdrawable Amount', data.userWithdrawableAmount, Icons.savings, Colors.cyan.shade700),
+                      _money('User Amount On Hold', data.userTotalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
+                      _money('User Commission On Hold', data.userTotalCommissionOnHold, Icons.savings_outlined, Colors.purple),
+                      _money('User Commission Paid', data.userTotalCommissionPaid, Icons.payments, Colors.purpleAccent),
+                    ]),
+                  ],
+                ),
+
+                const SizedBox(height: 6),
 
                 _Section(
                   title: 'User Assigned QR — Breakdown',
@@ -222,56 +240,38 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                   ],
                 ),
 
-                _Section(
-                  title: 'User Assigned QR — Payouts',
-                  accentColor: Colors.teal,
-                  children: [
-                    _metricGrid([
-                      _money('User Amount Paid', data.userTotalAmountPaid, Icons.outbox, Colors.green),
-                      _money('User Pending Withdrawals', data.userTotalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
-                      _money('User Available Amount', data.userTotalAvailableAmount, Icons.account_balance, Colors.teal),
-                      _money('User Withdrawable Amount', data.userWithdrawableAmount, Icons.savings, Colors.cyan.shade700),
-                      _money('User Amount On Hold', data.userTotalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
-                      _money('User Commission On Hold', data.userTotalCommissionOnHold, Icons.savings_outlined, Colors.purple),
-                      _money('User Commission Paid', data.userTotalCommissionPaid, Icons.payments, Colors.purpleAccent),
-                    ]),
-                  ],
-                ),
-
-                const SizedBox(height: 6),
-
                 // ════════════════════════════════════════════════════════════
                 // 4. OTHER
                 // ════════════════════════════════════════════════════════════
-                _Section(
-                  title: 'Merchant Profit',
-                  children: [
-                    _metricGrid([
-                      _money('Total Merchant Profit', data.totalMerchantProfit, Icons.wallet, Colors.orange),
-                    ]),
-                  ],
-                ),
+                // _Section(
+                //   title: 'Merchant Profit',
+                //   children: [
+                //     _metricGrid([
+                //       _money('Total Merchant Profit', data.totalMerchantProfit, Icons.wallet, Colors.orange),
+                //     ]),
+                //   ],
+                // ),
 
-                _Section(
-                  title: 'Users & Merchants',
-                  children: [
-                    _metricGrid([
-                      _metric('Active Users', data.activeUsers, Icons.people_alt, Colors.green),
-                      _metric('Disabled Users', data.disabledUsers, Icons.person_off, Colors.red),
-                      _metric('Total Users', data.totalUsers, Icons.groups_2, Colors.indigo),
-                    ]),
-                  ],
-                ),
-
-                _Section(
-                  title: 'Memberships',
-                  children: [
-                    _metricGrid([
-                      _metric('Plans Purchased', data.totalMembershipPurchased, Icons.card_membership, Colors.purple),
-                      _metric('Pending Membership Users', data.pendingMembershipUsers, Icons.person_add, Colors.blueGrey),
-                    ]),
-                  ],
-                ),
+                // _Section(
+                //   title: 'Users & Merchants',
+                //   children: [
+                //     _metricGrid([
+                //       _metric('Active Users', data.activeUsers, Icons.people_alt, Colors.green),
+                //       _metric('Disabled Users', data.disabledUsers, Icons.person_off, Colors.red),
+                //       _metric('Total Users', data.totalUsers, Icons.groups_2, Colors.indigo),
+                //     ]),
+                //   ],
+                // ),
+                //
+                // _Section(
+                //   title: 'Memberships',
+                //   children: [
+                //     _metricGrid([
+                //       _metric('Plans Purchased', data.totalMembershipPurchased, Icons.card_membership, Colors.purple),
+                //       _metric('Pending Membership Users', data.pendingMembershipUsers, Icons.person_add, Colors.blueGrey),
+                //     ]),
+                //   ],
+                // ),
 
                 const SizedBox(height: 24),
                 Align(

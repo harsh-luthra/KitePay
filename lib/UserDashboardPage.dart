@@ -102,7 +102,6 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                     _metricGrid([
                       _metric('Total Txns', data.totalTxCount, Icons.swap_horiz, Colors.indigo),
                       _money('Total Pay-In', data.totalAmountPayIn, Icons.account_balance_wallet, Colors.teal),
-                      _money('Today Pay-In', data.todayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
                       _metric('Total QRs', data.totalQrs, Icons.qr_code_2, Colors.blueGrey),
                     ]),
                   ],
@@ -120,7 +119,8 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                   title: 'Payouts',
                   children: [
                     _metricGrid([
-                      _money('Available Amount', data.totalAvailableAmount, Icons.account_balance, Colors.green),
+                      _money('Today Available Amount', data.totalAvailableAmount, Icons.account_balance, Colors.green),
+                      _money('Today Pay-In', data.todayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
                       _money('Withdrawable Amount', data.withdrawableAmount, Icons.account_balance_wallet, Colors.green),
                       _money('On Hold', data.totalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrange),
                       _money('Approved Withdrawals', data.totalWithdrawalApprovedAmount, Icons.outbox, Colors.blue),
