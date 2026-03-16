@@ -117,7 +117,7 @@ class WithdrawService {
         return true;
       } else {
         print('❌ Withdrawal request failed: ${response.body}');
-        throw Exception('${response.body}');
+        throw Exception(response.body);
         return false;
       }
     } on TimeoutException {

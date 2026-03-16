@@ -271,7 +271,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
 
     try {
       final codes = await _qrCodeService.getUserAssignedQrCodes(
-          await AppWriteService().getUserId()!, await AppWriteService().getJWT());
+          await AppWriteService().getUserId(), await AppWriteService().getJWT());
       setState(() {
         List<QrCode> qrCodesFetched = codes;
         _qrCodesAssignedToMe = qrCodesFetched.where((q) => (q.assignedUserId ?? '').toLowerCase() == UserMeta.id).toList();
@@ -784,11 +784,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
           final required = preview['withdrawalToCheck'] ?? 0;
 
           errorMsg +=
-              "\nRequested: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(preAmountPaise / 100)}" +
-                  "\nCommission $commissionRate% : ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(commissionPaise / 100)}" +
-                  "\nOverhead: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(overheadPaise / 100)}" +
-                  "\nAvailable Balance: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(available / 100)}"+
-                  "\nbalance Required: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(required / 100)}";
+              "\nRequested: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(preAmountPaise / 100)}" "\nCommission $commissionRate% : ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(commissionPaise / 100)}" "\nOverhead: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(overheadPaise / 100)}" "\nAvailable Balance: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(available / 100)}""\nbalance Required: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(required / 100)}";
         }
 
         await showResultDialog(
@@ -1280,12 +1276,12 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
               Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: selectedAccount!.mode == 'upi'
+                    backgroundColor: selectedAccount.mode == 'upi'
                         ? Colors.green
                         : Colors.blue,
                     radius: 20,
                     child: Icon(
-                      selectedAccount!.mode == 'upi'
+                      selectedAccount.mode == 'upi'
                           ? Icons.payment
                           : Icons.account_balance,
                       color: Colors.white,
@@ -1297,15 +1293,15 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          selectedAccount!.holderName ?? 'Unnamed',
+                          selectedAccount.holderName ?? 'Unnamed',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         Text(
-                          '${selectedAccount!.mode.toUpperCase()} Account',
+                          '${selectedAccount.mode.toUpperCase()} Account',
                           style: TextStyle(
-                            color: selectedAccount!.mode == 'upi'
+                            color: selectedAccount.mode == 'upi'
                                 ? Colors.green
                                 : Colors.blue,
                             fontWeight: FontWeight.w600,
@@ -1332,13 +1328,13 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                   // Left: Primary detail
                   Expanded(
                     child: _AccountDetailTile(
-                      icon: selectedAccount!.mode == 'upi'
+                      icon: selectedAccount.mode == 'upi'
                           ? Icons.alternate_email
                           : Icons.numbers,
-                      label: selectedAccount!.mode == 'upi' ? 'UPI ID' : 'Account',
-                      value: selectedAccount!.mode == 'upi'
-                          ? (selectedAccount!.upiId ?? '')
-                          : (selectedAccount!.accountNumber ?? ''), // ✅ Full number
+                      label: selectedAccount.mode == 'upi' ? 'UPI ID' : 'Account',
+                      value: selectedAccount.mode == 'upi'
+                          ? (selectedAccount.upiId ?? '')
+                          : (selectedAccount.accountNumber ?? ''), // ✅ Full number
                     ),
                   ),
 
@@ -1346,31 +1342,31 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                   Expanded(
                     child: _AccountDetailTile(
                       icon: Icons.description,
-                      label: 'IFSC' + (selectedAccount!.mode == 'upi' ? '' : '*'),
-                      value: selectedAccount!.ifscCode ?? 'N/A',
+                      label: 'IFSC${selectedAccount.mode == 'upi' ? '' : '*'}',
+                      value: selectedAccount.ifscCode ?? 'N/A',
                     ),
                   ),
                 ],
               ),
 
-              if (selectedAccount!.bankName != null)
+              if (selectedAccount.bankName != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: _AccountDetailTile(
                     icon: Icons.account_balance,
                     label: 'Bank',
-                    value: selectedAccount!.bankName!,
+                    value: selectedAccount.bankName!,
                     isFullWidth: true,
                   ),
                 ),
 
-              if (selectedAccount!.notes != null && selectedAccount!.notes!.isNotEmpty)
+              if (selectedAccount.notes != null && selectedAccount.notes!.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: _AccountDetailTile(
                     icon: Icons.note,
                     label: 'Notes',
-                    value: selectedAccount!.notes!,
+                    value: selectedAccount.notes!,
                     isFullWidth: true,
                   ),
                 ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 class MembershipPlansApp extends StatelessWidget {
+  const MembershipPlansApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -97,6 +99,8 @@ class MembershipPlansScreen extends StatelessWidget {
       ],
     ),
   ];
+
+  MembershipPlansScreen({super.key});
 
   Widget _buildFeatureRow(Map<String, dynamic> feature) {
     final key = feature.keys.first;

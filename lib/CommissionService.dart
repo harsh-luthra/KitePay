@@ -51,7 +51,7 @@ class CommissionService {
         qp['searchValue'] = searchValue;
       }
 
-      url += '?' + Uri(queryParameters: qp).query;
+      url += '?${Uri(queryParameters: qp).query}';
 
       final resp = await http.get(
         Uri.parse(url),
@@ -155,7 +155,7 @@ class CommissionService {
     final qp = <String, String>{ 'mode': mode, 'includeUsers': 'true' };
     // add date/start/end/days as before, then call URL with qp
 
-    String _ymd(DateTime d) {
+    String ymd(DateTime d) {
       final m = d.month.toString().padLeft(2, '0');
       final day = d.day.toString().padLeft(2, '0');
       return '${d.year}-$m-$day';
@@ -166,12 +166,12 @@ class CommissionService {
         break;
       case 'date':
         if (date == null) { throw Exception('date is required for mode=date'); }
-        qp['date'] = _ymd(date);
+        qp['date'] = ymd(date);
         break;
       case 'range':
         if (start == null || end == null) { throw Exception('start/end required for mode=range'); }
-        qp['start'] = _ymd(start);
-        qp['end'] = _ymd(end);
+        qp['start'] = ymd(start);
+        qp['end'] = ymd(end);
         break;
       case 'last':
         qp['days'] = days.toString();

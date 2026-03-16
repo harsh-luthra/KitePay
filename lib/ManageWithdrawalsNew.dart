@@ -394,12 +394,14 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
 
     try {
       final result = await future;
-      if (Navigator.of(context).canPop())
+      if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop(); // close loading
+      }
       return result;
     } catch (e) {
-      if (Navigator.of(context).canPop())
+      if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop(); // close loading on error
+      }
       rethrow;
     }
   }
@@ -482,8 +484,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                       Text('Debit: ${rupees(request.amount)}', style: const TextStyle(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 4),
                       Text('QR: ${request.qrId}'),
-                      if (request.userId != null)
-                        Text('Requested By: ${getAppUserRole(request.userId)} ${displayUserNameText(request.userId) ?? request.userId}'),
+                      Text('Requested By: ${getAppUserRole(request.userId)} ${displayUserNameText(request.userId) ?? request.userId}'),
                     ],
                   ),
                 ),

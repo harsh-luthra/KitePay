@@ -1,6 +1,3 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -75,11 +72,11 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   }
 
   Future<void> _startCheckThenLogin() async {
-    // Check connectivity in a loop until connected
     while (true) {
       final connectivityResult = await Connectivity().checkConnectivity();
       if (connectivityResult.contains(ConnectivityResult.none)) {
-        await _showNoInternetDialog();
+        final shouldRetry = await _showNoInternetDialog();
+        if (!shouldRetry) return;
       } else {
         break;
       }
@@ -87,8 +84,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     await _loginAdmin();
   }
 
-  Future<void> _showNoInternetDialog() async {
-    await showDialog(
+  Future<bool> _showNoInternetDialog() async {
+    final result = await showDialog<bool>(
       barrierDismissible: false,
       context: context,
       builder: (_) => AlertDialog(
@@ -96,12 +93,17 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         content: const Text('Please check your internet connection.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Retry'),
           ),
         ],
       ),
     );
+    return result ?? false;
   }
 
   Future<void> _loginAdmin() async {
@@ -140,10 +142,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
       final msg = e.message ?? 'Login failed. Please try again.';
 
-      // ✅ Only set inline error for minor messages; show dialog for important ones
-      setState(() => errorMessage = null);
-
       if (!mounted) return;
+
+      setState(() => errorMessage = null);
 
       if (msg.contains('has been blocked')) {
         _showErrorDialog(
@@ -216,8 +217,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) async {
-        if (!didPop) await _confirmAndExit(); // ✅ Cleaned up
+      onPopInvokedWithResult: (didPop, _) async {
+        if (!didPop) await _confirmAndExit();
       },
       child: Scaffold(
         body: Container(

@@ -20,7 +20,7 @@ class TransactionService {
 
   static final String bucketId = "688d2517002810ac532b";
 
-  static late final Storage _appwriteStorage = Storage(_appwriteClient);
+  static final Storage _appwriteStorage = Storage(_appwriteClient);
 
   // TransactionService() {
   // }
@@ -172,7 +172,7 @@ class TransactionService {
         queryParams['searchValue'] = searchValue;
       }
 
-      url += '?' + Uri(queryParameters: queryParams).query;
+      url += '?${Uri(queryParameters: queryParams).query}';
 
       // print(url);
 
@@ -307,7 +307,7 @@ class TransactionService {
         return true;
       } else {
         print('❌ Manual transaction upload failed: ${response.body}');
-        throw Exception('${response.body}');
+        throw Exception(response.body);
       }
     } on TimeoutException {
       throw Exception('Request timed out. Please check your internet connection.');

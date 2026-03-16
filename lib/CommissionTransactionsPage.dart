@@ -38,7 +38,7 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
   DateTime? _toDate;
   String? _earningType; // null | 'admin' | 'subadmin'
   String _searchField = 'userId'; // 'userId' | 'sourceWithdrawalId'
-  int _limit = 25;
+  final int _limit = 25;
 
   List<AppUser> _subadmins = [];
   AppUser? _selectedSubadmin;
@@ -100,8 +100,8 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
   Future<void> _pickDate({required bool isFrom}) async {
     final now = DateTime.now();
 
-    DateTime _mid(DateTime d) => DateTime(d.year, d.month, d.day);
-    DateTime _addDays(DateTime d, int n) => _mid(d).add(Duration(days: n));
+    DateTime mid(DateTime d) => DateTime(d.year, d.month, d.day);
+    DateTime addDays(DateTime d, int n) => mid(d).add(Duration(days: n));
 
     final initial = isFrom ? (_fromDate ?? now) : (_toDate ?? (_fromDate ?? now));
 
@@ -109,11 +109,11 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
     DateTime last = DateTime(now.year + 2, 12, 31);
 
     if (!isFrom && _fromDate != null) {
-      final maxEnd = _addDays(_fromDate!, 29);
+      final maxEnd = addDays(_fromDate!, 29);
       if (maxEnd.isBefore(last)) last = maxEnd;
     }
     if (isFrom && _toDate != null) {
-      final minStart = _addDays(_toDate!, -29);
+      final minStart = addDays(_toDate!, -29);
       if (minStart.isAfter(first)) first = minStart;
     }
 
@@ -125,7 +125,7 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
     );
     if (picked == null) return;
 
-    final p = _mid(picked);
+    final p = mid(picked);
 
     setState(() {
       if (isFrom) {
@@ -134,7 +134,7 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
           _toDate = p;
         } else {
           if (_toDate!.isBefore(_fromDate!)) _toDate = _fromDate!;
-          final maxEnd = _addDays(_fromDate!, 29);
+          final maxEnd = addDays(_fromDate!, 29);
           if (_toDate!.isAfter(maxEnd)) _toDate = maxEnd;
         }
       } else {
@@ -143,7 +143,7 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
           _toDate = p;
         } else {
           var candidate = p.isBefore(_fromDate!) ? _fromDate! : p;
-          final maxEnd = _addDays(_fromDate!, 29);
+          final maxEnd = addDays(_fromDate!, 29);
           if (candidate.isAfter(maxEnd)) {
             candidate = maxEnd;
             ScaffoldMessenger.of(context).showSnackBar(

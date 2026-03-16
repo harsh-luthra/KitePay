@@ -1,7 +1,6 @@
 // ApiMerchantsService - API calls matching your Node endpoints
 import 'package:admin_qr_manager/models/ApiMerchant.dart';
 
-import 'AppConfig.dart';
 import 'AppConstants.dart';
 import 'dart:async';
 import 'dart:convert';

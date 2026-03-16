@@ -93,7 +93,7 @@ class ApiMerchant {
   }
 
   /// IP list as comma-separated (formatted)
-  List<String> get ipList => ipWhitelist?.split(',')?.map((s) => s.trim()).where((s) => s.isNotEmpty).toList() ?? [];
+  List<String> get ipList => ipWhitelist?.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList() ?? [];
 
   /// Daily limit display
   String get dailyLimitDisplay => dailyLimit == 0 ? 'Unlimited' : '$dailyLimit/day';

@@ -65,7 +65,7 @@ class AppWriteService {
           _isTokenStillValid(cachedJwt, expiryMillis);
 
       if (isValid) {
-        return cachedJwt!;
+        return cachedJwt;
       }
     } catch (_) {
       // Corrupted cache — fall through to generate a fresh token

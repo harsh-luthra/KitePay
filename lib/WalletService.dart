@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/Wallet.dart';
 import '../models/WalletTransaction.dart';
-import 'AppConfig.dart';
 import 'AppConstants.dart';
 
 class WalletService {

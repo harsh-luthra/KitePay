@@ -1,4 +1,3 @@
-import 'package:admin_qr_manager/AppConfig.dart';
 import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:admin_qr_manager/widget/ApiMerchantCardShimmer.dart';
 import 'package:flutter/material.dart';
@@ -80,8 +79,11 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
 
     inFlight = true;
     final wasEmpty = pageState.items.isEmpty;
-    if (wasEmpty) setState(() => loading = true);
-    else setState(() => pageState.loadingMore = true);
+    if (wasEmpty) {
+      setState(() => loading = true);
+    } else {
+      setState(() => pageState.loadingMore = true);
+    }
 
     try {
       final resp = await ApiMerchantsService.fetchApiMerchantsPaginated(
@@ -255,7 +257,7 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
                   _buildInfoRow('Api', apiMerchant.apiSecret, copyable: true),
                   _buildInfoRow('Email', apiMerchant.email),
                   _buildInfoRow('VPA', apiMerchant.vpa, copyable: true),
-                  _buildInfoRow('Daily Limit', '${apiMerchant.dailyLimit?.toString() ?? 'N/A'} QRs'),
+                  _buildInfoRow('Daily Limit', '${apiMerchant.dailyLimit.toString() ?? 'N/A'} QRs'),
                   _buildInfoRow('Created', apiMerchant.createdAt != null
                       ? DateFormat('dd MMM yyyy').format(DateTime.parse(apiMerchant.createdAt!))
                       : null),
@@ -571,7 +573,7 @@ class _ApiMerchantsFormPageState extends State<ApiMerchantsFormPage> {
       _nameController.text = m.name ?? '';
       _emailController.text = m.email ?? '';
       _vpaController.text = m.vpa ?? '';
-      _dailyLimitController.text = m.dailyLimit?.toString() ?? '';
+      _dailyLimitController.text = m.dailyLimit.toString() ?? '';
       _status = false;
     }
   }

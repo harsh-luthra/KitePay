@@ -151,7 +151,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           builder: (dialogCtx, setState) {
             return AlertDialog(
               title: Text("Select Sub-admin"),
-              content: Container(
+              content: SizedBox(
                 width: 300,
                 height: 350,
                 child: Column(
@@ -296,7 +296,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           builder: (dialogCtx, setState) {
             return AlertDialog(
               title: Text("Select Employee"),
-              content: Container(
+              content: SizedBox(
                 width: 300,
                 height: 350,
                 child: Column(
@@ -786,8 +786,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                           SnackBar(content: Text('Failed to add user: $e')),
                         );
                       } finally {
-                        if (navigator.canPop())
+                        if (navigator.canPop()) {
                           navigator.pop(); // close loader exactly once
+                        }
                       }
                     },
                     child: const Text("Create"),
@@ -852,8 +853,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     passwordController.text.trim(),
                     jwt,
                   );
-                  if (context.mounted)
+                  if (context.mounted) {
                     Navigator.of(context).pop(); // Close loading
+                  }
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -861,8 +863,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     ),
                   );
                 } catch (e) {
-                  if (context.mounted)
+                  if (context.mounted) {
                     Navigator.of(context).pop(); // Close loading
+                  }
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Failed to reset password: $e')),
@@ -1021,8 +1024,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         labels: labelsChanged ? tempLabels : null,
                       );
 
-                      if (dialogContext != null)
+                      if (dialogContext != null) {
                         Navigator.of(dialogContext!).pop();
+                      }
 
                       _fetchUsers(firstLoad: true);
 
@@ -1032,8 +1036,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         );
                       }
                     } catch (e) {
-                      if (dialogContext != null)
+                      if (dialogContext != null) {
                         Navigator.of(dialogContext!).pop();
+                      }
                       if (parentContext.mounted) {
                         ScaffoldMessenger.of(parentContext).showSnackBar(
                           SnackBar(content: Text('Failed to update user: $e')),
@@ -1291,13 +1296,13 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   spacing: 8,
                   children: [
                     ChoiceChip(
-                      label: Text('All (${_totalAll})'),
+                      label: Text('All ($_totalAll)'),
                       selected: _roleFilter == RoleFilter.all,
                       onSelected:
                           (_) => setState(() => _roleFilter = RoleFilter.all),
                     ),
                     ChoiceChip(
-                      label: Text('Subadmins (${_totalSubadmins})'),
+                      label: Text('Subadmins ($_totalSubadmins)'),
                       selected: _roleFilter == RoleFilter.subadmins,
                       onSelected:
                           (_) => setState(
@@ -1305,14 +1310,14 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                           ),
                     ),
                     ChoiceChip(
-                      label: Text('Users (${_totalUsers})'),
+                      label: Text('Users ($_totalUsers)'),
                       selected: _roleFilter == RoleFilter.users,
                       onSelected:
                           (_) => setState(() => _roleFilter = RoleFilter.users),
                     ),
                     if (userMeta.role.toLowerCase() != 'employee')
                       ChoiceChip(
-                        label: Text('Employees (${_totalEmployees})'),
+                        label: Text('Employees ($_totalEmployees)'),
                         selected: _roleFilter == RoleFilter.employees,
                         onSelected:
                             (_) => setState(
@@ -1560,8 +1565,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   radius: 16,
                   backgroundColor: Colors.blue.shade50,
                   child: Text(
-                    (user.name?.isNotEmpty ?? false)
-                        ? user.name!.substring(0, 1).toUpperCase()
+                    (user.name.isNotEmpty ?? false)
+                        ? user.name.substring(0, 1).toUpperCase()
                         : 'U',
                     style: const TextStyle(
                       color: Colors.blue,
@@ -1642,8 +1647,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   ),
               ],
             ),
-            if (user.labels != null &&
-                user.labels.isNotEmpty &&
+            if (user.labels.isNotEmpty &&
                 userMeta.role == "admin") ...[
               const SizedBox(height: 10),
               Container(

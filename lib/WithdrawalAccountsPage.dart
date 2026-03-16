@@ -17,7 +17,7 @@ class WithdrawalAccountsPage extends StatefulWidget {
 }
 
 class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
-  List<WithdrawalAccount> _accounts = [];
+  final List<WithdrawalAccount> _accounts = [];
   bool _isLoading = true;
   String? _nextCursor;
   bool _isLoadingMore = false;
@@ -409,10 +409,10 @@ void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext c
   final bankNameController = TextEditingController(text: account?.bankName);
 
   String currentMode = account?.mode ?? 'upi';
-  bool _isDialogLoading = false;
+  bool isDialogLoading = false;
 
   // ✅ Form key for validation
-  final _formKey = GlobalKey<FormState>();
+  final formKey = GlobalKey<FormState>();
 
   showDialog(
     context: context,
@@ -421,7 +421,7 @@ void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext c
         title: Text(isEdit ? 'Edit Account' : 'Add Account'),
         content: SingleChildScrollView(
           child: Form(
-            key: _formKey, // ✅ Form validation
+            key: formKey, // ✅ Form validation
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -568,17 +568,17 @@ void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext c
         ),
         actions: [
           TextButton(
-            onPressed: _isDialogLoading ? null : () => Navigator.pop(context),
+            onPressed: isDialogLoading ? null : () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
           ElevatedButton.icon(
-            onPressed: _isDialogLoading
+            onPressed: isDialogLoading
                 ? null
                 : () async {
               // ✅ Validate form first
-              if (!_formKey.currentState!.validate()) return;
+              if (!formKey.currentState!.validate()) return;
 
-              setDialogState(() => _isDialogLoading = true);
+              setDialogState(() => isDialogLoading = true);
 
               try {
                 final jwtToken = await AppWriteService().getJWT();
@@ -598,13 +598,13 @@ void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext c
                   if(userMode) {
                     await WithdrawalAccountsService.updateWithdrawalAccount(
                       jwtToken: jwtToken,
-                      accountId: account!.id!,
+                      accountId: account.id!,
                       updates: updates,
                     );
                   }else{
                     await WithdrawalAccountsService.updateUserWithdrawalAccount(
                       jwtToken: jwtToken,
-                      accountId: account!.id!,
+                      accountId: account.id!,
                       updates: updates, userId: userMeta.id,
                     );
                   }
@@ -644,20 +644,20 @@ void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext c
                   SnackBar(content: Text('Operation Processed Successfully')),
                 );
               } catch (e) {
-                setDialogState(() => _isDialogLoading = false);
+                setDialogState(() => isDialogLoading = false);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Error: $e')),
                 );
               }
             },
-            icon: _isDialogLoading
+            icon: isDialogLoading
                 ? const SizedBox(
               width: 16,
               height: 16,
               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
             )
                 : const Icon(Icons.save),
-            label: Text(_isDialogLoading ? 'Saving...' : (isEdit ? 'Update' : 'Add')),
+            label: Text(isDialogLoading ? 'Saving...' : (isEdit ? 'Update' : 'Add')),
           ),
         ],
       ),

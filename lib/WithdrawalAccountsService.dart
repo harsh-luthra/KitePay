@@ -1,6 +1,5 @@
 // WithdrawalAccountsService - Matches your withdrawal_accounts Node.js API
 import 'package:admin_qr_manager/models/WithdrawalAccount.dart'; // Create this model
-import 'AppConfig.dart';
 import 'AppConstants.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;

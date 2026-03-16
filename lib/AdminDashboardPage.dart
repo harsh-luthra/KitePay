@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -16,7 +15,8 @@ class AdminDashboardPage extends StatefulWidget {
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
   late Future<DashboardData> _future;
   bool _refreshing = false;
-  bool _showFullNumbers = false; // NEW
+  bool _showFullNumbers = false;
+  DateTime _lastUpdated = DateTime.now();
 
   @override
   void initState() {
@@ -34,10 +34,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       setState(() {
         _future = Future.value(data);
         _refreshing = false;
+        _lastUpdated = DateTime.now();
       });
-    } catch (_) {
-      if (mounted) setState(() => _refreshing = false);
-      rethrow;
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _future = Future.error(e);
+        _refreshing = false;
+      });
     }
   }
 
@@ -58,7 +62,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 ? const SizedBox(
                 width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.refresh),
-            onPressed: _refreshing ? null : () { _refresh(); }, // no async here
+            onPressed: _refreshing ? null : _refresh,
           ),
         ],
       ),
@@ -167,7 +171,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Last updated: ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}',
+                    'Last updated: ${DateFormat('dd MMM yyyy, hh:mm a').format(_lastUpdated)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ),
@@ -307,7 +311,6 @@ class _Section extends StatelessWidget {
   final List<Widget> children;
   const _Section({required this.title, required this.children});
 
-  @override
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -483,40 +486,14 @@ class DashboardData {
      );
 }
 
-DashboardData? _cache;
-DateTime? _cacheAt;
-
 Future<DashboardData> fetchDashboard({bool force = false}) async {
-  // if (!force && _cache != null && _cacheAt != null) {
-  //   final age = DateTime.now().difference(_cacheAt!);
-  //   if (age.inSeconds < 30) return _cache!;
-  // }
-
-  // print("Start Wait........");
-
-  // ✅ Wait 5 seconds before calling
-  // await Future.delayed(const Duration(seconds: 5));
-
-  // print("End Wait........");
-
   final jwt = await AppWriteService().getJWT();
   final uri = Uri.parse('${AppConstants.baseApiUrl}/admin/dashboard/counters');
   final resp = await http.get(uri, headers: {'Authorization': 'Bearer $jwt', 'Accept': 'application/json'});
 
-  // print("Dashboard Loaded");
-
   if (resp.statusCode != 200) {
     throw Exception('Failed to fetch dashboard: ${resp.statusCode} ${resp.body}');
   }
-
-  // print(resp.body);
-
-  final jsonMap = json.decode(resp.body) as Map<String, dynamic>;
-  // final data = DashboardData.fromJson(jsonMap);
-  //
-  // _cache = data;
-  // _cacheAt = DateTime.now();
-  // return data;
 
   final raw = json.decode(resp.body) as Map<String, dynamic>;
   final data = {
@@ -532,9 +509,7 @@ Future<DashboardData> fetchDashboard({bool force = false}) async {
     'totalPaytmQrs': raw['totalPaytmQrs'] ?? 0,
     'totalOtherQrs': raw['totalOtherQrs'] ?? 0,
     'qrCodesActive': raw['qrCodesActive'] ?? 0,
-    // If you also store disabled in backend, include it; else keep a default:
     'qrCodesDisabled': raw['qrCodesDisabled'] ?? 0,
-
     'totalManualTx': raw['totalManualTx'] ?? 0,
     'totalApiTx': raw['totalApiTx'] ?? 0,
     'chargebackCount': raw['chargebackCount'] ?? 0,
@@ -543,71 +518,17 @@ Future<DashboardData> fetchDashboard({bool force = false}) async {
     'cyberAmount': raw['cyberAmount'] ?? 0,
     'refundCount': raw['refundCount'] ?? 0,
     'refundAmount': raw['refundAmount'] ?? 0,
-
     'totalAmountPaid': raw['totalAmountPaid'] ?? 0,
     'totalWithdrawalPendingAmount': raw['totalWithdrawalPendingAmount'] ?? 0,
-
     'activeUsers': raw['activeUsers'] ?? 0,
     'disabledUsers': raw['disabledUsers'] ?? 0,
     'merchantActive': raw['merchantActive'] ?? 0,
     'merchantPending': raw['merchantPending'] ?? 0,
     'merchantDisabled': raw['merchantDisabled'] ?? 0,
     'totalUsers': raw['totalUsers'] ?? 0,
-
     'totalMembershipPurchased': raw['totalMembershipPurchased'] ?? 0,
     'pendingMembershipUsers': raw['pendingMembershipUsers'] ?? 0,
   };
 
-  // print(data);
-
   return DashboardData.fromJson(data);
-
 }
-
-// Change this to your real endpoint later
-// Future<DashboardData> fetchDashboard({bool force = false}) async {
-//   await Future.delayed(const Duration(milliseconds: 450)); // simulate latency
-//
-//   // TODO: Switch to real API
-//   // final jwt = await AppWriteService.instance.getJwt();
-//   // final resp = await http.get(
-//   //   Uri.parse('${AppConstants.baseUrl}/admin/dashboard/summary'),
-//   //   headers: {'Authorization': 'Bearer $jwt'},
-//   // );
-//   // if (resp.statusCode != 200) throw Exception(resp.body);
-//   // final jsonMap = json.decode(resp.body) as Map<String, dynamic>;
-//   // return DashboardData.fromJson(jsonMap);
-//
-//   // Dummy data (paise for money fields)
-//   return DashboardData(
-//     totalTxCount: 128_540,
-//     totalAmountReceived: 45_75_34_550,       // ₹4,57,53,455.50
-//     totalAdminProfit: 1_84_55_430,           // ₹18,455,430.00
-//     totalMerchantProfit: 2_42_11_220,        // ₹24,211,220.00
-//     totalQrsUploaded: 9_842,
-//     totalQrsAssignedToMerchant: 8_130,
-//     totalPinelabsQrs: 3_420,
-//     totalPaytmQrs: 4_100,
-//     totalOtherQrs: 2_322,
-//     qrCodesActive: 7_950,
-//     qrCodesDisabled: 520,
-//     totalManualTx: 18_250,
-//     totalApiTx: 110_290,
-//     chargebackCount: 320,
-//     chargebackAmount: 12_45_600,
-//     cyberCount: 210,
-//     cyberAmount: 8_75_900,
-//     refundCount: 1_120,
-//     refundAmount: 23_40_000,
-//     totalAmountPaid: 29_11_400,
-//     totalWithdrawalPendingAmount: 7_65_800,
-//     activeUsers: 15_420,
-//     disabledUsers: 420,
-//     merchantActive: 2_310,
-//     merchantPending: 185,
-//     merchantDisabled: 160,
-//     totalUsers: 18_500,
-//     totalMembershipPurchased: 1_240,
-//     pendingMembershipUsers: 95,
-//   );
-// }

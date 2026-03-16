@@ -5,7 +5,6 @@ import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:admin_qr_manager/widget/TransactionCard.dart';
 import 'package:admin_qr_manager/widget/TransactionCardShimmer.dart';
 import 'package:admin_qr_manager/widget/TransactionImageDialog.dart';
-import 'package:excel/excel.dart' show Excel;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/material.dart' as material;  // ✅ Alias Flutter
@@ -28,10 +27,8 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 import 'package:number_to_indian_words/number_to_indian_words.dart';
 
-import 'dart:html' as html;
-import 'dart:typed_data';
 import 'package:excel/excel.dart';
-import 'package:intl/intl.dart';  // for date formatting
+// for date formatting
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -167,7 +164,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     );
 
     _socket.onConnect((_) {
-      print("Socket Connected :" + firstQrId!);
+      print("Socket Connected :${firstQrId!}");
       // Send the list of qrIds as plain strings, e.g., ['119188392', ...]
       _socket.emit('subscribe:qrs', {'qrIds': [firstQrId]});
     }); // Socket.IO rooms pattern [web:493]
@@ -255,9 +252,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       // event: { id, qrCodeId, amountPaise, createdAtIso, ... }
       Transaction txn = Transaction.fromJson(event);
       if (mounted) {
-        final String? newRrn = txn.rrnNumber; // may be null
-        final bool exists = newRrn != null &&
-            transactions.any((t) => (t.rrnNumber ?? '').trim() ==
+        final String newRrn = txn.rrnNumber; // may be null
+        final bool exists = transactions.any((t) => (t.rrnNumber ?? '').trim() ==
                 newRrn.trim());
         if (!exists) {
           // speakAmountReceived(txn.amount);
@@ -462,11 +458,13 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     }
 
     if (firstLoad) {
-      if(mounted)
-      setState(() => loading = false);
+      if(mounted) {
+        setState(() => loading = false);
+      }
     } else {
-      if(mounted)
-      setState(() => loadingMore = false);
+      if(mounted) {
+        setState(() => loadingMore = false);
+      }
     }
   }
 
@@ -516,11 +514,13 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     }
 
     if (firstLoad) {
-      if(mounted)
+      if(mounted) {
         setState(() => loading = false);
+      }
     } else {
-      if(mounted)
+      if(mounted) {
         setState(() => loadingMore = false);
+      }
     }
   }
 
@@ -905,10 +905,12 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                           LengthLimitingTextInputFormatter(12),
                         ],
                         validator: (v) {
-                          if (v == null || v.isEmpty)
+                          if (v == null || v.isEmpty) {
                             return 'RRN Number required';
-                          if (v.length != 12)
+                          }
+                          if (v.length != 12) {
                             return 'RRN Number must be 12 digits';
+                          }
                           return null;
                         },
                       ),
@@ -1030,8 +1032,10 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       ); // call DELETE API [3]
 
       // Close loading dialog
-      if (context.mounted) Navigator.of(context, rootNavigator: true)
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true)
           .pop(); // dismiss loader [1]
+      }
 
       if (ok && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1294,8 +1298,9 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       },
     ); // confirm with dropdown
 
-    if (confirm != true || selected == null)
+    if (confirm != true || selected == null) {
       return; // user canceled or nothing chosen
+    }
 
     // Show loading dialog (modal)
     showDialog<void>(
@@ -1619,7 +1624,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       final effectiveQrId = selectedQrCodeId ?? widget.filterQrCodeId;
 
       // ADD YOUR EXISTING FILTERS HERE (reuse current state)
-      if (effectiveUserId != null) queryParams.add('userId=${effectiveUserId}');
+      if (effectiveUserId != null) queryParams.add('userId=$effectiveUserId');
       if (effectiveQrId != null) queryParams.add('qrId=$effectiveQrId');  // your qr filter
       if (selectedFromDate != null) queryParams.add('from=${selectedFromDate!.toIso8601String()}');
       if (selectedToDate != null) queryParams.add('to=${selectedToDate!.toIso8601String()}');
@@ -1649,10 +1654,10 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
       // print(uri.toString());
 
-      var _token = await AppWriteService().getJWT();
+      var token = await AppWriteService().getJWT();
 
       final response = await http.get(uri, headers: {
-        'Authorization': 'Bearer $_token',  // your auth token
+        'Authorization': 'Bearer $token',  // your auth token
       });
 
       if (context.mounted) Navigator.pop(context);  // close loading

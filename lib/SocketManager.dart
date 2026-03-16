@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:admin_qr_manager/AppWriteService.dart';
-import 'package:admin_qr_manager/MyMetaApi.dart';
 import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:admin_qr_manager/models/QrCode.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -130,7 +128,7 @@ class SocketManager {
         // TODO: forward to a StreamController/BLoC/callback
       })
       ..on('forceRefresh', (data) {
-        print('Force Refresh:'+ data.toString());
+        print('Force Refresh:$data');
         if (data is Map) {
           _forceRefreshController.add(Map<String, dynamic>.from(data));
         } else {
@@ -173,12 +171,8 @@ class SocketManager {
   void emitQrLimitAlert(Map<String, dynamic> data) {
     // print("🔥 Manual QR Limit Alert: $data");
 
-    if (data is Map) {
-      _qrLimitAlertController.add(Map<String, dynamic>.from(data));
-    } else {
-      _qrLimitAlertController.add({'raw': data});
+    _qrLimitAlertController.add(Map<String, dynamic>.from(data));
     }
-  }
 
   void unsubscribeQrIds(List<String> qrIds) {
     if (!isConnected) return;

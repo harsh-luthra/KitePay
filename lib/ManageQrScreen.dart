@@ -1,21 +1,17 @@
-import 'dart:io';
 import 'package:admin_qr_manager/AppConfig.dart';
 import 'package:admin_qr_manager/AppConstants.dart';
 import 'package:admin_qr_manager/QRService.dart';
 import 'package:admin_qr_manager/SocketManager.dart';
 import 'package:admin_qr_manager/utils/CurrencyUtils.dart';
 import 'package:admin_qr_manager/widget/QrCardShimmer.dart';
-import 'package:appwrite/models.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:html' as html; // only works on Flutter web
-import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import 'AppWriteService.dart';
-import 'DashboardScreenNew.dart';
 import 'MyMetaApi.dart';
 import 'TransactionPageNew.dart';
 import 'UsersService.dart';
@@ -174,9 +170,6 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   }
 
   String displayUserNameText(String appUserId){
-    if(appUserId == null){
-      return "Unassigned";
-    }
     AppUser? user = getUserById(appUserId);
     String displayText = user != null
         ? '${user.name}\n${user.email}'
@@ -318,11 +311,11 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
     // Optional: if required, deduplicate and ensure the parent subadmin (if exists) is present
     if (assignedUser?.parentId != null) {
-      final AppUser? parentSub = users.firstWhere(
+      final AppUser parentSub = users.firstWhere(
             (u) => u.id == assignedUser!.parentId && u.role == 'subadmin',
         orElse: () => null as AppUser,
       );
-      if (parentSub != null && !filtered.any((s) => s.id == parentSub.id)) {
+      if (!filtered.any((s) => s.id == parentSub.id)) {
         filtered.insert(0, parentSub);
       }
     }
@@ -1657,7 +1650,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
         ? 'Self'
         : [assignedName].where((s) => s.isNotEmpty).join(' • '));
 
-    final String managerName = displayUserNameText(managerId!) ?? '';
+    final String managerName = displayUserNameText(managerId) ?? '';
     final bool isSelfManager = managerId == widget.userMeta.id;
     // final String assignedEmail = displayUserNameText?.call(assignedId) ?? ''; // if you have this helper
     final String managerLine = managerId == ''

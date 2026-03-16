@@ -179,8 +179,8 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
   Future<void> _pickDate({required String kind}) async {
     final now = DateTime.now();
 
-    DateTime _atMidnight(DateTime d) => DateTime(d.year, d.month, d.day);
-    DateTime _addDays(DateTime d, int n) => _atMidnight(d).add(Duration(days: n));
+    DateTime atMidnight(DateTime d) => DateTime(d.year, d.month, d.day);
+    DateTime addDays(DateTime d, int n) => atMidnight(d).add(Duration(days: n));
 
     final initial = kind == 'date'
         ? (_date ?? now)
@@ -193,12 +193,12 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
 
     // If picking end and we have a start, constrain the calendar max to start+29
     if (kind == 'end' && _start != null) {
-      final maxEnd = _addDays(_start!, 29);
+      final maxEnd = addDays(_start!, 29);
       if (maxEnd.isBefore(last)) last = maxEnd;
     }
     // If picking start and we have an end, constrain calendar min to end-29 (optional UX)
     if (kind == 'start' && _end != null) {
-      final minStart = _addDays(_end!, -29);
+      final minStart = addDays(_end!, -29);
       if (minStart.isAfter(first)) first = minStart;
     }
 
@@ -210,7 +210,7 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
     );
 
     if (picked == null) return;
-    final p = _atMidnight(picked);
+    final p = atMidnight(picked);
 
     setState(() {
       if (kind == 'date') {
@@ -226,7 +226,7 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
           // Ensure end >= start
           if (_end!.isBefore(_start!)) _end = _start!;
           // Enforce 30-day inclusive window
-          final maxEnd = _addDays(_start!, 29);
+          final maxEnd = addDays(_start!, 29);
           if (_end!.isAfter(maxEnd)) _end = maxEnd;
         }
         return;
@@ -240,7 +240,7 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
           // Enforce end >= start
           var candidate = p.isBefore(_start!) ? _start! : p;
           // Enforce 30-day inclusive window
-          final maxEnd = _addDays(_start!, 29);
+          final maxEnd = addDays(_start!, 29);
           if (candidate.isAfter(maxEnd)) {
             candidate = maxEnd;
             ScaffoldMessenger.of(context).showSnackBar(

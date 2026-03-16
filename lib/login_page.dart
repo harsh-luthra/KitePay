@@ -1,9 +1,8 @@
-import 'package:appwrite/appwrite.dart';
 import 'package:flutter/material.dart';
 import 'package:admin_qr_manager/AppWriteService.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({Key? key}) : super(key: key);
+  const LoginPage({super.key});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -13,6 +12,7 @@ class _LoginPageState extends State<LoginPage> {
 
   final appwrite = AppWriteService();
 
+  @override
   void initState(){
     super.initState();
     print('Test');

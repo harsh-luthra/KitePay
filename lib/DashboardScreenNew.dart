@@ -26,13 +26,10 @@ import 'ManageApiMerchantsNew.dart';
 import 'ManageUsersScreen.dart';
 import 'ManageQrScreen.dart';
 import 'ManageWithdrawalsNew.dart';
-import 'MemberShipPlansScreen.dart';
-import 'MyMetaApi.dart';
 import 'SocketManager.dart';
 import 'TransactionPageNew.dart';
 import 'UserDashboardPage.dart';
 import 'WithdrawalAccountsPage.dart';
-import 'WithdrawalFormPage.dart';
 import 'adminLoginPage.dart';
 import 'package:http/http.dart' as http;
 
@@ -304,7 +301,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   @override
   void dispose() {
     _txSub?.cancel();
-    _connSub?.cancel();
+    _connSub.cancel();
     _qrAlertSub?.cancel();
     _qrLimitAlertSub?.cancel();
     _forceRefreshAlertSub?.cancel();
@@ -328,10 +325,10 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   }
 
   Future<void> setupSocketTransactionSpeech() async {
-    final QrCodeService _qrCodeService = QrCodeService();
+    final QrCodeService qrCodeService = QrCodeService();
     String jwtToken = await AppWriteService().getJWT();
-    List<QrCode> _qrCodes = await _qrCodeService.getUserAssignedQrCodes(widget.userMeta.id, jwtToken);
-    final List<String> qrIds = _qrCodes.map((q) => q.qrId).whereType<String>().toSet().toList();
+    List<QrCode> qrCodes = await qrCodeService.getUserAssignedQrCodes(widget.userMeta.id, jwtToken);
+    final List<String> qrIds = qrCodes.map((q) => q.qrId).whereType<String>().toSet().toList();
     socketManagerConnect(qrIds);
   }
 
@@ -581,7 +578,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     _qrLimitAlertSub = SocketManager.instance.qrLimitAlertController.listen((event) async {
       // final qr = QrCode.fromJson(event);
 
-      final QR_ID = event["qrCodeId"];
+      final qrId = event["qrCodeId"];
       final todayPayIn = event["todayPayIn"];
       // print("today_payin alert qr limit");
 
@@ -589,9 +586,9 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
 
       // Add to notifications
       final item = NotificationItem(
-        id: QR_ID, // if not unique, use '${qr.qrId}-${DateTime.now().millisecondsSinceEpoch}'
+        id: qrId, // if not unique, use '${qr.qrId}-${DateTime.now().millisecondsSinceEpoch}'
         title: 'QR Limit Reached',
-        subtitle: QR_ID,
+        subtitle: qrId,
         at: DateTime.now(),
       );
       await _notifStore.add(item);
@@ -604,7 +601,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         await DialogSingleton.showReplacing(
           builder: (ctx) => qrLimitAlertDialog(
             context: ctx,
-            qrId: QR_ID,
+            qrId: qrId,
             todayPayIn: todayPayIn,
           ),
         );
@@ -1015,8 +1012,8 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                         radius: 18,
                         backgroundColor: Colors.blue.shade700,
                         child: Text(
-                          (widget.userMeta.name?.isNotEmpty ?? false)
-                              ? widget.userMeta.name!.substring(0, 1).toUpperCase()
+                          (widget.userMeta.name.isNotEmpty ?? false)
+                              ? widget.userMeta.name.substring(0, 1).toUpperCase()
                               : 'U',
                           style: const TextStyle(color: Colors.white),
                         ),
@@ -1306,7 +1303,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                   _buildTopBar(isDesktop),
                   Expanded(
                     child: Container(
-                      color: Theme.of(context).colorScheme.background,
+                      color: Theme.of(context).colorScheme.surface,
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: _buildContent(),
