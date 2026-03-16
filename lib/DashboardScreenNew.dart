@@ -206,7 +206,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         label: 'Manual TXN',
         icon: Icons.add_box_outlined,
         // visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.manualTransactions)),
-        visibleFor: (labels) => checkRole('admin'),
+        visibleFor: (labels) => (checkRole('admin') && AppConfig().manualTxnPageEnabled),
         builder: (_) => ManualTransactionForm(),
       ),
       _MenuItem(

@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:appwrite/appwrite.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 
 import 'AppConstants.dart';
@@ -10,6 +12,134 @@ enum TxnStatus { normal, cyber, refund, chargeback }
 
 class TransactionService {
   static final String _baseUrl = AppConstants.baseApiUrl;
+
+  // Appwrite client and storage
+  static final Client _appwriteClient = Client()
+      .setEndpoint('https://fra.cloud.appwrite.io/v1') // Your Appwrite Endpoint
+      .setProject('688c98fd002bfe3cf596'); // Your project ID
+
+  static final String bucketId = "688d2517002810ac532b";
+
+  static late final Storage _appwriteStorage = Storage(_appwriteClient);
+
+  // TransactionService() {
+  // }
+
+  static Future<bool> uploadTransactionImage(PlatformFile file, String txnId, String jwtToken) async {
+    try {
+      if (file.bytes == null) {
+        print('❌ Error: File bytes are null. Cannot proceed with upload.');
+        return false;
+      }
+
+      // ✅ Folder prefix: "TxnImages/" + txnId
+      final folderPath = 'TxnImages/';
+      final inputFile = InputFile.fromBytes(
+        bytes: file.bytes!,
+        filename: '$folderPath${txnId}_.jpg',  // e.g., "TxnImages/txn_abc123_proof.jpg"
+      );
+
+      final fileResult = await _appwriteStorage.createFile(
+        bucketId: bucketId,
+        fileId: ID.unique(),
+        file: inputFile,
+      );
+
+      final fileId = fileResult.$id;
+      if (fileId.isEmpty) {
+        print('❌ Failed to get a file ID from Appwrite after upload.');
+        return false;
+      }
+      print('✅ Uploaded to TxnImages/: $fileId');
+
+      // Image URL remains the same (path doesn't affect access)
+      final imageUrl = 'https://fra.cloud.appwrite.io/v1/storage/buckets/$bucketId/files/$fileId/view?project=688c98fd002bfe3cf596';
+
+      return await _createImageEntryInTransaction(
+        txnId: txnId,
+        fileId: fileId,
+        imageUrl: imageUrl,
+        jwtToken: jwtToken,
+      );
+
+    } on AppwriteException catch (e) {
+      print('❌ Appwrite Error: ${e.message}');
+      return false;
+    } catch (e) {
+      print('❌ General Error: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> _createImageEntryInTransaction ({
+    required String txnId,
+    required String fileId,
+    required String imageUrl,
+    required String jwtToken,
+  }) async {
+    try {
+      // print('Attempting to create Txn Image entry on server...');
+      final response = await http.post(
+        Uri.parse('$_baseUrl/admin/create-image-entry-in-transaction'), // New endpoint for this purpose
+        headers: {
+          'Authorization': 'Bearer $jwtToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'txnId': txnId,
+          'fileId': fileId,
+          'imageUrl': imageUrl,
+          'createdAt': DateTime.now().toIso8601String(), // New field for creation time
+        }),
+      ).timeout(Duration(seconds: 10));
+
+      // print('Server response status code: ${response.statusCode}');
+      // print('Server response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        // print('✅ Successfully created QR entry on server.');
+        return true;
+      } else {
+        // print('❌ Failed to create QR entry on server. Expected status 201, but got ${response.statusCode}');
+        return false;
+      }
+    } on TimeoutException {
+      // 🔌 API took too long
+      throw Exception(
+          'Request timed out. Please check your connection or try again later.');
+    } catch (e) {
+      // print('❌ Error creating QR entry on server: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteTransactionImage({
+    required String txnId,
+    required String jwtToken,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/admin/delete-transaction-image'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwtToken',
+        },
+        body: jsonEncode({'txnId': txnId}),
+      );
+
+      if (response.statusCode == 200) {
+        print('✅ Transaction image deleted successfully');
+        return true;
+      } else {
+        print('❌ Delete failed: ${response.statusCode} - ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Error deleting transaction image: $e');
+      return false;
+    }
+  }
+
 
   static Future<PaginatedTransactions> fetchTransactions({
     String? userId,

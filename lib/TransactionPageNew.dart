@@ -4,8 +4,11 @@ import 'package:admin_qr_manager/AppConstants.dart';
 import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:admin_qr_manager/widget/TransactionCard.dart';
 import 'package:admin_qr_manager/widget/TransactionCardShimmer.dart';
+import 'package:admin_qr_manager/widget/TransactionImageDialog.dart';
 import 'package:excel/excel.dart' show Excel;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' as material;  // ✅ Alias Flutter
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'AppWriteService.dart';
@@ -1055,6 +1058,187 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     }
   }
 
+  Future<void> viewTransactionImage(
+      BuildContext context, {
+        required Transaction txn,
+        required Widget headerWidget, // your custom widget passed from outside
+      }) async {
+    final String? imageLink = txn.imageUrl;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black87,
+      builder: (ctx) => TransactionImageDialog(
+        imageUrl: imageLink,
+        headerWidget: headerWidget,
+      ),
+    );
+  }
+
+  Future<void> onTransactionImageDelete(BuildContext context, {
+    required Transaction txn,
+  }) async {
+    // Show progress dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,  // Prevent dismissing during operation
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        contentPadding: const EdgeInsets.all(24),
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 16),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Deleting image...', style: Theme.of(context).textTheme.titleMedium),
+                Text('Please wait', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final success = await TransactionService.deleteTransactionImage(
+        txnId: txn.id,
+        jwtToken: await AppWriteService().getJWT(),
+      );
+
+      // Always dismiss progress dialog first
+      Navigator.of(context).pop();  // Close progress dialog
+
+      if (success) {
+        _scaffoldMessengerKey.currentState?.showSnackBar(
+          const SnackBar(content: Text('✅ Image deleted successfully')),
+        );
+        setState(() {});  // Refresh UI
+      } else {
+        _scaffoldMessengerKey.currentState?.showSnackBar(
+          const SnackBar(content: Text('❌ Failed to delete transaction image')),
+        );
+      }
+    } catch (e) {
+      Navigator.of(context).pop();  // Ensure dialog closes on error
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text('❌ Error: $e')),
+      );
+    } finally{
+      _refetchWithCurrentFilters();
+    }
+  }
+
+  Future<void> onTransactionImageUpload(BuildContext context, {
+    required Transaction txn,
+  }) async {
+    if (_jwtToken == null) return;
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      withData: true,
+      type: FileType.image,
+    );
+
+    if (result != null) {
+      PlatformFile file = result.files.first;
+
+      // 2. Show progress during entire operation
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Material(
+          color: Colors.transparent,
+          child: Center(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 320),
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(24),
+                border: material.Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 40,
+                    spreadRadius: -10,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.qr_code,
+                    size: 48,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Uploading Txn Image File',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Processing your file upload...',
+                    style: TextStyle(fontSize: 15),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 4,
+                    child: LinearProgressIndicator(
+                      value: null,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      String txnId = txn.id;
+
+      try {
+        _jwtToken = await AppWriteService().getJWT();
+        bool success = await TransactionService.uploadTransactionImage(
+            file, txnId, _jwtToken!);
+        Navigator.pop(context); // Close loader
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Transaction Image uploaded successfully!')),
+          );
+          // _fetchQrCodes(); // Refresh the list
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to upload Transaction Image.')),
+          );
+        }
+      } catch (e) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      } finally {
+        _refetchWithCurrentFilters();
+      }
+    }
+  }
+
   Future<void> changeTransactionStatus(BuildContext context, {
     required Transaction txn,
   }) async {
@@ -1289,6 +1473,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                 itemCount: transactions.length + (loadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index < transactions.length) {
+                    // print(transactions[index].imageUrl);
                     // if(compactMode){
                     //   TransactionCardCompact(txn: transactions[index]);
                     // }else{
@@ -1297,7 +1482,16 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                           txn: transactions[index],
                           onEdit: (txn) => editTransaction(context, txn: txn),
                           onDelete: (txn) => deleteTransaction(context, txn: txn),
-                          onStatus: (txn) => changeTransactionStatus(context, txn: txn))
+                          onStatus: (txn) => changeTransactionStatus(context, txn: txn),
+                          onViewProof: (txn) => viewTransactionImage(context, txn: txn, headerWidget: TransactionCard( compactMode: compactMode,
+                            txn: transactions[index],)),
+                          onUploadImage: userMeta.role == 'admin'
+                            ? (txn) => onTransactionImageUpload(context, txn: txn)
+                            : null,  // Null disables the action in TransactionCard
+                          onDeleteImage: (userMeta.role == 'admin' && transactions[index].imageUrl != '')
+                            ? (txn) => onTransactionImageDelete(context, txn: txn)
+                            : null,
+                          )
                           : TransactionCard(txn: transactions[index], compactMode: compactMode,);
                     // }
                     // return TransactionCard(txn: transactions[index],onEdit: (txn) => editTransaction(context, txn: txn),onDelete: (txn) => deleteTransaction(context, txn: txn),);

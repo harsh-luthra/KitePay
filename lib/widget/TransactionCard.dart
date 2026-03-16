@@ -1,3 +1,4 @@
+import 'package:admin_qr_manager/AppConfig.dart';
 import 'package:admin_qr_manager/utils/CurrencyUtils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +15,9 @@ class TransactionCard extends StatelessWidget {
   final TxnActionAsync? onEdit;
   final TxnActionAsync? onDelete;
   final TxnActionAsync? onStatus;
+  final TxnActionAsync? onViewProof;
+  final TxnActionAsync? onUploadImage;
+  final TxnActionAsync? onDeleteImage;
   final bool compactMode;
 
   const TransactionCard({
@@ -22,6 +26,9 @@ class TransactionCard extends StatelessWidget {
     this.onEdit,
     this.onDelete,
     this.onStatus,
+    this.onViewProof,
+    this.onUploadImage,
+    this.onDeleteImage,
     required this.compactMode,
   });
 
@@ -55,7 +62,7 @@ class TransactionCard extends StatelessWidget {
               _infoRow(Icons.currency_rupee, 'Amount', CurrencyUtils.formatIndianCurrency(txn.amount / 100)),
               _infoRow(Icons.qr_code, 'QR Code ID', txn.qrCodeId),
               _infoRow(Icons.payment, 'Payment ID', txn.paymentId),
-              _infoRow(Icons.receipt_long, 'RRN Number', txn.rrnNumber),
+              _infoRow(Icons.receipt_long, 'RRN Number', txn.rrnNumber, copyable: true),
               _infoRow(Icons.alternate_email, 'VPA', txn.vpa),
               _infoRow(Icons.calendar_today, 'Created At', date),
               _infoRow(Icons.confirmation_number, 'Transaction ID', txn.id),
@@ -113,6 +120,34 @@ class TransactionCard extends StatelessWidget {
               _infoRow(Icons.calendar_today, 'Created At', date),
               if(!(txn.status == '' || txn.status == 'normal'))
                 _infoRow(Icons.confirmation_number, 'Status: ', "${txn.status} Hold"),
+              Row(
+                children: [
+                  if((txn.status == 'chargeback' && AppConfig().txnImageSupport))...[
+                    if (onViewProof != null)
+                      IconButton(
+                        icon: Icon(Icons.attach_email, color: txn.imageUrl == '' ? Colors.red : Colors.green),
+                        tooltip: 'View Image',
+                        onPressed: () async => await onViewProof?.call(txn),
+                      ),
+                  if (onUploadImage != null)
+                      txn.imageUrl == '' ? IconButton(
+                      icon: Icon(Icons.upload_file_sharp , color: Colors.green),
+                      tooltip: 'Upload Image',
+                      onPressed: () async => await onUploadImage?.call(txn),
+                    ) : IconButton(
+                      icon: Icon(Icons.recycling , color: Colors.blueAccent),
+                      tooltip: 'Re Upload Image',
+                      onPressed: () async => await onUploadImage?.call(txn),
+                    ),
+                  if(txn.imageUrl != '')
+                    IconButton(
+                      icon: Icon(Icons.delete_forever_outlined , color: Colors.red),
+                      tooltip: 'Delete Image',
+                      onPressed: () async => await onDeleteImage?.call(txn),
+                    ),
+                  ]
+                ],
+              ),
               const SizedBox(height: 4),
             ],
           ),

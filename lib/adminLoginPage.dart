@@ -4,95 +4,87 @@ import 'dart:convert';
 import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // ✅ for SystemNavigator
 import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/models.dart' as models;
-// DashboardScreenNew
-import 'package:admin_qr_manager/AppWriteService.dart'; // adjust path as needed
-import 'AppConfig.dart';
-import 'AppConstants.dart';
+import 'package:admin_qr_manager/AppWriteService.dart';
 import 'DashboardScreenNew.dart';
 import 'MyMetaApi.dart';
-import 'package:http/http.dart' as http;
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
 
   @override
   State<AdminLoginScreen> createState() => _AdminLoginScreenState();
-
 }
 
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+
+  // ✅ Single shared instance — don't re-instantiate inside methods
+  final AppWriteService _appwrite = AppWriteService();
+
   String? errorMessage;
   bool isLoading = false;
+  bool _obscurePassword = true;
 
-  final appwrite = AppWriteService();
-
-  bool _obscurePassword = true; // Add this to your State
-
+  @override // ✅ Missing @override added
   void initState() {
     super.initState();
-    print('Test');
-    CheckIsLoggedIn();
+    _checkIsLoggedIn(); // ✅ Renamed to lowerCamelCase convention
   }
 
-  Future<void> CheckIsLoggedIn() async {
-    // await loadConfig();
-    bool isLoggedIn = await appwrite.isLoggedIn();
-    if(isLoggedIn){
-      print("Already logged In");
+  @override
+  void dispose() {
+    emailController.dispose();   // ✅ Always dispose controllers
+    passwordController.dispose();
+    super.dispose();
+  }
 
-      final user = await appwrite.account.get();
-      // final List<String> availableLabels = user.labels;
-      // print("Email: "+user.labels.toString());
+  Future<void> _checkIsLoggedIn() async {
+    try {
+      final bool isLoggedIn = await _appwrite.isLoggedIn();
+      if (!isLoggedIn) return;
 
-      if(user.labels.contains('admin')){
-        print("Admin logged in");
-      }else{
-        // print("User is Not Admin: "+user.labels.toString());
-      }
-
-     String jwtToken = await AppWriteService().getJWT();
+      final user = await _appwrite.account.get();
+      final String jwtToken = await _appwrite.getJWT(); // ✅ reuse instance
 
       final userMeta = await MyMetaApi.getMyMetaData(
         jwtToken: jwtToken,
-        refresh: true, // set true to force re-fetch
+        refresh: true,
       );
 
-      // print(userMeta.toString());
-
-      // loadConfig();
-
-      moveToDashBoard(user, userMeta!);
-    }else{
-      print("Not logged In");
+      if (userMeta != null) {
+        _moveToDashboard(user, userMeta);
+      }
+    } catch (e) {
+      // ✅ Silent auto-login failure is fine — user just stays on login screen
+      debugPrint('Auto-login check failed: $e');
     }
   }
 
-  void moveToDashBoard(models.User user, AppUser userMeta){
-    if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => DashboardScreenNew(user: user,userMeta: userMeta)),
-            (_) => false, // removes all previous routes
-      );
-    }
+  void _moveToDashboard(models.User user, AppUser userMeta) {
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => DashboardScreenNew(user: user, userMeta: userMeta),
+      ),
+          (_) => false,
+    );
   }
 
   Future<void> _startCheckThenLogin() async {
+    // Check connectivity in a loop until connected
     while (true) {
       final connectivityResult = await Connectivity().checkConnectivity();
-      print(connectivityResult.toString());
       if (connectivityResult.contains(ConnectivityResult.none)) {
         await _showNoInternetDialog();
       } else {
         break;
       }
-
     }
-
-    loginAdmin();
+    await _loginAdmin();
   }
 
   Future<void> _showNoInternetDialog() async {
@@ -106,13 +98,13 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Retry'),
-          )
+          ),
         ],
       ),
     );
   }
 
-  Future<void> loginAdmin() async {
+  Future<void> _loginAdmin() async {
     final email = emailController.text.trim();
     final password = passwordController.text;
 
@@ -126,102 +118,95 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       errorMessage = null;
     });
 
-    final appwrite = AppWriteService();
-
     try {
-      final session = await appwrite.account.createEmailPasswordSession(
+      await _appwrite.account.createEmailPasswordSession(
         email: email,
         password: password,
       );
 
-      final user = await appwrite.account.get();
-
-      String jwtToken = await AppWriteService().getJWT();
+      final user = await _appwrite.account.get();
+      final String jwtToken = await _appwrite.getJWT(); // ✅ reuse instance
 
       final userMeta = await MyMetaApi.getMyMetaData(
         jwtToken: jwtToken,
-        refresh: true, // set true to force re-fetch
+        refresh: true,
       );
 
-      // print(userMeta.toString());
-
-      moveToDashBoard(user, userMeta!);
-
-    } on AppwriteException catch (e) {
-      print(e.message);
-
-      setState(() {
-        errorMessage = e.message ?? 'Login failed';
-      });
-
-      if (e.message!.contains('has been blocked')) {
-        // 👇 Show blocked user dialog
-        showDialog(
-          context: context,
-          builder: (context) =>
-              AlertDialog(
-                title: const Text('Blocked'),
-                content: const Text(
-                    'Your account has been blocked. Please contact support.'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('OK'),
-                  ),
-                ],
-              ),
-        );
-      }else{
-        if(e.message != null){
-          String? msg = e.message;
-          showDialog(
-            context: context,
-            builder: (context) =>
-                AlertDialog(
-                  title: const Text('Login Failed'),
-                  content: Text(
-                      msg!),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('OK'),
-                    ),
-                  ],
-                ),
-          );
-        }
+      if (userMeta != null) {
+        _moveToDashboard(user, userMeta);
       }
+    } on AppwriteException catch (e) {
+      debugPrint('AppwriteException: ${e.message}');
 
+      final msg = e.message ?? 'Login failed. Please try again.';
 
+      // ✅ Only set inline error for minor messages; show dialog for important ones
+      setState(() => errorMessage = null);
+
+      if (!mounted) return;
+
+      if (msg.contains('has been blocked')) {
+        _showErrorDialog(
+          title: 'Account Blocked',
+          message: 'Your account has been blocked. Please contact support.',
+        );
+      } else {
+        // ✅ Show dialog AND clear inline error to avoid double reporting
+        _showErrorDialog(title: 'Login Failed', message: msg);
+      }
     } catch (e) {
-      print(e);
-      setState(() {
-        errorMessage = 'An unexpected error occurred';
-      });
+      debugPrint('Unexpected error: $e');
+      if (mounted) {
+        _showErrorDialog(
+          title: 'Error',
+          message: 'An unexpected error occurred. Please try again.',
+        );
+      }
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
-  Future<bool> _confirmExit(BuildContext context) async {
+  // ✅ Extracted reusable error dialog
+  void _showErrorDialog({required String title, required String message}) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmAndExit() async {
     final shouldExit = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Exit App'),
         content: const Text('Are you sure you want to exit the app?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Exit'),
           ),
         ],
       ),
     );
-    return shouldExit ?? false;
+
+    if (shouldExit == true) {
+      SystemNavigator.pop(); // ✅ Correct way to exit app, not Navigator.pop()
+    }
   }
 
   @override
@@ -232,10 +217,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
-        if (!didPop) {
-          final exitConfirmed = await _confirmExit(context);
-          if (exitConfirmed && mounted) Navigator.of(context).pop();
-        }
+        if (!didPop) await _confirmAndExit(); // ✅ Cleaned up
       },
       child: Scaffold(
         body: Container(
@@ -258,22 +240,26 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                 constraints: BoxConstraints(maxWidth: formWidth),
                 child: Card(
                   elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Brand header
                         CircleAvatar(
                           radius: 28,
                           backgroundColor: Colors.blue.shade50,
-                          child: const Icon(Icons.payments_outlined, color: Colors.blue, size: 28),
+                          child: const Icon(Icons.payments_outlined,
+                              color: Colors.blue, size: 28),
                         ),
                         const SizedBox(height: 12),
-                        const Text('Welcome to KitePay', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                        const Text('Welcome to KitePay',
+                            style: TextStyle(
+                                fontSize: 22, fontWeight: FontWeight.w800)),
                         const SizedBox(height: 6),
-                        const Text('Sign in to access your account', style: TextStyle(color: Colors.grey)),
+                        const Text('Sign in to access your account',
+                            style: TextStyle(color: Colors.grey)),
                         const SizedBox(height: 22),
 
                         // Email
@@ -287,10 +273,11 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                             prefixIcon: const Icon(Icons.email_outlined),
                             border: const OutlineInputBorder(),
                             isDense: true,
-                            suffixIcon: (emailController.text.isNotEmpty)
+                            suffixIcon: emailController.text.isNotEmpty
                                 ? IconButton(
                               icon: const Icon(Icons.clear),
-                              onPressed: () => setState(() => emailController.clear()),
+                              onPressed: () =>
+                                  setState(() => emailController.clear()),
                               tooltip: 'Clear',
                             )
                                 : null,
@@ -304,30 +291,36 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                           controller: passwordController,
                           obscureText: _obscurePassword,
                           textInputAction: TextInputAction.done,
-                          onSubmitted: (_) => isLoading ? null : _startCheckThenLogin(),
+                          onSubmitted: (_) =>
+                          isLoading ? null : _startCheckThenLogin(),
                           decoration: InputDecoration(
                             labelText: 'Password',
                             prefixIcon: const Icon(Icons.lock_outline),
                             border: const OutlineInputBorder(),
                             isDense: true,
-                            // helperText: 'Use your admin or assigned account credentials',
                             suffixIcon: IconButton(
-                              icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                              tooltip: _obscurePassword ? 'Show password' : 'Hide password',
-                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                              icon: Icon(_obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility),
+                              tooltip: _obscurePassword
+                                  ? 'Show password'
+                                  : 'Hide password',
+                              onPressed: () => setState(
+                                      () => _obscurePassword = !_obscurePassword),
                             ),
                           ),
                         ),
 
                         const SizedBox(height: 8),
 
-                        // Error message (if any)
+                        // Inline error
                         if (errorMessage != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Row(
                               children: [
-                                const Icon(Icons.error_outline, size: 16, color: Colors.red),
+                                const Icon(Icons.error_outline,
+                                    size: 16, color: Colors.red),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
@@ -343,31 +336,41 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
                         const SizedBox(height: 16),
 
-                        // Primary button
                         SizedBox(
                           width: double.infinity,
                           height: 46,
                           child: ElevatedButton(
-                            onPressed: isLoading ? null : _startCheckThenLogin,
+                            onPressed:
+                            isLoading ? null : _startCheckThenLogin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blueAccent,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
                             ),
                             child: isLoading
-                                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                                : const Text('Sign In', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
+                                ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2))
+                                : const Text('Sign In',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white)),
                           ),
                         ),
 
                         const SizedBox(height: 12),
 
-                        // Help row (optional)
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text('Having trouble?', style: TextStyle(color: Colors.grey)),
+                            const Text('Having trouble?',
+                                style: TextStyle(color: Colors.grey)),
                             TextButton(
-                              onPressed: isLoading ? null : () => _showSupportSheet(context),
+                              onPressed: isLoading
+                                  ? null
+                                  : () => _showSupportSheet(context),
                               child: const Text('Contact support'),
                             ),
                           ],
@@ -390,13 +393,14 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(16),
+      builder: (_) => const Padding(
+        padding: EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text('Need help?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          children: [
+            Text('Need help?',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
             SizedBox(height: 8),
             Text('Email: support@kitepay.app'),
             Text('Business hours: 10:00–18:00 IST'),
@@ -406,5 +410,4 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       ),
     );
   }
-
 }

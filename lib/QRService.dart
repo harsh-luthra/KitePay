@@ -1,11 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:uuid/uuid.dart';
 import 'AppConstants.dart';
-import 'models/AppUser.dart';
 import 'models/QrCode.dart';
 import 'package:appwrite/appwrite.dart';
 
@@ -58,14 +55,14 @@ class QrCodeService {
         }),
       ).timeout(Duration(seconds: 10));
 
-      print('Server response status code: ${response.statusCode}');
-      print('Server response body: ${response.body}');
+      // print('Server response status code: ${response.statusCode}');
+      // print('Server response body: ${response.body}');
 
       if (response.statusCode == 201) {
-        print('✅ Successfully created QR entry on server.');
+        // print('✅ Successfully created QR entry on server.');
         return true;
       } else {
-        print('❌ Failed to create QR entry on server. Expected status 201, but got ${response.statusCode}');
+        // print('❌ Failed to create QR entry on server. Expected status 201, but got ${response.statusCode}');
         return false;
       }
     } on TimeoutException {
@@ -73,7 +70,7 @@ class QrCodeService {
       throw Exception(
           'Request timed out. Please check your connection or try again later.');
     } catch (e) {
-      print('❌ Error creating QR entry on server: $e');
+      // print('❌ Error creating QR entry on server: $e');
       return false;
     }
   }
@@ -213,8 +210,8 @@ class QrCodeService {
     required String jwtToken,
   }) async {
     try {
-      print('📡 Calling PATCH /edit-qr/$qrId');
-      print('Payload: $updateData');
+      // print('📡 Calling PATCH /edit-qr/$qrId');
+      // print('Payload: $updateData');
 
       final response = await http.patch(
         Uri.parse('$_baseUrl/edit-qr/$qrId'),
@@ -225,21 +222,21 @@ class QrCodeService {
         body: json.encode(updateData),
       ).timeout(const Duration(seconds: 20));
 
-      print('Server response: ${response.statusCode} - ${response.body}');
+      // print('Server response: ${response.statusCode} - ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('✅ Server response: ${data['message']}');
+        // print('✅ Server response: ${data['message']}');
         return true;
       } else {
-        print('❌ Server error ${response.statusCode}: ${response.body}');
+        // print('❌ Server error ${response.statusCode}: ${response.body}');
         return false;
       }
     } on TimeoutException {
-      print('🔌 Request timed out after 20s');
+      // print('🔌 Request timed out after 20s');
       return false;
     } catch (e) {
-      print('❌ Network error: $e');
+      // print('❌ Network error: $e');
       return false;
     }
   }
