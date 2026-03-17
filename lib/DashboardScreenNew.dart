@@ -1233,7 +1233,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
               ),
               const SizedBox(width: 16),
               const SizedBox(width: 12),
-              if(widget.userMeta.role == 'admin' || widget.userMeta.role == 'employee' )
+              // if(widget.userMeta.role == 'admin' || widget.userMeta.role == 'employee' )
               _bellIcon(context),
               const SizedBox(width: 12),
 
