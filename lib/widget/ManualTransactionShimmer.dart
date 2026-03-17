@@ -19,7 +19,7 @@ class ManualTransactionShimmer extends StatelessWidget {
       decoration: BoxDecoration(
         color: base,
         borderRadius: r ?? BorderRadius.circular(10),
-        border: Border.all(color: base.withOpacity(0.7)),
+        border: Border.all(color: base.withValues(alpha:0.7)),
       ),
     );
 
@@ -44,7 +44,6 @@ class ManualTransactionShimmer extends StatelessWidget {
       children: [
         // Filters card
         Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Shimmer.fromColors(
@@ -86,7 +85,6 @@ class ManualTransactionShimmer extends StatelessWidget {
 
         // Transaction details
         Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Shimmer.fromColors(

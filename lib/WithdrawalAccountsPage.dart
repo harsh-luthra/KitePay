@@ -2,6 +2,7 @@ import 'package:admin_qr_manager/AppConfig.dart';
 import 'package:admin_qr_manager/WithdrawalAccountsService.dart';
 import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:admin_qr_manager/models/WithdrawalAccount.dart';
+import 'package:admin_qr_manager/widget/WithdrawalAccountCardShimmer.dart';
 import 'package:flutter/material.dart';
 
 import 'models/AppUser.dart';
@@ -103,7 +104,6 @@ class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
             Icon(Icons.info_outline, color: Colors.orange),
@@ -125,7 +125,6 @@ class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
             SizedBox(height: 12),
             Text(
               'Edit existing accounts or delete unused ones to add new ones.',
-              style: TextStyle(color: Colors.grey),
             ),
             SizedBox(height: 8),
             Text(
@@ -197,7 +196,11 @@ class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
         ],
       ),
       body: _isLoading && _accounts.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+          ? ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: 5,
+              itemBuilder: (_, __) => const WithdrawalAccountCardShimmer(),
+            )
           : _accounts.isEmpty
           ? _EmptyState(onAdd: _addNewAccount)
           : RefreshIndicator(
@@ -251,7 +254,7 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.account_balance_wallet_outlined, size: 80, color: Colors.grey),
+            Icon(Icons.account_balance_wallet_outlined, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(height: 16),
             const Text('No Withdrawal Accounts', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500)),
             const SizedBox(height: 8),
@@ -286,6 +289,7 @@ class _AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final isUpi = account.mode == 'upi';
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -311,11 +315,11 @@ class _AccountCard extends StatelessWidget {
                       ),
                       Text(
                         isUpi ? (account.upiId ?? 'No UPI') : (account.bankName ?? 'No Bank'),
-                        style: TextStyle(color: Colors.grey[600]),
+                        style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                       ),
                       Text(
                         '${account.mode.toUpperCase()} • ${account.updatedAt?.substring(0, 10) ?? ''}',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -338,7 +342,7 @@ class _AccountCard extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 12),
                 child: Text(
                   '****${account.accountNumber!.length >= 4 ? account.accountNumber!.substring(account.accountNumber!.length - 4) : account.accountNumber!} • ${account.ifscCode}',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14),
                 ),
               ),
             if (isUpi && account.upiId != null)
@@ -346,7 +350,7 @@ class _AccountCard extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 12),
                 child: Text(
                   account.upiId!,
-                  style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14),
                 ),
               ),
           ],

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-// Your imports
 import 'AppWriteService.dart';
 import 'CommissionService.dart';
 import 'UsersService.dart';
 import 'models/AppUser.dart';
+import 'utils/app_spacing.dart';
+import 'widget/dashboard_widgets.dart';
 
 class CommissionSummaryBoardPage extends StatefulWidget {
   const CommissionSummaryBoardPage({super.key, required this.userMeta});
@@ -21,22 +22,28 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
   // Filters
   String _roleFilter = 'subadmin';
   final List<AppUser> _allSubadmins = [];
-  AppUser? _selectedSubadmin;      // single selection
+  AppUser? _selectedSubadmin;
   bool _loadingUsers = false;
 
-  // Mode
-  String _mode = 'today'; // today | date | range | last
+  // Date range
+  DateTime? _fromDate;
+  DateTime? _toDate;
+
+  // Legacy mode support for the API
+  String _mode = 'today';
   DateTime? _date;
   DateTime? _start;
   DateTime? _end;
-  int _lastDays = 7;
+  final int _lastDays = 7;
 
   // UI state
   bool _loading = false;
+  bool _showFilters = true;
   bool _expanded = false;
+  bool _showZeroDays = false;
 
   // Results
-  final Map<String, CommissionSummaryResult> _results = {}; // userId -> result
+  final Map<String, CommissionSummaryResult> _results = {};
 
   @override
   void initState() {
@@ -44,11 +51,13 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
     if (!_isAdmin) {
       _roleFilter = 'subadmin';
       _selectedSubadmin = widget.userMeta;
-    }else{
+    } else {
       _roleFilter = 'admin';
     }
     if (_isAdmin) {
       _loadUsers();
+    } else {
+      _fetchSummaries();
     }
   }
 
@@ -64,7 +73,6 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
         if (_isAdmin) {
           _selectedSubadmin ??= list.isNotEmpty ? list.first : null;
         } else {
-          // subadmin: ensure selection is self
           _selectedSubadmin = widget.userMeta;
         }
       });
@@ -77,7 +85,32 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
     }
   }
 
+  // Sync _mode/_start/_end/_date from _fromDate/_toDate for API compatibility
+  void _syncModeFromDates() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    if (_fromDate != null && _toDate != null) {
+      final from = DateTime(_fromDate!.year, _fromDate!.month, _fromDate!.day);
+      final to = DateTime(_toDate!.year, _toDate!.month, _toDate!.day);
+
+      if (from == to && from == today) {
+        _mode = 'today';
+      } else if (from == to) {
+        _mode = 'date';
+        _date = from;
+      } else {
+        _mode = 'range';
+        _start = from;
+        _end = to;
+      }
+    } else {
+      _mode = 'today';
+    }
+  }
+
   Future<void> _fetchSummaries() async {
+    _syncModeFromDates();
     final isAdmin = _isAdmin;
 
     setState(() { _loading = true; _results.clear(); });
@@ -106,7 +139,6 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
             break;
         }
 
-        // aggregated
         _results['*ALL*'] = CommissionSummaryResult(
           userId: '*ALL*',
           start: allRes.start,
@@ -175,256 +207,235 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
     return NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(rupees);
   }
 
-  Future<void> _pickDate({required String kind}) async {
-    final now = DateTime.now();
-
-    DateTime atMidnight(DateTime d) => DateTime(d.year, d.month, d.day);
-    DateTime addDays(DateTime d, int n) => atMidnight(d).add(Duration(days: n));
-
-    final initial = kind == 'date'
-        ? (_date ?? now)
-        : kind == 'start'
-        ? (_start ?? now)
-        : (_end ?? (_start ?? now));
-
-    DateTime first = DateTime(now.year - 2, 1, 1);
-    DateTime last = DateTime(now.year + 2, 12, 31);
-
-    // If picking end and we have a start, constrain the calendar max to start+29
-    if (kind == 'end' && _start != null) {
-      final maxEnd = addDays(_start!, 29);
-      if (maxEnd.isBefore(last)) last = maxEnd;
-    }
-    // If picking start and we have an end, constrain calendar min to end-29 (optional UX)
-    if (kind == 'start' && _end != null) {
-      final minStart = addDays(_end!, -29);
-      if (minStart.isAfter(first)) first = minStart;
-    }
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: first,
-      lastDate: last,
-    );
-
-    if (picked == null) return;
-    final p = atMidnight(picked);
-
-    setState(() {
-      if (kind == 'date') {
-        _date = p;
-        return;
-      }
-
-      if (kind == 'start') {
-        _start = p;
-        if (_end == null) {
-          _end = p;
-        } else {
-          // Ensure end >= start
-          if (_end!.isBefore(_start!)) _end = _start!;
-          // Enforce 30-day inclusive window
-          final maxEnd = addDays(_start!, 29);
-          if (_end!.isAfter(maxEnd)) _end = maxEnd;
-        }
-        return;
-      }
-
-      if (kind == 'end') {
-        if (_start == null) {
-          _start = p;
-          _end = p;
-        } else {
-          // Enforce end >= start
-          var candidate = p.isBefore(_start!) ? _start! : p;
-          // Enforce 30-day inclusive window
-          final maxEnd = addDays(_start!, 29);
-          if (candidate.isAfter(maxEnd)) {
-            candidate = maxEnd;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Range limited to 30 days. End date adjusted.')),
-            );
-          }
-          _end = candidate;
-        }
-      }
-    });
-  }
-
-  Widget _filterBar() {
+  Widget _buildFilterBar() {
     final isAdmin = _isAdmin;
-    final df = DateFormat('yyyy-MM-dd');
 
     return Card(
-      margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+      margin: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: AppSpacing.allMd,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Row(children: const [
+              Icon(Icons.filter_alt_outlined, size: 18, color: Colors.blueGrey),
+              SizedBox(width: 8),
+              Text('Filters', style: TextStyle(fontWeight: FontWeight.w600)),
+            ]),
+            const SizedBox(height: 12),
+
+            // Role & subadmin filters
             Wrap(
               spacing: 12,
               runSpacing: 12,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                if (isAdmin) // Role picker visible only to admins
+                if (isAdmin)
                   SizedBox(
-                    width: 200,
-                    child: DropdownButtonFormField<String>(
-                      value: _roleFilter,
-                      items: const [
-                        DropdownMenuItem(value: 'subadmin', child: Text('Role: Sub-admin')),
-                        DropdownMenuItem(value: 'admin', child: Text('Role: Admin')),
-                        DropdownMenuItem(value: 'all', child: Text('Role: ALL')),
+                    width: 220,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 6),
+                          child: Text('Filter Role', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        DropdownButtonFormField<String>(
+                          value: _roleFilter,
+                          items: const [
+                            DropdownMenuItem(value: 'subadmin', child: Text('Sub-admin')),
+                            DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                            DropdownMenuItem(value: 'all', child: Text('ALL')),
+                          ],
+                          onChanged: (v) => setState(() {
+                            _roleFilter = v ?? 'subadmin';
+                            if (_roleFilter == 'admin') {
+                              _selectedSubadmin = null;
+                            } else if (_roleFilter == 'subadmin') {
+                              if (_allSubadmins.isNotEmpty) _selectedSubadmin = _allSubadmins.first;
+                            }
+                          }),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
                       ],
-                      onChanged: (v) => setState(() {
-                        _roleFilter = v ?? 'subadmin';
-                        if (_roleFilter == 'admin') {
-                          _selectedSubadmin = null;
-                        } else if (_roleFilter == 'subadmin') {
-                          if (_allSubadmins.isNotEmpty) _selectedSubadmin = _allSubadmins.first;
-                        } // if 'all' keep as-is
-                      }),
-                      decoration: const InputDecoration(border: OutlineInputBorder()),
                     ),
                   ),
 
                 if (isAdmin && _roleFilter == 'subadmin')
                   SizedBox(
                     width: 380,
-                    child: _loadingUsers
-                        ? const LinearProgressIndicator()
-                        : DropdownButtonFormField<AppUser>(
-                      value: _selectedSubadmin,
-                      isExpanded: true,
-                      items: _allSubadmins.map((u) {
-                        final label = '${u.name.isEmpty ? '(No name)' : u.name} • ${u.email}';
-                        return DropdownMenuItem<AppUser>(
-                          value: u,
-                          child: Text(label, overflow: TextOverflow.ellipsis),
-                        );
-                      }).toList(),
-                      onChanged: (u) => setState(() => _selectedSubadmin = u),
-                      decoration: const InputDecoration(
-                        labelText: 'Select Subadmin',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-
-                if (!isAdmin) // Subadmin: read-only identity chip
-                  InputDecorator(
-                    decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Subadmin'),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.person, size: 18, color: Colors.blueGrey),
-                        const SizedBox(width: 8),
-                        Text('${widget.userMeta.name} • ${widget.userMeta.email}',
-                            overflow: TextOverflow.ellipsis),
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 6),
+                          child: Text('Select Subadmin', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        _loadingUsers
+                            ? const LinearProgressIndicator(minHeight: 2)
+                            : DropdownButtonFormField<AppUser>(
+                          value: _selectedSubadmin,
+                          isExpanded: true,
+                          items: _allSubadmins.map((u) {
+                            final label = '${u.name.isEmpty ? '(No name)' : u.name} (${u.email})';
+                            return DropdownMenuItem<AppUser>(
+                              value: u,
+                              child: Text(label, overflow: TextOverflow.ellipsis),
+                            );
+                          }).toList(),
+                          onChanged: (u) => setState(() => _selectedSubadmin = u),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
                       ],
                     ),
                   ),
 
-                // Mode
-                SizedBox(
-                  width: 220,
-                  child: DropdownButtonFormField<String>(
-                    value: _mode,
-                    items: const [
-                      DropdownMenuItem(value: 'today', child: Text('Today')),
-                      DropdownMenuItem(value: 'date', child: Text('Single Date')),
-                      DropdownMenuItem(value: 'range', child: Text('Date Range')),
-                      DropdownMenuItem(value: 'last', child: Text('Last N Days')),
-                    ],
-                    onChanged: (v) => setState(() => _mode = v ?? 'today'),
-                    decoration: const InputDecoration(border: OutlineInputBorder()),
+                if (!isAdmin)
+                  SizedBox(
+                    width: 320,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 6),
+                          child: Text('Subadmin', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        InputDecorator(
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.person, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                              const SizedBox(width: 8),
+                              Text('${widget.userMeta.name} (${widget.userMeta.email})',
+                                  overflow: TextOverflow.ellipsis),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // Date range
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _datePickerChip(
+                  label: 'From',
+                  date: _fromDate,
+                  onPick: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _fromDate ?? DateTime.now(),
+                      firstDate: DateTime(2024),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _fromDate = picked;
+                        if (_toDate != null && _toDate!.isBefore(picked)) {
+                          _toDate = picked;
+                        }
+                      });
+                    }
+                  },
+                  onClear: () => setState(() => _fromDate = null),
                 ),
+                _datePickerChip(
+                  label: 'To',
+                  date: _toDate,
+                  onPick: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _toDate ?? DateTime.now(),
+                      firstDate: _fromDate ?? DateTime(2024),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() => _toDate = picked);
+                    }
+                  },
+                  onClear: () => setState(() => _toDate = null),
+                ),
+              ],
+            ),
 
-                // Date pickers based on mode
-                if (_mode == 'date')
-                  SizedBox(
-                    width: 200,
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.event),
-                      label: Text(_date == null ? 'Pick date' : df.format(_date!)),
-                      onPressed: () => _pickDate(kind: 'date'),
-                    ),
-                  ),
+            const SizedBox(height: 12),
 
-                if (_mode == 'range') ...[
-                  SizedBox(
-                    width: 200,
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.date_range),
-                      label: Text(_start == null ? 'Start date' : df.format(_start!)),
-                      onPressed: () => _pickDate(kind: 'start'),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 200,
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.date_range_outlined),
-                      label: Text(_end == null ? 'End date' : df.format(_end!)),
-                      onPressed: () => _pickDate(kind: 'end'),
-                    ),
-                  ),
-                ],
-
-                if (_mode == 'last')
-                  SizedBox(
-                    width: 160,
-                    child: DropdownButtonFormField<int>(
-                      value: _lastDays,
-                      items: const [
-                        DropdownMenuItem(value: 7, child: Text('Last 7 days')),
-                        DropdownMenuItem(value: 14, child: Text('Last 14 days')),
-                        DropdownMenuItem(value: 30, child: Text('Last 30 days')),
-                      ],
-                      onChanged: (v) => setState(() => _lastDays = v ?? 7),
-                      decoration: const InputDecoration(border: OutlineInputBorder()),
-                    ),
-                  ),
-
-                // Controls
+            // Quick date presets + actions
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ActionChip(
+                  label: const Text('Today'),
+                  onPressed: () {
+                    final now = DateTime.now();
+                    setState(() { _fromDate = now; _toDate = now; });
+                    _fetchSummaries();
+                  },
+                ),
+                ActionChip(
+                  label: const Text('Yesterday'),
+                  onPressed: () {
+                    final y = DateTime.now().subtract(const Duration(days: 1));
+                    setState(() { _fromDate = y; _toDate = y; });
+                    _fetchSummaries();
+                  },
+                ),
+                ActionChip(
+                  label: const Text('Last 7 Days'),
+                  onPressed: () {
+                    final now = DateTime.now();
+                    setState(() { _fromDate = now.subtract(const Duration(days: 6)); _toDate = now; });
+                    _fetchSummaries();
+                  },
+                ),
+                ActionChip(
+                  label: const Text('Last 30 Days'),
+                  onPressed: () {
+                    final now = DateTime.now();
+                    setState(() { _fromDate = now.subtract(const Duration(days: 29)); _toDate = now; });
+                    _fetchSummaries();
+                  },
+                ),
+                const SizedBox(width: 12),
                 ElevatedButton.icon(
-                  icon: const Icon(Icons.refresh),
+                  icon: const Icon(Icons.search),
                   label: const Text('Fetch'),
                   onPressed: () {
                     if (_roleFilter == 'subadmin' && _selectedSubadmin == null) return;
                     _fetchSummaries();
                   },
                 ),
-
-                TextButton(
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Reset'),
                   onPressed: () {
                     setState(() {
-                      _mode = 'today';
-                      _date = null;
-                      _start = null;
-                      _end = null;
-                      _lastDays = 7;
+                      _fromDate = null;
+                      _toDate = null;
                       _expanded = false;
+                      _showZeroDays = false;
                     });
                     _fetchSummaries();
                   },
-                  child: const Text('Reset'),
                 ),
-                const SizedBox(width: 8),
-                FilterChip(
-                  label: const Text('Expanded view'),
-                  selected: _expanded,
-                  onSelected: (v) => setState(() => _expanded = v),
-                ),
-                if (_start != null && _end != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Range: ${_end!.difference(DateTime(_start!.year,_start!.month,_start!.day)).inDays + 1} days',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ]
               ],
             ),
           ],
@@ -433,7 +444,54 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
     );
   }
 
-  Widget _summaryCard(String userId, CommissionSummaryResult r, {String? title}) {
+  Widget _datePickerChip({
+    required String label,
+    required DateTime? date,
+    required VoidCallback onPick,
+    required VoidCallback onClear,
+  }) {
+    final df = DateFormat('yyyy-MM-dd');
+    return InputChip(
+      label: Text(date == null ? label : '$label: ${df.format(date)}'),
+      avatar: const Icon(Icons.calendar_today, size: 16),
+      onPressed: onPick,
+      deleteIcon: date != null ? const Icon(Icons.close, size: 16) : null,
+      onDeleted: date != null ? onClear : null,
+    );
+  }
+
+  Widget _buildMetrics() {
+    if (_results.isEmpty) return const SizedBox.shrink();
+
+    // Calculate total across all results
+    int grandTotal = 0;
+    for (final r in _results.values) {
+      grandTotal += r.totalPaise;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: DashboardMetricGrid(items: [
+        DashboardMetricCard.money(
+          title: 'Total Commission',
+          paise: grandTotal,
+          icon: Icons.account_balance,
+          color: Colors.indigo,
+          showFull: true,
+        ),
+        DashboardMetricCard.count(
+          title: 'Users',
+          value: _results.keys.where((k) => k != '*ALL*').length,
+          icon: Icons.people,
+          color: Colors.teal,
+          showFull: true,
+        ),
+      ]),
+    );
+  }
+
+  Widget _summaryCard(String userId, CommissionSummaryResult r) {
+    final theme = Theme.of(context);
     final isAdmin = _isAdmin;
     final isAllKey = userId == '*ALL*';
     final match = _allSubadmins.where((u) => u.id == userId);
@@ -450,10 +508,13 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
         ? widget.userMeta.email
         : (match.isEmpty ? (userId == widget.userMeta.id ? widget.userMeta.email : '') : match.first.email));
 
+    // Filter zero days
+    final days = _showZeroDays
+        ? r.days
+        : r.days.where((d) => d.commissionPaise > 0).toList();
+
     return Card(
-      elevation: 1.5,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -464,10 +525,10 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
               children: [
                 CircleAvatar(
                   radius: 16,
-                  backgroundColor: Colors.blue.shade50,
+                  backgroundColor: theme.colorScheme.primaryContainer,
                   child: Text(
                     (name.isNotEmpty ? name[0] : 'U').toUpperCase(),
-                    style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w800),
+                    style: TextStyle(color: theme.colorScheme.onPrimaryContainer, fontWeight: FontWeight.w800),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -475,55 +536,63 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title ?? name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                      Text(email, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                      if (email.isNotEmpty)
+                        Text(email, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
                     ],
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.08),
+                    color: Colors.green.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    'Total: ${_fmtRupees(r.totalPaise)}',
-                    style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.green),
+                    _fmtRupees(r.totalPaise),
+                    style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.green, fontSize: 15),
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 10),
-
-            // Days line (compact tokens)
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: r.days.map((d) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(d.date, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                      const SizedBox(width: 6),
-                      Text(_fmtRupees(d.commissionPaise),
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-
-            if (_expanded) ...[
+            if (days.isNotEmpty) ...[
               const SizedBox(height: 10),
-              _expandedTable(r),
+
+              // Day cards (matching DaywisePayins style)
+              ...days.reversed.map((d) => Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: theme.colorScheme.outlineVariant),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.calendar_today, size: 14, color: theme.colorScheme.primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      d.date,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      _fmtRupees(d.commissionPaise),
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                  ],
+                ),
+              )),
+            ],
+
+            if (_expanded && days.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              _expandedTable(r, days),
             ],
           ],
         ),
@@ -531,10 +600,11 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
     );
   }
 
-  Widget _expandedTable(CommissionSummaryResult r) {
+  Widget _expandedTable(CommissionSummaryResult r, List<CommissionSummaryDay> days) {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -542,7 +612,7 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.blueGrey.withOpacity(0.05),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
             ),
             child: Row(
@@ -552,7 +622,7 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
               ],
             ),
           ),
-          ...r.days.map((d) => Padding(
+          ...days.reversed.map((d) => Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             child: Row(
               children: [
@@ -567,13 +637,64 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
     );
   }
 
+  List<MapEntry<String, CommissionSummaryResult>> _sortedEntries() {
+    final entries = _results.entries.toList();
+    final adminId = widget.userMeta.id;
+
+    entries.sort((a, b) {
+      final aAll = a.key == '*ALL*' ? 0 : 1;
+      final bAll = b.key == '*ALL*' ? 0 : 1;
+      if (aAll != bAll) return aAll - bAll;
+
+      final aAdmin = a.key == adminId ? 0 : 1;
+      final bAdmin = b.key == adminId ? 0 : 1;
+      if (aAdmin != bAdmin) return aAdmin - bAdmin;
+
+      final byAmount = b.value.totalPaise.compareTo(a.value.totalPaise);
+      if (byAmount != 0) return byAmount;
+
+      String nameOf(String id) {
+        if (id == '*ALL*') return 'All Users';
+        if (id == adminId) return 'Admin';
+        final m = _allSubadmins.where((u) => u.id == id);
+        return (m.isEmpty ? '' : m.first.name).toLowerCase();
+      }
+
+      return nameOf(a.key).compareTo(nameOf(b.key));
+    });
+
+    return entries;
+  }
+
   @override
   Widget build(BuildContext context) {
     final sorted = _sortedEntries();
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Commission Summary Board'),
+        title: const Text('Commission Summary'),
         actions: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Filters: '),
+              Switch.adaptive(
+                value: _showFilters,
+                onChanged: (val) => setState(() => _showFilters = val),
+              ),
+            ],
+          ),
+          FilterChip(
+            label: const Text('0 Days'),
+            selected: _showZeroDays,
+            onSelected: (v) => setState(() => _showZeroDays = v),
+          ),
+          const SizedBox(width: 4),
+          FilterChip(
+            label: const Text('Table'),
+            selected: _expanded,
+            onSelected: (v) => setState(() => _expanded = v),
+          ),
+          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _fetchSummaries,
@@ -583,62 +704,23 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
       ),
       body: Column(
         children: [
-          _filterBar(),
+          if (_showFilters) _buildFilterBar(),
+          if (!_loading && _results.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            _buildMetrics(),
+            const SizedBox(height: 8),
+          ],
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                ? const CommissionSummarySkeleton()
                 : _results.isEmpty
                 ? const Center(child: Text('No data'))
                 : ListView(
               children: sorted.map((e) => _summaryCard(e.key, e.value)).toList(),
-            )
+            ),
           ),
         ],
       ),
     );
   }
-
-  List<MapEntry<String, CommissionSummaryResult>> _sortedEntries() {
-    final entries = _results.entries.toList();
-    final adminId = widget.userMeta.id;
-
-    entries.sort((a, b) {
-      // 1) All Users first
-      final aAll = a.key == '*ALL*' ? 0 : 1;
-      final bAll = b.key == '*ALL*' ? 0 : 1;
-      if (aAll != bAll) return aAll - bAll;
-
-      // 2) Admin second
-      final aAdmin = a.key == adminId ? 0 : 1;
-      final bAdmin = b.key == adminId ? 0 : 1;
-      if (aAdmin != bAdmin) return aAdmin - bAdmin;
-
-      // 3) Others by totalPaise desc
-      final byAmount = b.value.totalPaise.compareTo(a.value.totalPaise);
-      if (byAmount != 0) return byAmount;
-
-      // Stable tie-breaker: by display name/email ascending
-      String nameOf(String id) {
-        if (id == '*ALL*') return 'All Users';
-        if (id == adminId) return 'Admin';
-        final m = _allSubadmins.where((u) => u.id == id);
-        return (m.isEmpty ? '' : m.first.name).toLowerCase();
-      }
-
-      String emailOf(String id) {
-        if (id == '*ALL*') return '';
-        if (id == adminId) return 'Admin Email';
-        final m = _allSubadmins.where((u) => u.id == id);
-        return (m.isEmpty ? '' : m.first.email).toLowerCase();
-      }
-
-      final n = nameOf(a.key).compareTo(nameOf(b.key));
-      if (n != 0) return n;
-      return emailOf(a.key).compareTo(emailOf(b.key));
-    });
-
-    return entries;
-  }
-
-
 }

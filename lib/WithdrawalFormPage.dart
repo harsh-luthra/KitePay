@@ -109,7 +109,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Select Account for Withdrawal'),
         content: SizedBox(
           width: MediaQuery.of(context).size.width * 0.9,
@@ -209,7 +208,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('No Accounts'),
         content: const Text('Add a withdrawal account first to continue.'),
         actions: [
@@ -263,7 +261,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
       }
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Failed to fetch User Qr Codes: $e')),
+        SnackBar(content: Text('Failed to fetch user QR codes: $e')),
       );
     }
 
@@ -319,9 +317,9 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.08),
+                    color: color.withValues(alpha:0.08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: color.withOpacity(0.18)),
+                    border: Border.all(color: color.withValues(alpha:0.18)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -371,7 +369,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
               }
 
               return AlertDialog(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 title: const Text('Select QR Code for Withdrawal Request'),
                 content: SizedBox(
                   width: MediaQuery.of(context).size.width * 0.9,
@@ -395,7 +392,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                                   setState(() => selectedQrCode = tempSelection);
                                   Navigator.pop(context);
                                   _scaffoldMessengerKey.currentState?.showSnackBar(
-                                    SnackBar(content: Text('✅ Selected QR: ${qr.qrId}')),
+                                    SnackBar(content: Text('Selected QR: ${qr.qrId}')),
                                   );
                                 } : null,
                                 onTap: () {
@@ -413,7 +410,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                                   title: Row(
                                     children: [
                                       Icon(qr.isActive ? Icons.qr_code_sharp : Icons.qr_code_sharp, size: 25, color: statusColor),
-                                      SizedBox(width: 20,),
+                                      const SizedBox(width: 20,),
                                       Text(
                                         qr.qrId ?? '(no id)',
                                         style: TextStyle(
@@ -426,7 +423,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                                   subtitle: selectionSubtitle(qr),
                                   trailing: selected ? const Icon(Icons.check_circle, color: Colors.green) : null,
                                   selected: selected,
-                                  selectedTileColor: Theme.of(context).colorScheme.primary.withOpacity(0.06),
+                                  selectedTileColor: Theme.of(context).colorScheme.primary.withValues(alpha:0.06),
                                   iconColor: statusColor,
                                 ),
                               );
@@ -454,7 +451,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                       setState(() => selectedQrCode = tempSelection);
                       Navigator.pop(context);
                       _scaffoldMessengerKey.currentState?.showSnackBar(
-                        SnackBar(content: Text('✅ Selected QR: ${selectedQrCode?.qrId}')),
+                        SnackBar(content: Text('Selected QR: ${selectedQrCode?.qrId}')),
                       );
                     },
                     label: const Text('Select'),
@@ -472,7 +469,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: const Row(
           children: [
             Icon(Icons.error, color: Colors.red, size: 28),
@@ -502,9 +498,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
           title: const Text(
             "No QR Codes Found",
             style: TextStyle(fontWeight: FontWeight.bold),
@@ -535,7 +528,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
       barrierDismissible: false, // force OK
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
           content: Text(message),
           actions: [
@@ -737,7 +729,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                 ),
                 if (selectedQrCode == null)
                   Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     child: Padding(
                       padding: const EdgeInsets.all(14),
                       child: Row(
@@ -803,7 +794,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
 
                 // Amount section
                 Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Column(
@@ -890,7 +880,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
   Widget selectedAccountUI(WithdrawalAccount selectedAccount){
       return Card(
         margin: const EdgeInsets.symmetric(vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -1103,8 +1092,8 @@ class _SelectedQrCard extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: c.withOpacity(0.06),
-          border: Border.all(color: c.withOpacity(0.16)),
+          color: c.withValues(alpha:0.06),
+          border: Border.all(color: c.withValues(alpha:0.16)),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -1118,9 +1107,7 @@ class _SelectedQrCard extends StatelessWidget {
     }
 
     return Card(
-      elevation: 1.5,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(10.0),
         child: Column(
@@ -1268,7 +1255,6 @@ class _SelectedQrCard extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ),

@@ -34,9 +34,7 @@ class CommissionCard extends StatelessWidget {
         : null;
 
     return Card(
-      elevation: 2,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(
@@ -50,9 +48,9 @@ class CommissionCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _badgeColor(c.earningType).withOpacity(0.1),
+                    color: _badgeColor(c.earningType).withValues(alpha:0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _badgeColor(c.earningType).withOpacity(0.5)),
+                    border: Border.all(color: _badgeColor(c.earningType).withValues(alpha:0.5)),
                   ),
                   child: Text(c.earningType.toUpperCase(),
                       style: TextStyle(color: _badgeColor(c.earningType), fontWeight: FontWeight.w600, fontSize: 12)),

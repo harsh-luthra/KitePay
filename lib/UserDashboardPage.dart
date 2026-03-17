@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import 'AppConstants.dart';
 import 'AppWriteService.dart';
 import 'models/AppUser.dart';
+import 'utils/app_spacing.dart';
+import 'widget/dashboard_widgets.dart';
 
 import 'package:http/http.dart' as http;
 
@@ -70,7 +72,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
         future: _future,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
-            return const _UserDashboardSkeleton();
+            return const DashboardSkeleton(sectionCount: 4);
           }
           if (snap.hasError) {
             return Center(
@@ -91,59 +93,60 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
             );
           }
           final data = snap.data!;
+          final sf = _showFullNumbers;
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.allLg,
               children: [
-                _Section(
+                DashboardSection(
                   title: 'Overview',
                   children: [
-                    _metricGrid([
-                      _metric('Total Txns', data.totalTxCount, Icons.swap_horiz, Colors.indigo),
-                      _money('Total Pay-In', data.totalAmountPayIn, Icons.account_balance_wallet, Colors.teal),
-                      _metric('Total QRs', data.totalQrs, Icons.qr_code_2, Colors.blueGrey),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.count(title: 'Total Txns', value: data.totalTxCount, icon: Icons.swap_horiz, color: Colors.indigo, showFull: sf),
+                      DashboardMetricCard.money(title: 'Total Pay-In', paise: data.totalAmountPayIn, icon: Icons.account_balance_wallet, color: Colors.teal, showFull: sf),
+                      DashboardMetricCard.count(title: 'Total QRs', value: data.totalQrs, icon: Icons.qr_code_2, color: Colors.blueGrey, showFull: sf),
                     ]),
                   ],
                 ),
-                _Section(
+                DashboardSection(
                   title: 'QR Status',
                   children: [
-                    _metricGrid([
-                      _metric('QRs Active', data.qrCodesActive, Icons.check_circle, Colors.green.shade700),
-                      _metric('QRs Disabled', data.qrCodesDisabled, Icons.disabled_by_default, Colors.red.shade700),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.count(title: 'QRs Active', value: data.qrCodesActive, icon: Icons.check_circle, color: Colors.green.shade700, showFull: sf),
+                      DashboardMetricCard.count(title: 'QRs Disabled', value: data.qrCodesDisabled, icon: Icons.disabled_by_default, color: Colors.red.shade700, showFull: sf),
                     ]),
                   ],
                 ),
-                _Section(
+                DashboardSection(
                   title: 'Payouts',
                   children: [
-                    _metricGrid([
-                      _money('Today Available Amount', data.totalAvailableAmount, Icons.account_balance, Colors.green),
-                      _money('Yesterday Pay-In', data.yesterdayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
-                      _money('Today Pay-In', data.todayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
-                      _money('Withdrawable Amount', data.withdrawableAmount, Icons.account_balance_wallet, Colors.green),
-                      _money('On Hold', data.totalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrange),
-                      _money('Approved Withdrawals', data.totalWithdrawalApprovedAmount, Icons.outbox, Colors.blue),
-                      _money('Pending Withdrawals', data.totalWithdrawalPendingAmount, Icons.pending_actions, Colors.orange),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.money(title: 'Today Available Amount', paise: data.totalAvailableAmount, icon: Icons.account_balance, color: Colors.green, showFull: sf),
+                      DashboardMetricCard.money(title: 'Yesterday Pay-In', paise: data.yesterdayPayInAllQrs, icon: Icons.today_rounded, color: Colors.blueGrey, showFull: sf),
+                      DashboardMetricCard.money(title: 'Today Pay-In', paise: data.todayPayInAllQrs, icon: Icons.today_rounded, color: Colors.blueGrey, showFull: sf),
+                      DashboardMetricCard.money(title: 'Withdrawable Amount', paise: data.withdrawableAmount, icon: Icons.account_balance_wallet, color: Colors.green, showFull: sf),
+                      DashboardMetricCard.money(title: 'On Hold', paise: data.totalAmountOnHold, icon: Icons.lock_clock_outlined, color: Colors.deepOrange, showFull: sf),
+                      DashboardMetricCard.money(title: 'Approved Withdrawals', paise: data.totalWithdrawalApprovedAmount, icon: Icons.outbox, color: Colors.blue, showFull: sf),
+                      DashboardMetricCard.money(title: 'Pending Withdrawals', paise: data.totalWithdrawalPendingAmount, icon: Icons.pending_actions, color: Colors.orange, showFull: sf),
                     ]),
                   ],
                 ),
-                _Section(
+                DashboardSection(
                   title: 'Commission',
                   children: [
-                    _metricGrid([
-                      _money('Commission On Hold', data.totalCommissionOnHold, Icons.savings_outlined, Colors.purple),
-                      _money('Commission Paid', data.totalCommissionPaid, Icons.payments, Colors.purpleAccent),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.money(title: 'Commission On Hold', paise: data.totalCommissionOnHold, icon: Icons.savings_outlined, color: Colors.purple, showFull: sf),
+                      DashboardMetricCard.money(title: 'Commission Paid', paise: data.totalCommissionPaid, icon: Icons.payments, color: Colors.purpleAccent, showFull: sf),
                     ]),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.xl),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Last updated: ${DateFormat('dd MMM yyyy, hh:mm a').format(data.fetchedAt)}',
-                    style: const TextStyle(color: Colors.grey),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ),
               ],
@@ -154,152 +157,8 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     );
   }
 
-  // ===== Metric widgets =====
-
-  Widget _metricGrid(List<Widget> items) {
-    return LayoutBuilder(builder: (ctx, cts) {
-      final w = cts.maxWidth;
-      final cross = w > 1400 ? 5 : w > 1100 ? 4 : w > 800 ? 3 : w > 520 ? 2 : 1;
-      return GridView.count(
-        crossAxisCount: cross,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 3.4,
-        physics: const NeverScrollableScrollPhysics(),
-        shrinkWrap: true,
-        children: items,
-      );
-    });
-  }
-
-  Widget _metric(String title, int value, IconData icon, Color color) {
-    return _metricCard(
-      title: title,
-      leading: Icon(icon, color: color),
-      value: formatCount(value),
-      color: color,
-    );
-  }
-
-  Widget _money(String title, int paise, IconData icon, Color color) {
-    final formatted = formatMoneyPaise(paise);
-    return _metricCard(title: title, leading: Icon(icon, color: color), value: formatted, color: color);
-  }
-
-  Widget _metricCard({
-    required String title,
-    required Widget leading,
-    required String value,
-    required Color color,
-  }) {
-    return Tooltip(
-      message: title,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.15)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 32, height: 32,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
-              child: IconTheme(
-                data: IconThemeData(size: 18, color: color),
-                child: leading,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontSize: 11, color: Colors.black54),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String formatCount(num value) {
-    if (_showFullNumbers) {
-      return NumberFormat.decimalPattern('en_IN').format(value);
-    }
-    return NumberFormat.compact(locale: 'en_IN').format(value);
-  }
-
-  String formatMoneyPaise(int paise) {
-    final rupees = paise / 100.0;
-    if (_showFullNumbers) {
-      // Full: ₹12,34,567.89
-      return NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(rupees);
-    }
-    // Compact: ₹12.3L, ₹1.2Cr
-    return NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹').format(rupees);
-  }
-
 }
 
-class _Section extends StatelessWidget {
-  final String title;
-  final List<Widget> children;
-  const _Section({required this.title, required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              const Icon(Icons.dashboard_customize, size: 16, color: Colors.blueGrey),
-              const SizedBox(width: 6),
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-            ]),
-            const SizedBox(height: 8),
-            ...children,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-
-class _UserDashboardSkeleton extends StatelessWidget {
-  const _UserDashboardSkeleton();
-  @override
-  Widget build(BuildContext context) {
-    // Similar to _SubadminDashboardSkeleton
-    return const Center(child: CircularProgressIndicator());
-  }
-}
 
 class UserDashboardData {
   final int totalQrs;

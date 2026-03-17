@@ -28,9 +28,7 @@ class UsersCardShimmer extends StatelessWidget {
     );
 
     return Card(
-      elevation: 2,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Shimmer.fromColors(

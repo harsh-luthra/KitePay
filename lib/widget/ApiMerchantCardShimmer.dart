@@ -6,9 +6,6 @@ class ApiMerchantCardShimmer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Container(
         padding: const EdgeInsets.all(16),
         child: Column(

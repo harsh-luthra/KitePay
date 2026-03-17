@@ -12,6 +12,7 @@ import 'package:admin_qr_manager/utils/NotificationSystemForQr.dart';
 import 'package:admin_qr_manager/widget/TransactionCard.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:appwrite/models.dart' show User;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:intl/intl.dart';
@@ -22,6 +23,7 @@ import 'AppConfig.dart';
 import 'AppConstants.dart';
 import 'AppWriteService.dart';
 import 'CommissionSummaryBoardPage.dart';
+import 'DaywisePayinsPage.dart';
 import 'ManageApiMerchantsNew.dart';
 import 'ManageUsersScreen.dart';
 import 'ManageQrScreen.dart';
@@ -66,6 +68,8 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   final FlutterTts _tts = FlutterTts();
 
   StreamSubscription<Map<String, dynamic>>? _txSub;
+
+  StreamSubscription<Map<String, dynamic>>? _txStatusChangeSub;
 
   late StreamSubscription<SocketStatus> _connSub;
 
@@ -183,21 +187,21 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       ),
       _MenuItem(
         id: 7,
-        label: 'View All TXNs',
+        label: 'All TXNs',
         icon: Icons.receipt_long,
         visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
         builder: (_) => const TransactionPageNew(),
       ),
       _MenuItem(
         id: 8,
-        label: 'View My TXNs',
+        label: 'My TXNs',
         icon: Icons.receipt,
         visibleFor: (_) => !checkRole('employee'),
         builder: (user) => TransactionPageNew(userMode: true, userModeUserid: user.$id),
       ),
       _MenuItem(
         id: 9,
-        label: 'View Commission TXNs',
+        label: 'Commission TXNs',
         icon: Icons.receipt,
         visibleFor: (labels) => checkRole('admin') || checkRole('subadmin'),
         builder: (user) => CommissionTransactionsPage(
@@ -208,10 +212,17 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       // CommissionSummaryBoardPage
       _MenuItem(
         id: 10,
-        label: 'View Commission Summary',
+        label: 'Commission Summary',
         icon: Icons.receipt,
         visibleFor: (labels) => checkRole('admin') || checkRole('subadmin'),
         builder: (user) => CommissionSummaryBoardPage(userMeta: widget.userMeta),
+      ),
+      _MenuItem(
+        id: 17,
+        label: 'Daywise Pay-Ins',
+        icon: Icons.bar_chart,
+        visibleFor: (_) => !checkRole('employee'),
+        builder: (user) => DaywisePayinsPage(userMeta: widget.userMeta),
       ),
       _MenuItem(
         id: 11,
@@ -268,6 +279,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   @override
   void dispose() {
     _txSub?.cancel();
+    _txStatusChangeSub?.cancel();
     _connSub.cancel();
     _qrAlertSub?.cancel();
     _qrLimitAlertSub?.cancel();
@@ -344,6 +356,75 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       final sentence = '$words rupees received in Kitepay';
       await _tts.speak(sentence);
     }
+  }
+
+  Future<void> speakTransactionStatusChanged({required String newStatus, required int amountPaise}) async {
+    final langs = await _tts.getLanguages;
+    final status = newStatus.isNotEmpty ? newStatus : 'updated';
+
+    const hindiIndia = 'hi-IN';
+    if (langs is List && langs.contains(hindiIndia)) {
+      await _tts.setLanguage(hindiIndia);
+      await _tts.setSpeechRate(0.8);
+      await _tts.setPitch(1.0);
+
+      final hindiAmount = amountToHindiWords(amountPaise);
+      final sentence = 'काइटपे पर $hindiAmount रुपये का लेनदेन $status हो गया है';
+      await _tts.speak(sentence);
+    } else {
+      await _tts.setLanguage('en-IN');
+      await _tts.setSpeechRate(0.9);
+      await _tts.setPitch(1.0);
+
+      final amount = amountToWordsIndian(amountPaise);
+      final sentence = 'Kitepay transaction of $amount rupees has been marked as $status';
+      await _tts.speak(sentence);
+    }
+  }
+
+  Widget _statusChangeRow(String label, String value, {bool copyable = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
+          Flexible(child: Text(value, overflow: TextOverflow.ellipsis)),
+          if (copyable && value.isNotEmpty)
+            IconButton(
+              tooltip: 'Copy $label',
+              icon: const Icon(Icons.copy, size: 16),
+              padding: const EdgeInsets.only(left: 10),
+              constraints: const BoxConstraints(),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => Clipboard.setData(ClipboardData(text: value)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Color _txnStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'cyber': return Colors.pink.shade600;
+      case 'refund': return Colors.orange.shade700;
+      case 'chargeback': return Colors.red.shade600;
+      case 'failed': return Colors.grey.shade700;
+      default: return Colors.green;
+    }
+  }
+
+  Widget _txnStatusChip(String status, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        status.isEmpty ? 'normal' : status,
+        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: color),
+      ),
+    );
   }
 
   Future<void> speakQrAlert({required String condition}) async {
@@ -429,15 +510,19 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       if (socketConnected != connected && mounted) {
         setState(() => socketConnected = connected);
       }
-      if(status == SocketStatus.connected){
+      if(status == SocketStatus.connected || status == SocketStatus.reconnected){
         debugPrint("Socket Connected");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Realtime transactions connected')),
+          );
+        }
       }
     });
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Realtime Transactions Connected')),
-      );
+    // If socket was already connected before listener was set up, sync the state
+    if (SocketManager.instance.isConnected && mounted) {
+      setState(() => socketConnected = true);
     }
 
     _txSub = SocketManager.instance.txStream.listen((event) async {
@@ -457,6 +542,63 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         );
       }
 
+    });
+
+    _txStatusChangeSub = SocketManager.instance.txStatusChangeStream.listen((event) async {
+      final txnId = (event['txnId'] ?? '') as String;
+      final newStatus = (event['newStatus'] ?? '') as String;
+      final previousStatus = (event['previousStatus'] ?? '') as String;
+      final amountPaise = (event['amount'] as num?)?.toInt() ?? 0;
+      final rrn = (event['rrnNumber'] ?? '') as String;
+      final qrCodeId = (event['qrCodeId'] ?? '') as String;
+
+      if (ttsENABLED) {
+        speakTransactionStatusChanged(newStatus: newStatus, amountPaise: amountPaise);
+      }
+
+      if (popUpENABLED && mounted) {
+        final rupees = (amountPaise / 100).toStringAsFixed(2);
+        final updatedAt = (event['updatedAt'] ?? '') as String;
+        String formattedDate = updatedAt;
+        try {
+          final dt = DateTime.parse(updatedAt).toLocal();
+          formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(dt);
+        } catch (_) {}
+
+        final nav = rootNavigatorKey.currentState;
+        final navCtx = rootNavigatorKey.currentContext;
+        if (nav != null && navCtx != null) {
+          showDialog(
+            context: navCtx,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Transaction Status Changed'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _statusChangeRow('Txn ID', txnId, copyable: true),
+                  _statusChangeRow('Amount', '₹$rupees'),
+                  _statusChangeRow('RRN', rrn, copyable: true),
+                  _statusChangeRow('QR Code', qrCodeId, copyable: true),
+                  _statusChangeRow('Updated At', formattedDate),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _txnStatusChip(previousStatus, _txnStatusColor(previousStatus)),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Icon(Icons.arrow_forward, size: 16),
+                      ),
+                      _txnStatusChip(newStatus, _txnStatusColor(newStatus)),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close'))],
+            ),
+          );
+        }
+      }
     });
 
     _qrAlertSub = SocketManager.instance.qrAlertController.listen((event) async {
@@ -538,9 +680,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       contentPadding: EdgeInsets.zero,  // Remove default padding
       titlePadding: const EdgeInsets.all(20),
       actionsPadding: const EdgeInsets.only(right: 20, bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -563,7 +702,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                 'Today\'s Pay-In Limit Exceeded',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey.shade600,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -624,7 +763,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
           icon: const Icon(Icons.close, size: 18),
           label: const Text('Got it'),
           style: TextButton.styleFrom(
-            foregroundColor: Colors.grey.shade700,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           ),
         ),
@@ -782,9 +920,11 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
 
   // Build sidebar item widget
   Widget _buildSidebarItem(_MenuItem item, bool isActive, bool collapsed, bool isDesktop, {int? badge}) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final hovering = _hovering[item.id] ?? false;
-    final bg = isActive ? Colors.blue.shade700 : (hovering ? Colors.grey.shade200 : Colors.transparent);
-    final fg = isActive ? Colors.white : Colors.black87;
+    final bg = isActive ? cs.primary : (hovering ? cs.surfaceContainerHighest : Colors.transparent);
+    final fg = isActive ? cs.onPrimary : cs.onSurface;
 
     return Tooltip(
       message: item.label,
@@ -798,7 +938,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(8),
-            boxShadow: isActive ? [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2))] : null,
+            boxShadow: isActive ? [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 6, offset: const Offset(0, 2))] : null,
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(8),
@@ -812,17 +952,13 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                     width: 3, height: 30,
                     decoration: BoxDecoration(
                       color: isActive
-                          ? Colors.blue.shade700
-                          : (hovering ? Colors.blue.shade50 : Colors.transparent),
-                      borderRadius: BorderRadius.circular(12), // rounder look
-                      border: Border.all(color: isActive ? Colors.blue.shade700 : Colors.transparent),
-                      boxShadow: isActive
-                          ? [BoxShadow(color: Colors.blue.shade200.withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))]
-                          : null,
+                          ? cs.onPrimary
+                          : (hovering ? cs.primary.withValues(alpha: 0.3) : Colors.transparent),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(item.icon, color: isActive ? Colors.white : Colors.black54, size: 20),
+                  Icon(item.icon, color: isActive ? cs.onPrimary : cs.onSurfaceVariant, size: 20),
                   if (!collapsed) ...[
                     const SizedBox(width: 10),
                     Expanded(
@@ -836,19 +972,13 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: isActive
-                              ? Colors.blue.shade700
-                              : (hovering ? Colors.blue.shade50 : Colors.transparent),
-                          borderRadius: BorderRadius.circular(12), // rounder look
-                          border: Border.all(color: isActive ? Colors.blue.shade700 : Colors.transparent),
-                          boxShadow: isActive
-                              ? [BoxShadow(color: Colors.blue.shade200.withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))]
-                              : null,
+                          color: cs.primaryContainer,
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           badge > 99 ? '99+' : '$badge',
                           style: TextStyle(
-                            color: isActive ? Colors.blue.shade700 : Colors.white,
+                            color: cs.onPrimaryContainer,
                             fontSize: 11, fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -864,17 +994,16 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   }
 
   Widget _buildSidebar(bool collapsed, bool isDesktop) {
-    final bg1 = Theme.of(context).colorScheme.surface;
-    final bg2 = Colors.grey.shade50;
+    final cs = Theme.of(context).colorScheme;
     final items = _visibleMenuItems;
 
     return Container(
-      width: collapsed ? 96 : 248, // tighter
+      width: collapsed ? 96 : 248,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
       decoration: BoxDecoration(
-        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [bg1, bg2]),
+        color: cs.surface,
         border: Border(
-          right: BorderSide(color: Colors.grey.shade200),
+          right: BorderSide(color: cs.outlineVariant),
         ),
       ),
       child: ListView(
@@ -888,12 +1017,12 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                     children: [
                       CircleAvatar(
                         radius: 18,
-                        backgroundColor: Colors.blue.shade700,
+                        backgroundColor: cs.primaryContainer,
                         child: Text(
                           widget.userMeta.name.isNotEmpty
                               ? widget.userMeta.name.substring(0, 1).toUpperCase()
                               : 'U',
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(color: cs.onPrimaryContainer, fontWeight: FontWeight.w700),
                         ),
                       ),
                       if (!collapsed) ...[
@@ -905,7 +1034,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                               Text(widget.userMeta.name.isEmpty ? 'Unknown' : widget.userMeta.name,
                                   style: const TextStyle(fontWeight: FontWeight.bold)),
                               Text(widget.userMeta.email,
-                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                             ],
                           ),
                         ),
@@ -914,7 +1043,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.blueGrey.withOpacity(0.08),
+                              color: cs.surfaceContainerHighest,
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(userTitle, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
@@ -1043,7 +1172,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: _statusColor(connected).withOpacity(0.12),
+        color: _statusColor(connected).withValues(alpha:0.12),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _statusColor(connected)),
       ),
@@ -1058,12 +1187,13 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   }
 
   Widget _buildTopBar(bool isDesktop) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       height: 68,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
+        color: cs.surface,
+        border: Border(bottom: BorderSide(color: cs.outlineVariant)),
       ),
       child: Row(
         children: [
@@ -1083,7 +1213,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _statusColor(socketConnected).withOpacity(0.12),
+                  color: _statusColor(socketConnected).withValues(alpha:0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -1098,7 +1228,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
               const SizedBox(width: 12),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: Colors.blueGrey.withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)),
                 child: Text(userTitle, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
               ),
               const SizedBox(width: 16),

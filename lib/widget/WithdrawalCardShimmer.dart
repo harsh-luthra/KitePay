@@ -56,9 +56,7 @@ class WithdrawalCardShimmer extends StatelessWidget {
     );
 
     return Card(
-      elevation: 1.5,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Shimmer.fromColors(

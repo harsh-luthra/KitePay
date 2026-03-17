@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 
 import 'AppConstants.dart';
 import 'AppWriteService.dart';
+import 'utils/app_spacing.dart';
+import 'widget/dashboard_widgets.dart';
 
 class SubAdminDashboardPage extends StatefulWidget {
   final AppUser userMeta;
@@ -72,7 +74,7 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
         future: _future,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
-            return const _SubadminDashboardSkeleton();
+            return const DashboardSkeleton(sectionCount: 9);
           }
           if (snap.hasError) {
             return Center(
@@ -93,192 +95,157 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
             );
           }
           final data = snap.data!;
+          final sf = _showFullNumbers;
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.allLg,
               children: [
 
-                // ════════════════════════════════════════════════════════════
-                // 1. ALL MANAGED QRs  (indigo)
-                // ════════════════════════════════════════════════════════════
-                _SectionHeader(label: 'Managed QRs', color: Colors.indigo),
+                // ═══ 1. ALL MANAGED QRs (indigo) ═══
+                const DashboardSectionHeader(label: 'Managed QRs', color: Colors.indigo),
 
-                _Section(
+                DashboardSection(
                   title: 'All Managed QR — Overview',
                   accentColor: Colors.indigo,
                   children: [
-                    _metricGrid([
-                      _metric('Total QRs Assigned', data.totalQrsAssignedToMerchant, Icons.assignment_ind, Colors.indigo),
-                      _metric('Total Transactions', data.totalTxCount, Icons.swap_horiz, Colors.indigo.shade300),
-                      _money('Total Pay-In', data.totalAmountReceived, Icons.account_balance_wallet, Colors.teal),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.count(title: 'Total QRs Assigned', value: data.totalQrsAssignedToMerchant, icon: Icons.assignment_ind, color: Colors.indigo, showFull: sf),
+                      DashboardMetricCard.count(title: 'Total Transactions', value: data.totalTxCount, icon: Icons.swap_horiz, color: Colors.indigo.shade300, showFull: sf),
+                      DashboardMetricCard.money(title: 'Total Pay-In', paise: data.totalAmountReceived, icon: Icons.account_balance_wallet, color: Colors.teal, showFull: sf),
                     ]),
                   ],
                 ),
 
-                _Section(
+                DashboardSection(
                   title: 'All Managed QR — Payouts',
                   accentColor: Colors.indigo,
                   children: [
-                    _metricGrid([
-                      _money('Amount Paid', data.totalAmountPaid, Icons.outbox, Colors.green),
-                      _money('Pending Withdrawals', data.totalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
-                      _money('Total Available Amount', data.totalAvailableAmount, Icons.account_balance, Colors.teal),
-                      _money('Yesterday Pay-In', data.yesterdayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
-                      _money('Today Pay-In', data.todayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
-                      _money('Withdrawable Amount', data.withdrawableAmount, Icons.savings, Colors.cyan.shade700),
-                      _money('Amount On Hold', data.totalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
-                      _money('Commission On Hold', data.totalCommissionOnHold, Icons.savings_outlined, Colors.purple),
-                      _money('Commission Paid', data.totalCommissionPaid, Icons.payments, Colors.purpleAccent),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.money(title: 'Amount Paid', paise: data.totalAmountPaid, icon: Icons.outbox, color: Colors.green, showFull: sf),
+                      DashboardMetricCard.money(title: 'Pending Withdrawals', paise: data.totalWithdrawalPendingAmount, icon: Icons.pending_actions, color: Colors.deepOrange, showFull: sf),
+                      DashboardMetricCard.money(title: 'Total Available Amount', paise: data.totalAvailableAmount, icon: Icons.account_balance, color: Colors.teal, showFull: sf),
+                      DashboardMetricCard.money(title: 'Yesterday Pay-In', paise: data.yesterdayPayInAllQrs, icon: Icons.today_rounded, color: Colors.blueGrey, showFull: sf),
+                      DashboardMetricCard.money(title: 'Today Pay-In', paise: data.todayPayInAllQrs, icon: Icons.today_rounded, color: Colors.blueGrey, showFull: sf),
+                      DashboardMetricCard.money(title: 'Withdrawable Amount', paise: data.withdrawableAmount, icon: Icons.savings, color: Colors.cyan.shade700, showFull: sf),
+                      DashboardMetricCard.money(title: 'Amount On Hold', paise: data.totalAmountOnHold, icon: Icons.lock_clock_outlined, color: Colors.deepOrangeAccent, showFull: sf),
+                      DashboardMetricCard.money(title: 'Commission On Hold', paise: data.totalCommissionOnHold, icon: Icons.savings_outlined, color: Colors.purple, showFull: sf),
+                      DashboardMetricCard.money(title: 'Commission Paid', paise: data.totalCommissionPaid, icon: Icons.payments, color: Colors.purpleAccent, showFull: sf),
                     ]),
                   ],
                 ),
 
-                _Section(
+                DashboardSection(
                   title: 'All Managed QR — Breakdown',
                   accentColor: Colors.indigo,
                   children: [
-                    _metricGrid([
-                      _metric('QRs Active', data.qrCodesActive, Icons.check_circle, Colors.green.shade700),
-                      _metric('QRs Disabled', data.qrCodesDisabled, Icons.disabled_by_default, Colors.red.shade700),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.count(title: 'QRs Active', value: data.qrCodesActive, icon: Icons.check_circle, color: Colors.green.shade700, showFull: sf),
+                      DashboardMetricCard.count(title: 'QRs Disabled', value: data.qrCodesDisabled, icon: Icons.disabled_by_default, color: Colors.red.shade700, showFull: sf),
                     ]),
                   ],
                 ),
 
-                const SizedBox(height: 6),
+                const SizedBox(height: AppSpacing.sm),
 
-                // ════════════════════════════════════════════════════════════
-                // 2. ALL SELF ASSIGNED QRs  (purple)
-                // ════════════════════════════════════════════════════════════
-                _SectionHeader(label: 'Self Assigned QRs', color: Colors.purple),
+                // ═══ 2. SELF ASSIGNED QRs (purple) ═══
+                const DashboardSectionHeader(label: 'Self Assigned QRs', color: Colors.purple),
 
-                _Section(
+                DashboardSection(
                   title: 'Self Assigned QR — Overview',
                   accentColor: Colors.purple,
                   children: [
-                    _metricGrid([
-                      _metric('Self Total QRs', data.totalSelfAssignedQrs, Icons.qr_code, Colors.purple),
-                      _metric('Self Transactions', data.selfTotalTxCount, Icons.swap_horiz, Colors.purple.shade300),
-                      _money('Self Total Pay-In', data.selfTotalAmountReceived, Icons.account_balance_wallet, Colors.teal),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.count(title: 'Self Total QRs', value: data.totalSelfAssignedQrs, icon: Icons.qr_code, color: Colors.purple, showFull: sf),
+                      DashboardMetricCard.count(title: 'Self Transactions', value: data.selfTotalTxCount, icon: Icons.swap_horiz, color: Colors.purple.shade300, showFull: sf),
+                      DashboardMetricCard.money(title: 'Self Total Pay-In', paise: data.selfTotalAmountReceived, icon: Icons.account_balance_wallet, color: Colors.teal, showFull: sf),
                     ]),
                   ],
                 ),
 
-                _Section(
+                DashboardSection(
                   title: 'Self Assigned QR — Payouts',
                   accentColor: Colors.purple,
                   children: [
-                    _metricGrid([
-                      _money('Self Amount Paid', data.selfTotalAmountPaid, Icons.outbox, Colors.green),
-                      _money('Self Pending Withdrawals', data.selfTotalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
-                      _money('Self Total Available Amount', data.selfTotalAvailableAmount, Icons.account_balance, Colors.teal),
-                      _money('Self Today Pay-In', data.todayPayInSelfAssignedQrs, Icons.today_rounded, Colors.blueGrey),
-                      _money('Self Yesterday Pay-In', data.yesterdayPayInSelfAssignedQrs, Icons.today_rounded, Colors.blueGrey),
-                      _money('Self Withdrawable Amount', data.selfWithdrawableAmount, Icons.savings, Colors.cyan.shade700),
-                      _money('Self Amount On Hold', data.selfTotalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
-                      _money('Self Commission On Hold', data.selfTotalCommissionOnHold, Icons.savings_outlined, Colors.purple),
-                      _money('Self Commission Paid', data.selfTotalCommissionPaid, Icons.payments, Colors.purpleAccent),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.money(title: 'Self Amount Paid', paise: data.selfTotalAmountPaid, icon: Icons.outbox, color: Colors.green, showFull: sf),
+                      DashboardMetricCard.money(title: 'Self Pending Withdrawals', paise: data.selfTotalWithdrawalPendingAmount, icon: Icons.pending_actions, color: Colors.deepOrange, showFull: sf),
+                      DashboardMetricCard.money(title: 'Self Total Available Amount', paise: data.selfTotalAvailableAmount, icon: Icons.account_balance, color: Colors.teal, showFull: sf),
+                      DashboardMetricCard.money(title: 'Self Today Pay-In', paise: data.todayPayInSelfAssignedQrs, icon: Icons.today_rounded, color: Colors.blueGrey, showFull: sf),
+                      DashboardMetricCard.money(title: 'Self Yesterday Pay-In', paise: data.yesterdayPayInSelfAssignedQrs, icon: Icons.today_rounded, color: Colors.blueGrey, showFull: sf),
+                      DashboardMetricCard.money(title: 'Self Withdrawable Amount', paise: data.selfWithdrawableAmount, icon: Icons.savings, color: Colors.cyan.shade700, showFull: sf),
+                      DashboardMetricCard.money(title: 'Self Amount On Hold', paise: data.selfTotalAmountOnHold, icon: Icons.lock_clock_outlined, color: Colors.deepOrangeAccent, showFull: sf),
+                      DashboardMetricCard.money(title: 'Self Commission On Hold', paise: data.selfTotalCommissionOnHold, icon: Icons.savings_outlined, color: Colors.purple, showFull: sf),
+                      DashboardMetricCard.money(title: 'Self Commission Paid', paise: data.selfTotalCommissionPaid, icon: Icons.payments, color: Colors.purpleAccent, showFull: sf),
                     ]),
                   ],
                 ),
 
-                _Section(
+                DashboardSection(
                   title: 'Self Assigned QR — Breakdown',
                   accentColor: Colors.purple,
                   children: [
-                    _metricGrid([
-                      _metric('Self QRs Active', data.selfQrCodesActive, Icons.check_circle, Colors.green.shade700),
-                      _metric('Self QRs Disabled', data.selfQrCodesDisabled, Icons.disabled_by_default, Colors.red.shade700),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.count(title: 'Self QRs Active', value: data.selfQrCodesActive, icon: Icons.check_circle, color: Colors.green.shade700, showFull: sf),
+                      DashboardMetricCard.count(title: 'Self QRs Disabled', value: data.selfQrCodesDisabled, icon: Icons.disabled_by_default, color: Colors.red.shade700, showFull: sf),
                     ]),
                   ],
                 ),
 
-                const SizedBox(height: 6),
+                const SizedBox(height: AppSpacing.sm),
 
-                // ════════════════════════════════════════════════════════════
-                // 3. ALL USER ASSIGNED QRs  (teal)
-                // ════════════════════════════════════════════════════════════
-                _SectionHeader(label: 'User Assigned QRs', color: Colors.teal),
+                // ═══ 3. USER ASSIGNED QRs (teal) ═══
+                const DashboardSectionHeader(label: 'User Assigned QRs', color: Colors.teal),
 
-                _Section(
+                DashboardSection(
                   title: 'User Assigned QR — Overview',
                   accentColor: Colors.teal,
                   children: [
-                    _metricGrid([
-                      _metric('User Total QRs', data.totalUserAssignedQrs, Icons.qr_code, Colors.teal),
-                      _metric('User Transactions', data.userTotalTxCount, Icons.swap_horiz, Colors.teal.shade300),
-                      _money('User Total Pay-In', data.userTotalAmountReceived, Icons.account_balance_wallet, Colors.teal),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.count(title: 'User Total QRs', value: data.totalUserAssignedQrs, icon: Icons.qr_code, color: Colors.teal, showFull: sf),
+                      DashboardMetricCard.count(title: 'User Transactions', value: data.userTotalTxCount, icon: Icons.swap_horiz, color: Colors.teal.shade300, showFull: sf),
+                      DashboardMetricCard.money(title: 'User Total Pay-In', paise: data.userTotalAmountReceived, icon: Icons.account_balance_wallet, color: Colors.teal, showFull: sf),
                     ]),
                   ],
                 ),
 
-                _Section(
+                DashboardSection(
                   title: 'User Assigned QR — Payouts',
                   accentColor: Colors.teal,
                   children: [
-                    _metricGrid([
-                      _money('User Amount Paid', data.userTotalAmountPaid, Icons.outbox, Colors.green),
-                      _money('User Pending Withdrawals', data.userTotalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
-                      _money('User Total Available Amount', data.userTotalAvailableAmount, Icons.account_balance, Colors.teal),
-                      _money('User Today Pay-In', data.todayPayInUserAssignedQrs, Icons.today_rounded, Colors.blueGrey),
-                      _money('User Yesterday Pay-In', data.yesterdayPayInUserAssignedQrs, Icons.today_rounded, Colors.blueGrey),
-                      _money('User Withdrawable Amount', data.userWithdrawableAmount, Icons.savings, Colors.cyan.shade700),
-                      _money('User Amount On Hold', data.userTotalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
-                      _money('User Commission On Hold', data.userTotalCommissionOnHold, Icons.savings_outlined, Colors.purple),
-                      _money('User Commission Paid', data.userTotalCommissionPaid, Icons.payments, Colors.purpleAccent),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.money(title: 'User Amount Paid', paise: data.userTotalAmountPaid, icon: Icons.outbox, color: Colors.green, showFull: sf),
+                      DashboardMetricCard.money(title: 'User Pending Withdrawals', paise: data.userTotalWithdrawalPendingAmount, icon: Icons.pending_actions, color: Colors.deepOrange, showFull: sf),
+                      DashboardMetricCard.money(title: 'User Total Available Amount', paise: data.userTotalAvailableAmount, icon: Icons.account_balance, color: Colors.teal, showFull: sf),
+                      DashboardMetricCard.money(title: 'User Today Pay-In', paise: data.todayPayInUserAssignedQrs, icon: Icons.today_rounded, color: Colors.blueGrey, showFull: sf),
+                      DashboardMetricCard.money(title: 'User Yesterday Pay-In', paise: data.yesterdayPayInUserAssignedQrs, icon: Icons.today_rounded, color: Colors.blueGrey, showFull: sf),
+                      DashboardMetricCard.money(title: 'User Withdrawable Amount', paise: data.userWithdrawableAmount, icon: Icons.savings, color: Colors.cyan.shade700, showFull: sf),
+                      DashboardMetricCard.money(title: 'User Amount On Hold', paise: data.userTotalAmountOnHold, icon: Icons.lock_clock_outlined, color: Colors.deepOrangeAccent, showFull: sf),
+                      DashboardMetricCard.money(title: 'User Commission On Hold', paise: data.userTotalCommissionOnHold, icon: Icons.savings_outlined, color: Colors.purple, showFull: sf),
+                      DashboardMetricCard.money(title: 'User Commission Paid', paise: data.userTotalCommissionPaid, icon: Icons.payments, color: Colors.purpleAccent, showFull: sf),
                     ]),
                   ],
                 ),
 
-                const SizedBox(height: 6),
+                const SizedBox(height: AppSpacing.sm),
 
-                _Section(
+                DashboardSection(
                   title: 'User Assigned QR — Breakdown',
                   accentColor: Colors.teal,
                   children: [
-                    _metricGrid([
-                      _metric('User QRs Active', data.userQrCodesActive, Icons.check_circle, Colors.green.shade700),
-                      _metric('User QRs Disabled', data.userQrCodesDisabled, Icons.disabled_by_default, Colors.red.shade700),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.count(title: 'User QRs Active', value: data.userQrCodesActive, icon: Icons.check_circle, color: Colors.green.shade700, showFull: sf),
+                      DashboardMetricCard.count(title: 'User QRs Disabled', value: data.userQrCodesDisabled, icon: Icons.disabled_by_default, color: Colors.red.shade700, showFull: sf),
                     ]),
                   ],
                 ),
 
-                // _Section(
-                //   title: 'Merchant Profit',
-                //   children: [
-                //     _metricGrid([
-                //       _money('Total Merchant Profit', data.totalMerchantProfit, Icons.wallet, Colors.orange),
-                //     ]),
-                //   ],
-                // ),
-
-                // _Section(
-                //   title: 'Users & Merchants',
-                //   children: [
-                //     _metricGrid([
-                //       _metric('Active Users', data.activeUsers, Icons.people_alt, Colors.green),
-                //       _metric('Disabled Users', data.disabledUsers, Icons.person_off, Colors.red),
-                //       _metric('Total Users', data.totalUsers, Icons.groups_2, Colors.indigo),
-                //     ]),
-                //   ],
-                // ),
-
-                // _Section(
-                //   title: 'Memberships',
-                //   children: [
-                //     _metricGrid([
-                //       _metric('Plans Purchased', data.totalMembershipPurchased, Icons.card_membership, Colors.purple),
-                //       _metric('Pending Membership Users', data.pendingMembershipUsers, Icons.person_add, Colors.blueGrey),
-                //     ]),
-                //   ],
-                // ),
-
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.xl),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Last updated: ${DateFormat('dd MMM yyyy, hh:mm a').format(data.fetchedAt)}',
-                    style: const TextStyle(color: Colors.grey),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ),
               ],
@@ -289,212 +256,6 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
     );
   }
 
-  // ===== Metric widgets =====
-
-  Widget _metricGrid(List<Widget> items) {
-    return LayoutBuilder(builder: (ctx, cts) {
-      final w = cts.maxWidth;
-      final cross = w > 1400 ? 5 : w > 1100 ? 4 : w > 800 ? 3 : w > 520 ? 2 : 1;
-      return GridView.count(
-        crossAxisCount: cross,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 3.4,
-        physics: const NeverScrollableScrollPhysics(),
-        shrinkWrap: true,
-        children: items,
-      );
-    });
-  }
-
-  Widget _metric(String title, int value, IconData icon, Color color) =>
-      _metricCard(title: title, leading: Icon(icon, color: color), value: formatCount(value), color: color);
-
-  Widget _money(String title, int paise, IconData icon, Color color) =>
-      _metricCard(title: title, leading: Icon(icon, color: color), value: formatMoneyPaise(paise), color: color);
-
-  Widget _metricCard({
-    required String title,
-    required Widget leading,
-    required String value,
-    required Color color,
-  }) {
-    return Tooltip(
-      message: title,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.15)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
-              child: IconTheme(
-                data: IconThemeData(size: 18, color: color),
-                child: leading,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontSize: 11, color: Colors.black54),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String formatCount(num value) {
-    if (_showFullNumbers) return NumberFormat.decimalPattern('en_IN').format(value);
-    return NumberFormat.compact(locale: 'en_IN').format(value);
-  }
-
-  String formatMoneyPaise(int paise) {
-    final rupees = paise / 100.0;
-    if (_showFullNumbers) {
-      return NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(rupees);
-    }
-    return NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹').format(rupees);
-  }
-}
-
-// ===== Section group header =====
-
-class _SectionHeader extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _SectionHeader({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 18,
-            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: color, letterSpacing: 0.3),
-          ),
-          const SizedBox(width: 8),
-          Expanded(child: Divider(color: color.withOpacity(0.25), thickness: 1)),
-        ],
-      ),
-    );
-  }
-}
-
-// ===== Section card =====
-
-class _Section extends StatelessWidget {
-  final String title;
-  final List<Widget> children;
-  final Color? accentColor;
-  const _Section({required this.title, required this.children, this.accentColor});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = accentColor ?? Colors.blueGrey;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Icon(Icons.dashboard_customize, size: 16, color: color),
-              const SizedBox(width: 6),
-              Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  color: accentColor == null ? null : color,
-                ),
-              ),
-            ]),
-            const SizedBox(height: 8),
-            ...children,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ===== Skeleton =====
-
-class _SubadminDashboardSkeleton extends StatelessWidget {
-  const _SubadminDashboardSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    Widget shimmerBox() => Container(
-      height: 68,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(12),
-      ),
-    );
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        ...List.generate(
-          9,
-              (_) => Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: GridView.count(
-                crossAxisCount: 2,
-                childAspectRatio: 2.6,
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                children: List.generate(4, (_) => shimmerBox()),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 // ===== Data model =====
@@ -757,6 +518,6 @@ Future<SubAdminDashboardData> fetchSubadminDashboard({
 
     return SubAdminDashboardData.fromJson(normalized);
   } catch (e) {
-    throw Exception('Failed to fetch dashboard');
+    throw Exception('Failed to fetch dashboard: $e');
   }
 }

@@ -25,14 +25,14 @@ class Transaction {
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
     return Transaction(
-      id: json['\$id'],
+      id: (json['\$id'] ?? json['id'] ?? '') as String,
       // payload: json['payload'],
-      qrCodeId: json['qrCodeId'],
-      paymentId: json['paymentId'],
-      rrnNumber: json['rrnNumber'],
-      vpa: json['vpa'],
-      createdAt: DateTime.parse(json['created_at']),
-      amount: json['amount'],
+      qrCodeId: (json['qrCodeId'] ?? '') as String,
+      paymentId: (json['paymentId'] ?? '') as String,
+      rrnNumber: (json['rrnNumber'] ?? '') as String,
+      vpa: (json['vpa'] ?? '') as String,
+      createdAt: DateTime.parse(json['created_at'] ?? json['createdAt'] ?? DateTime.now().toIso8601String()),
+      amount: (json['amount'] as num?)?.toInt() ?? 0,
       status: json['status'] as String? ?? '',
       imageUrl: json['imageUrl'] as String? ?? '',
     );

@@ -39,7 +39,7 @@ class _TransactionImageDialogState extends State<TransactionImageDialog> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha:0.3),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -94,9 +94,6 @@ class _TransactionImageDialogState extends State<TransactionImageDialog> {
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 28, vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
                     ),
                     child: const Text('OK'),
                   ),

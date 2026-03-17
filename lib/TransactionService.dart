@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 import 'AppConstants.dart';
 import 'models/Transaction.dart';
 
-enum TxnStatus { normal, cyber, refund, chargeback }
+enum TxnStatus { normal, cyber, refund, chargeback, failed }
 
 class TransactionService {
   static final String _baseUrl = AppConstants.baseApiUrl;

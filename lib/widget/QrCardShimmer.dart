@@ -38,9 +38,7 @@ class QrCardShimmer extends StatelessWidget {
     );
 
     return Card(
-      elevation: 2,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Shimmer.fromColors(
@@ -74,7 +72,7 @@ class QrCardShimmer extends StatelessWidget {
                             color: base,
                             shape: BoxShape.circle,
                             boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 3),
+                              BoxShadow(color: Colors.black.withValues(alpha:0.05), blurRadius: 3),
                             ],
                           ),
                         ),
@@ -112,7 +110,7 @@ class QrCardShimmer extends StatelessWidget {
                           width: double.infinity,
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: base.withOpacity(0.6),
+                            color: base.withValues(alpha:0.6),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Wrap(

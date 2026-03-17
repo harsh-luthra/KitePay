@@ -6,21 +6,7 @@ import 'package:intl/intl.dart';
 
 import 'ApiMerchantsService.dart';
 import 'models/ApiMerchant.dart';
-
-// Generic page state (same as withdrawals)
-class PageState<T> {
-  List<T> items;
-  String? nextCursor;
-  bool hasMore;
-  bool loadingMore;
-
-  PageState({
-    List<T>? items,
-    this.nextCursor,
-    this.hasMore = true,
-    this.loadingMore = false,
-  }) : items = items ?? [];
-}
+import 'models/page_state.dart';
 
 class ManageApiMerchantsNew extends StatefulWidget {
   const ManageApiMerchantsNew({super.key});
@@ -149,8 +135,8 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
               : Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w600)),
           Expanded(
             child: copyable
-                ? SelectableText(text, style: const TextStyle(color: Colors.black87))
-                : Text(text, style: const TextStyle(color: Colors.black87), overflow: TextOverflow.ellipsis),
+                ? SelectableText(text, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))
+                : Text(text, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant), overflow: TextOverflow.ellipsis),
           ),
           if (copyable && text != '-') ...[
             IconButton(
@@ -177,9 +163,6 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
     final statusColor = apiMerchant.status ? Colors.green : Colors.redAccent;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -197,7 +180,7 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.12),
+                    color: statusColor.withValues(alpha:0.12),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -327,11 +310,11 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
       );
 
       if (mounted) {
-          _showSnackBar('✅ Merchant ${merchant.status ? 'suspended' : 'reactivated'} successfully');
+          _showSnackBar('Merchant ${merchant.status ? 'suspended' : 'reactivated'} successfully');
           await fetchPage(firstLoad: true);  // Refresh list
         }
       } catch (e) {
-        if (mounted) _showSnackBar('❌ Failed: $e');
+        if (mounted) _showSnackBar('Failed: $e');
       }
     }
 
@@ -559,8 +542,6 @@ class _ApiMerchantsFormPageState extends State<ApiMerchantsFormPage> {
                       value: _status,
                       onChanged: _isLoading ? null : (v) => setState(() => _status = v),
                       activeColor: Colors.green.shade600,
-                      inactiveThumbColor: Colors.grey.shade400,
-                      inactiveTrackColor: Colors.grey.shade300,
                     ),
                     Text(_status ? 'Active' : 'InActive', style: TextStyle(
                       fontWeight: FontWeight.w600,
@@ -610,12 +591,12 @@ class _ApiMerchantsFormPageState extends State<ApiMerchantsFormPage> {
       if (mounted) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ ${widget.apiMerchant == null ? 'Created' : 'Updated'} successfully')),
+          SnackBar(content: Text('${widget.apiMerchant == null ? 'Created' : 'Updated'} successfully')),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

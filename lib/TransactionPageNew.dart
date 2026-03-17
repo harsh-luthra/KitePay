@@ -93,6 +93,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   late AppUser userMeta;
 
   StreamSubscription<Map<String, dynamic>>? _txSub;
+  StreamSubscription<Map<String, dynamic>>? _txStatusChangeSub;
 
   final AudioPlayer _sfx = AudioPlayer()
     ..setReleaseMode(ReleaseMode.stop);
@@ -130,6 +131,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     _debounce?.cancel();
     _scrollController.dispose();
     _txSub?.cancel();
+    _txStatusChangeSub?.cancel();
     super.dispose();
   }
 
@@ -172,6 +174,30 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         if (!mounted) return;
         setState(() {
           transactions.insert(0, txn);
+        });
+      }
+    });
+
+    _txStatusChangeSub = SocketManager.instance.txStatusChangeStream.listen((event) async {
+      if (!mounted) return;
+      final txnId = (event['txnId'] ?? '') as String;
+      final newStatus = (event['newStatus'] ?? '') as String;
+      if (txnId.isEmpty) return;
+      final idx = transactions.indexWhere((t) => t.id == txnId);
+      if (idx != -1) {
+        final old = transactions[idx];
+        setState(() {
+          transactions[idx] = Transaction(
+            id: old.id,
+            qrCodeId: old.qrCodeId,
+            paymentId: old.paymentId,
+            rrnNumber: old.rrnNumber,
+            vpa: old.vpa,
+            createdAt: old.createdAt,
+            amount: old.amount,
+            status: newStatus,
+            imageUrl: old.imageUrl,
+          );
         });
       }
     });
@@ -246,7 +272,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           widget.userModeUserid!, await AppWriteService().getJWT());
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Failed to fetch User Qr Codes: $e')),
+        SnackBar(content: Text('Failed to fetch user QR codes: $e')),
       );
     }
     if (mounted) setState(() => loadingQr = false);
@@ -261,7 +287,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       users = fetched.appUsers;
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Failed to fetch users: $e')),
+        SnackBar(content: Text('Failed to fetch users: $e')),
       );
     }
     if (mounted) setState(() => loadingUsers = false);
@@ -271,7 +297,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       qrCodes = await _qrCodeService.getQrCodes(await AppWriteService().getJWT());
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Failed to fetch Qr Codes: $e')),
+        SnackBar(content: Text('Failed to fetch QR codes: $e')),
       );
     }
     if (mounted) setState(() => loadingQr = false);
@@ -321,7 +347,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       applyFilters();
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Failed to fetch Transactions: $e')),
+        SnackBar(content: Text('Failed to fetch transactions: $e')),
       );
     }
 
@@ -372,7 +398,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       applyFilters();
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Failed to fetch user Transactions: $e')),
+        SnackBar(content: Text('Failed to fetch user transactions: $e')),
       );
     }
 
@@ -438,7 +464,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       applyFilters();
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Failed to fetch Transactions: $e')),
+        SnackBar(content: Text('Failed to fetch transactions: $e')),
       );
     } finally {
       if (mounted) setState(() => loading = false);
@@ -648,7 +674,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                 if (ok) {
                   if (ctx.mounted) {
                     ScaffoldMessenger.of(ctx).showSnackBar(
-                      const SnackBar(content: Text('✅ Transaction updated')),
+                      const SnackBar(content: Text('Transaction updated')),
                     );
                   }
                   if (ctx.mounted) Navigator.of(ctx).pop();
@@ -657,7 +683,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
               } catch (e) {
                 if (ctx.mounted) {
                   ScaffoldMessenger.of(ctx).showSnackBar(
-                    SnackBar(content: Text('❌ Update failed: $e')),
+                    SnackBar(content: Text('Update failed: $e')),
                   );
                 }
               } finally {
@@ -869,10 +895,10 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(width: 8),
-              CircularProgressIndicator(),
-              SizedBox(width: 16),
-              Text('Deleting...'),
+              const SizedBox(width: 8),
+              const CircularProgressIndicator(),
+              const SizedBox(width: 16),
+              const Text('Deleting...'),
             ],
           ),
         ),
@@ -893,7 +919,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
       if (ok && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Transaction deleted')),
+          const SnackBar(content: Text('Transaction deleted')),
         ); // feedback [3]
         _refetchWithCurrentFilters(); // refresh list
       }
@@ -910,7 +936,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         Navigator.of(context, rootNavigator: true)
             .pop(); // ensure loader is closed
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Delete failed: $e')),
+          SnackBar(content: Text('Delete failed: $e')),
         ); // feedback
       }
     }
@@ -942,7 +968,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       context: context,
       barrierDismissible: false,  // Prevent dismissing during operation
       builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         contentPadding: const EdgeInsets.all(24),
         content: Row(
           mainAxisSize: MainAxisSize.min,
@@ -977,18 +1002,18 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
       if (success) {
         _scaffoldMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text('✅ Image deleted successfully')),
+          const SnackBar(content: Text('Image deleted successfully')),
         );
         setState(() {});  // Refresh UI
       } else {
         _scaffoldMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text('❌ Failed to delete transaction image')),
+          const SnackBar(content: Text('Failed to delete transaction image')),
         );
       }
     } catch (e) {
       Navigator.of(context).pop();  // Ensure dialog closes on error
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Error: $e')),
+        SnackBar(content: Text('Error: $e')),
       );
     } finally{
       _refetchWithCurrentFilters();
@@ -1017,15 +1042,15 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
               constraints: const BoxConstraints(maxWidth: 320),
               padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
+                color: Colors.white.withValues(alpha:0.95),
                 borderRadius: BorderRadius.circular(24),
                 border: material.Border.all(
-                  color: Colors.white.withOpacity(0.3),
+                  color: Colors.white.withValues(alpha:0.3),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha:0.1),
                     blurRadius: 40,
                     spreadRadius: -10,
                   ),
@@ -1154,12 +1179,11 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       return; // user canceled or nothing chosen
     }
 
-    // Show loading dialog (modal)
-    showDialog<void>(
+    // Show loading dialog (modal) and capture its navigator for reliable dismissal
+    final dialogRoute = DialogRoute<void>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) =>
-      const AlertDialog(
+      builder: (ctx) => const AlertDialog(
         content: SizedBox(
           height: 56,
           child: Row(
@@ -1173,7 +1197,13 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           ),
         ),
       ),
-    ); // loading modal [11][2]
+    );
+    final rootNav = Navigator.of(context, rootNavigator: true);
+    rootNav.push(dialogRoute);
+
+    void closeLoader() {
+      if (dialogRoute.isActive) rootNav.removeRoute(dialogRoute);
+    }
 
     try {
       final ok = await TransactionService.editTransactionStatus(
@@ -1182,30 +1212,34 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         status: selected!.name,
       ); // call UPDATE API
 
-      if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop(); // close loader [11]
-      }
+      closeLoader();
 
       if (ok) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('✅ Status changed to ${selected?.label}')),
+            SnackBar(content: Text('Status changed to ${selected?.label}')),
           ); // success feedback
           _refetchWithCurrentFilters(); // refresh list
         }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Status update failed.')),
+          );
+        }
       }
     } on TimeoutException {
+      closeLoader();
       if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Request timed out. Please try again.')),
         ); // timeout feedback
       }
     } catch (e) {
+      closeLoader();
       if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Change failed: $e')),
+          SnackBar(content: Text('Change failed: $e')),
         ); // error feedback
       }
     }
@@ -1532,7 +1566,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -1626,7 +1659,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   Widget _buildFilters(bool userHasQrCodes) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -1856,7 +1888,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   }
 
   Widget buildStatusFilter() {
-    final statuses = ['normal', 'cyber', 'refund', 'chargeback'];
+    final statuses = ['normal', 'cyber', 'refund', 'chargeback', 'failed'];
     return Wrap(
       spacing: 8,
       runSpacing: 8,

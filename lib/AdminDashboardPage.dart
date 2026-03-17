@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 
 import 'AppConstants.dart';
 import 'AppWriteService.dart';
+import 'utils/app_spacing.dart';
+import 'widget/dashboard_widgets.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({super.key});
@@ -70,7 +72,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         future: _future,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
-            return const _DashboardSkeleton();
+            return const DashboardSkeleton(sectionCount: 4);
           }
           if (snap.hasError) {
             return Center(
@@ -91,88 +93,89 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             );
           }
           final data = snap.data!;
+          final sf = _showFullNumbers;
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.allLg,
               children: [
-                _Section(
+                DashboardSection(
                   title: 'Overview',
                   children: [
-                    _metricGrid([
-                      _metric('Total Transactions', data.totalTxCount, Icons.swap_horiz, Colors.indigo),
-                      _money('Total Pay-In', data.totalAmountReceived, Icons.account_balance_wallet, Colors.teal),
-                      _money('Today Pay-In', data.todayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
-                      _money('Yesterday Pay-In', data.yesterdayPayInAllQrs, Icons.today_rounded, Colors.blueGrey),
-                      _money('Admin Profit', data.totalAdminProfit, Icons.leaderboard, Colors.deepPurple),
-                      _money('Merchant Profit', data.totalMerchantProfit, Icons.wallet, Colors.orange),
-                      _metric('QR Codes Uploaded', data.totalQrsUploaded, Icons.qr_code_2, Colors.blueGrey),
-                      _metric('QRs Assigned to Merchant', data.totalQrsAssignedToMerchant, Icons.assignment_ind, Colors.cyan),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.count(title: 'Total Transactions', value: data.totalTxCount, icon: Icons.swap_horiz, color: Colors.indigo, showFull: sf),
+                      DashboardMetricCard.money(title: 'Total Pay-In', paise: data.totalAmountReceived, icon: Icons.account_balance_wallet, color: Colors.teal, showFull: sf),
+                      DashboardMetricCard.money(title: 'Today Pay-In', paise: data.todayPayInAllQrs, icon: Icons.today_rounded, color: Colors.blueGrey, showFull: sf),
+                      DashboardMetricCard.money(title: 'Yesterday Pay-In', paise: data.yesterdayPayInAllQrs, icon: Icons.today_rounded, color: Colors.blueGrey, showFull: sf),
+                      DashboardMetricCard.money(title: 'Admin Profit', paise: data.totalAdminProfit, icon: Icons.leaderboard, color: Colors.deepPurple, showFull: sf),
+                      DashboardMetricCard.money(title: 'Merchant Profit', paise: data.totalMerchantProfit, icon: Icons.wallet, color: Colors.orange, showFull: sf),
+                      DashboardMetricCard.count(title: 'QR Codes Uploaded', value: data.totalQrsUploaded, icon: Icons.qr_code_2, color: Colors.blueGrey, showFull: sf),
+                      DashboardMetricCard.count(title: 'QRs Assigned to Merchant', value: data.totalQrsAssignedToMerchant, icon: Icons.assignment_ind, color: Colors.cyan, showFull: sf),
                     ]),
                   ],
                 ),
-                _Section(
+                DashboardSection(
                   title: 'QR Breakdown',
                   children: [
-                    _metricGrid([
-                      _metric('Pine-labs QRs', data.totalPinelabsQrs, Icons.qr_code_scanner, Colors.green),
-                      _metric('Paytm QRs', data.totalPaytmQrs, Icons.qr_code_scanner, Colors.blue),
-                      _metric('Other QRs', data.totalOtherQrs, Icons.qr_code_scanner, Colors.grey),
-                      _metric('QRs Active', data.qrCodesActive, Icons.check_circle, Colors.green.shade700),
-                      _metric('QRs Disabled', data.qrCodesDisabled, Icons.disabled_by_default, Colors.red.shade700),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.count(title: 'Pine-labs QRs', value: data.totalPinelabsQrs, icon: Icons.qr_code_scanner, color: Colors.green, showFull: sf),
+                      DashboardMetricCard.count(title: 'Paytm QRs', value: data.totalPaytmQrs, icon: Icons.qr_code_scanner, color: Colors.blue, showFull: sf),
+                      DashboardMetricCard.count(title: 'Other QRs', value: data.totalOtherQrs, icon: Icons.qr_code_scanner, color: Colors.grey, showFull: sf),
+                      DashboardMetricCard.count(title: 'QRs Active', value: data.qrCodesActive, icon: Icons.check_circle, color: Colors.green.shade700, showFull: sf),
+                      DashboardMetricCard.count(title: 'QRs Disabled', value: data.qrCodesDisabled, icon: Icons.disabled_by_default, color: Colors.red.shade700, showFull: sf),
                     ]),
                   ],
                 ),
-                _Section(
+                DashboardSection(
                   title: 'Transaction Types',
                   children: [
-                    _metricGrid([
-                      _metric('Manual Txns', data.totalManualTx, Icons.edit_note, Colors.amber.shade800),
-                      _metric('API Txns', data.totalApiTx, Icons.cloud_done, Colors.lightBlue),
-                      _moneyPair('Chargebacks', data.chargebackCount, data.chargebackAmount, Colors.red.shade600, Icons.report),
-                      _moneyPair('Cyber', data.cyberCount, data.cyberAmount, Colors.pink.shade600, Icons.warning_amber),
-                      _moneyPair('Refunds', data.refundCount, data.refundAmount, Colors.orange.shade700, Icons.undo),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.count(title: 'Manual Txns', value: data.totalManualTx, icon: Icons.edit_note, color: Colors.amber.shade800, showFull: sf),
+                      DashboardMetricCard.count(title: 'API Txns', value: data.totalApiTx, icon: Icons.cloud_done, color: Colors.lightBlue, showFull: sf),
+                      DashboardMetricCard.moneyPair(title: 'Chargebacks', count: data.chargebackCount, paise: data.chargebackAmount, icon: Icons.report, color: Colors.red.shade600, showFull: sf),
+                      DashboardMetricCard.moneyPair(title: 'Cyber', count: data.cyberCount, paise: data.cyberAmount, icon: Icons.warning_amber, color: Colors.pink.shade600, showFull: sf),
+                      DashboardMetricCard.moneyPair(title: 'Refunds', count: data.refundCount, paise: data.refundAmount, icon: Icons.undo, color: Colors.orange.shade700, showFull: sf),
+                      DashboardMetricCard.moneyPair(title: 'Failed', count: data.failedCount, paise: data.failedAmount, icon: Icons.cancel_outlined, color: Colors.grey.shade700, showFull: sf),
                     ]),
                   ],
                 ),
-                _Section(
+                DashboardSection(
                   title: 'Payouts',
                   children: [
-                    _metricGrid([
-                      _money('Amount Paid', data.totalAmountPaid, Icons.outbox, Colors.green),
-                      _money('Pending Withdrawals', data.totalWithdrawalPendingAmount, Icons.pending_actions, Colors.deepOrange),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.money(title: 'Amount Paid', paise: data.totalAmountPaid, icon: Icons.outbox, color: Colors.green, showFull: sf),
+                      DashboardMetricCard.money(title: 'Pending Withdrawals', paise: data.totalWithdrawalPendingAmount, icon: Icons.pending_actions, color: Colors.deepOrange, showFull: sf),
                     ]),
                   ],
                 ),
-                _Section(
+                DashboardSection(
                   title: 'Users & Merchants',
                   children: [
-                    _metricGrid([
-                      _metric('Active Users', data.activeUsers, Icons.people_alt, Colors.green),
-                      _metric('Disabled Users', data.disabledUsers, Icons.person_off, Colors.red),
-                      _metric('Merchant Active', data.merchantActive, Icons.store, Colors.teal),
-                      _metric('Merchant Pending', data.merchantPending, Icons.hourglass_bottom, Colors.amber),
-                      _metric('Merchant Disabled', data.merchantDisabled, Icons.storefront_outlined, Colors.red.shade700),
-                      _metric('Total Users', data.totalUsers, Icons.groups_2, Colors.indigo),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.count(title: 'Active Users', value: data.activeUsers, icon: Icons.people_alt, color: Colors.green, showFull: sf),
+                      DashboardMetricCard.count(title: 'Disabled Users', value: data.disabledUsers, icon: Icons.person_off, color: Colors.red, showFull: sf),
+                      DashboardMetricCard.count(title: 'Merchant Active', value: data.merchantActive, icon: Icons.store, color: Colors.teal, showFull: sf),
+                      DashboardMetricCard.count(title: 'Merchant Pending', value: data.merchantPending, icon: Icons.hourglass_bottom, color: Colors.amber, showFull: sf),
+                      DashboardMetricCard.count(title: 'Merchant Disabled', value: data.merchantDisabled, icon: Icons.storefront_outlined, color: Colors.red.shade700, showFull: sf),
+                      DashboardMetricCard.count(title: 'Total Users', value: data.totalUsers, icon: Icons.groups_2, color: Colors.indigo, showFull: sf),
                     ]),
                   ],
                 ),
-                _Section(
+                DashboardSection(
                   title: 'Memberships',
                   children: [
-                    _metricGrid([
-                      _metric('Plans Purchased', data.totalMembershipPurchased, Icons.card_membership, Colors.purple),
-                      _metric('Pending Membership Users', data.pendingMembershipUsers, Icons.person_add, Colors.blueGrey),
+                    DashboardMetricGrid(items: [
+                      DashboardMetricCard.count(title: 'Plans Purchased', value: data.totalMembershipPurchased, icon: Icons.card_membership, color: Colors.purple, showFull: sf),
+                      DashboardMetricCard.count(title: 'Pending Membership Users', value: data.pendingMembershipUsers, icon: Icons.person_add, color: Colors.blueGrey, showFull: sf),
                     ]),
                   ],
                 ),
-                const SizedBox(height: 24),
-                // Footer last updated
+                const SizedBox(height: AppSpacing.xl),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Last updated: ${DateFormat('dd MMM yyyy, hh:mm a').format(_lastUpdated)}',
-                    style: const TextStyle(color: Colors.grey),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ),
               ],
@@ -183,193 +186,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     );
   }
 
-  // ===== Metric widgets =====
-
-  Widget _metricGrid(List<Widget> items) {
-    return LayoutBuilder(builder: (ctx, cts) {
-      final w = cts.maxWidth;
-      final cross = w > 1400 ? 5 : w > 1100 ? 4 : w > 800 ? 3 : w > 520 ? 2 : 1;
-      return GridView.count(
-        crossAxisCount: cross,
-        mainAxisSpacing: 8,       // was 12
-        crossAxisSpacing: 8,      // was 12
-        childAspectRatio: 3.4,    // was 2.6
-        physics: const NeverScrollableScrollPhysics(),
-        shrinkWrap: true,
-        children: items,
-      );
-    });
-  }
-
-  Widget _metric(String title, int value, IconData icon, Color color) {
-    return _metricCard(
-      title: title,
-      leading: Icon(icon, color: color),
-      value: formatCount(value),
-      color: color,
-    );
-  }
-
-  Widget _money(String title, int paise, IconData icon, Color color) {
-    final formatted = formatMoneyPaise(paise);
-    return _metricCard(title: title, leading: Icon(icon, color: color), value: formatted, color: color);
-  }
-
-// Optional: for count + amount combos
-  Widget _moneyPair(String title, int count, int paise, Color color, IconData icon) {
-    final amt = formatMoneyPaise(paise);
-    final cnt = formatCount(count);
-    return _metricCard(
-      title: title,
-      leading: Icon(icon, color: color),
-      value: '$cnt • $amt',
-      color: color,
-    );
-  }
-
-  Widget _metricCard({
-    required String title,
-    required Widget leading,
-    required String value,
-    required Color color,
-  }) {
-    return Tooltip(
-      message: title,
-      child: Container(
-        padding: const EdgeInsets.all(8), // was 12
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(10), // was 12
-          border: Border.all(color: color.withOpacity(0.15)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 32, height: 32,             // was 38
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
-              child: IconTheme(                     // smaller icon
-                data: IconThemeData(size: 18, color: color),
-                child: leading,
-              ),
-            ),
-            const SizedBox(width: 8),              // was 12
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontSize: 11, color: Colors.black54), // was 12
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4), // was 6
-                  Text(
-                    value,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700), // was 18
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String formatCount(num value) {
-    if (_showFullNumbers) {
-      return NumberFormat.decimalPattern('en_IN').format(value);
-    }
-    return NumberFormat.compact(locale: 'en_IN').format(value);
-  }
-
-  String formatMoneyPaise(int paise) {
-    final rupees = paise / 100.0;
-    if (_showFullNumbers) {
-      // Full: ₹12,34,567.89
-      return NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(rupees);
-    }
-    // Compact: ₹12.3L, ₹1.2Cr
-    return NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹').format(rupees);
-  }
-
-
 }
 
-// ===== Sections and skeleton =====
-
-class _Section extends StatelessWidget {
-  final String title;
-  final List<Widget> children;
-  const _Section({required this.title, required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10), // was 14
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10), // was 12
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              const Icon(Icons.dashboard_customize, size: 16, color: Colors.blueGrey), // was 18
-              const SizedBox(width: 6), // was 8
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), // smaller
-            ]),
-            const SizedBox(height: 8), // was 12
-            ...children,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DashboardSkeleton extends StatelessWidget {
-  const _DashboardSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    Widget shimmerBox() => Container(
-      height: 68,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(12),
-      ),
-    );
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        ...List.generate(4, (_) => Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: GridView.count(
-              crossAxisCount: 2,
-              childAspectRatio: 2.6,
-              physics: const NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              children: List.generate(4, (_) => shimmerBox()),
-            ),
-          ),
-        )),
-      ],
-    );
-  }
-}
 
 // ===== Data model + API (mock now) =====
 
@@ -400,6 +218,8 @@ class DashboardData {
   final int cyberAmount;
   final int refundCount;
   final int refundAmount;
+  final int failedCount;
+  final int failedAmount;
 
   // Payouts
   final int totalAmountPaid;
@@ -439,6 +259,8 @@ class DashboardData {
     required this.cyberAmount,
     required this.refundCount,
     required this.refundAmount,
+    required this.failedCount,
+    required this.failedAmount,
     required this.totalAmountPaid,
     required this.totalWithdrawalPendingAmount,
     required this.activeUsers,
@@ -473,6 +295,8 @@ class DashboardData {
       cyberAmount: j['cyberAmount'],
       refundCount: j['refundCount'],
       refundAmount: j['refundAmount'],
+      failedCount: j['failedCount'],
+      failedAmount: j['failedAmount'],
       totalAmountPaid: j['totalAmountPaid'],
       totalWithdrawalPendingAmount: j['totalWithdrawalPendingAmount'],
       activeUsers: j['activeUsers'],
@@ -518,6 +342,8 @@ Future<DashboardData> fetchDashboard({bool force = false}) async {
     'cyberAmount': raw['cyberAmount'] ?? 0,
     'refundCount': raw['refundCount'] ?? 0,
     'refundAmount': raw['refundAmount'] ?? 0,
+    'failedCount': raw['failedCount'] ?? 0,
+    'failedAmount': raw['failedAmount'] ?? 0,
     'totalAmountPaid': raw['totalAmountPaid'] ?? 0,
     'totalWithdrawalPendingAmount': raw['totalWithdrawalPendingAmount'] ?? 0,
     'activeUsers': raw['activeUsers'] ?? 0,

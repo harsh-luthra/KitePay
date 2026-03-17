@@ -122,7 +122,7 @@ class MembershipPlansScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           iconOrText,
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Expanded(child: Text(key, style: TextStyle(fontSize: 15))),
         ],
       ),
@@ -145,7 +145,7 @@ class MembershipPlansScreen extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     fontSize: 19,
                     color: Colors.blue[800])),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(plan.price,
                 style: TextStyle(fontSize: 17, color: Colors.grey[900])),
             Divider(height: 18, thickness: 1.3),

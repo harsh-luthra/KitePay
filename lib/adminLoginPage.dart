@@ -7,6 +7,7 @@ import 'package:appwrite/models.dart' as models;
 import 'package:admin_qr_manager/AppWriteService.dart';
 import 'DashboardScreenNew.dart';
 import 'MyMetaApi.dart';
+import 'utils/app_spacing.dart';
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
@@ -230,21 +231,18 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
               end: Alignment.bottomRight,
               colors: [
                 Theme.of(context).colorScheme.surface,
-                Theme.of(context).colorScheme.surface.withOpacity(0.96),
+                Theme.of(context).colorScheme.surface.withValues(alpha:0.96),
               ],
             ),
           ),
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.xl),
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: formWidth),
                 child: Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, AppSpacing.xl),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -340,14 +338,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                         SizedBox(
                           width: double.infinity,
                           height: 46,
-                          child: ElevatedButton(
+                          child: FilledButton(
                             onPressed:
                             isLoading ? null : _startCheckThenLogin,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blueAccent,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                            ),
                             child: isLoading
                                 ? const SizedBox(
                                 width: 18,
@@ -356,8 +349,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                                     strokeWidth: 2))
                                 : const Text('Sign In',
                                 style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white)),
+                                    fontWeight: FontWeight.w700)),
                           ),
                         ),
 

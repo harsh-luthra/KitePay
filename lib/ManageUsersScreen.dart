@@ -28,13 +28,13 @@ class ManageUsersScreen extends StatefulWidget {
 // Filters for the list
 enum RoleFilter { all, subadmins, users, employees }
 
-RoleFilter _roleFilter = RoleFilter.all;
-// Track expanded groups by id: 'admin-root' for admin bucket, subadmin.id for each subadmin section
-final Set<String> _expandedGroupIds = {};
-
 class _ManageUsersScreenState extends State<ManageUsersScreen> {
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
+
+  RoleFilter _roleFilter = RoleFilter.all;
+  // Track expanded groups by id: 'admin-root' for admin bucket, subadmin.id for each subadmin section
+  final Set<String> _expandedGroupIds = {};
 
   List<AppUser> _users = [];
   bool loading = true;
@@ -169,7 +169,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         });
                       },
                     ),
-                    SizedBox(height: 10),
+                    const SizedBox(height: 10),
                     Expanded(
                       child: FutureBuilder<List<AppUser>>(
                         future: UsersService.listSubAdmins(
@@ -179,10 +179,15 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
-                            return Center(child: CircularProgressIndicator());
+                            return const Center(child: CircularProgressIndicator());
                           }
                           if (snapshot.hasError) {
-                            return Text("Error: ${snapshot.error}");
+                            return Center(
+                              child: Text(
+                                'Failed to load: ${snapshot.error}',
+                                style: const TextStyle(color: Colors.redAccent),
+                              ),
+                            );
                           }
                           final subadmins = snapshot.data ?? [];
                           if (subadmins.isEmpty) {
@@ -314,7 +319,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         });
                       },
                     ),
-                    SizedBox(height: 10),
+                    const SizedBox(height: 10),
                     Expanded(
                       child: FutureBuilder<List<AppUser>>(
                         future: UsersService.listEmployees(
@@ -324,10 +329,15 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
-                            return Center(child: CircularProgressIndicator());
+                            return const Center(child: CircularProgressIndicator());
                           }
                           if (snapshot.hasError) {
-                            return Text("Error: ${snapshot.error}");
+                            return Center(
+                              child: Text(
+                                'Failed to load: ${snapshot.error}',
+                                style: const TextStyle(color: Colors.redAccent),
+                              ),
+                            );
                           }
                           final employees = snapshot.data ?? [];
                           if (employees.isEmpty) {
@@ -606,7 +616,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       debugPrint("cursor: $nextCursor, hasMore: $hasMore");
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Failed to fetch users: $e')),
+        SnackBar(content: Text('Failed to fetch users: $e')),
       );
     }
 
@@ -930,8 +940,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                     }
                                   });
                                 },
-                                selectedColor: Colors.blue.shade200,
-                                checkmarkColor: Colors.white,
+                                selectedColor: Theme.of(context).colorScheme.primaryContainer,
+                                checkmarkColor: Theme.of(context).colorScheme.onPrimaryContainer,
                               );
                             }).toList(),
                       ),
@@ -1513,9 +1523,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   Widget _buildUserItemCard(BuildContext context, AppUser user) {
     // Move your entire Card UI here, replacing occurrences of `_users[index]` with `user`.
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      elevation: 1.5,
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -1525,13 +1532,13 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
               children: [
                 CircleAvatar(
                   radius: 16,
-                  backgroundColor: Colors.blue.shade50,
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                   child: Text(
                     user.name.isNotEmpty
                         ? user.name.substring(0, 1).toUpperCase()
                         : 'U',
-                    style: const TextStyle(
-                      color: Colors.blue,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1560,14 +1567,14 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.email, size: 14, color: Colors.grey),
+                          Icon(Icons.email, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               user.email ?? '',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
-                                color: Colors.black87,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1616,7 +1623,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.blueGrey.withOpacity(0.04),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Wrap(
@@ -1630,8 +1637,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                 label,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              backgroundColor: Colors.blue.shade50,
-                              labelStyle: const TextStyle(color: Colors.blue),
+                              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                              labelStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                               ),
@@ -1877,7 +1884,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: c.withOpacity(0.08),
+        color: c.withValues(alpha:0.08),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
@@ -1892,7 +1899,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha:0.12),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
@@ -1907,17 +1914,18 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   }
 
   Widget _infoToken(IconData icon, String k, String v) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: Colors.blueGrey),
+          Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
           const SizedBox(width: 6),
           Text(
             '$k: ',
@@ -1995,7 +2003,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       ).showSnackBar(const SnackBar(content: Text('User status updated.')));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❌ Failed to update user status')),
+        const SnackBar(content: Text('Failed to update user status')),
       );
     }
   }

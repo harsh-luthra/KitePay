@@ -12,21 +12,8 @@ import 'WithdrawalFormPage.dart';
 import 'models/AppUser.dart';
 import 'models/QrCode.dart';
 import 'models/WithdrawalRequest.dart';
-
-// Generic page state to mirror TransactionPageNew style
-class PageState<T> {
-  List<T> items;
-  String? nextCursor;
-  bool hasMore;
-  bool loadingMore;
-
-  PageState({
-    List<T>? items,
-    this.nextCursor,
-    this.hasMore = true,
-    this.loadingMore = false,
-  }) : items = items ?? [];
-}
+import 'models/page_state.dart';
+import 'utils/CurrencyUtils.dart';
 
 class ManageWithdrawalsNew extends StatefulWidget {
   final String? userModeUserid;
@@ -108,7 +95,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
       await fetchPage(status: filter, firstLoad: true);
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Failed to load withdrawals: $e')),
+        SnackBar(content: Text('Failed to load withdrawals: $e')),
       );
     }
     if (!mounted) return;
@@ -123,7 +110,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
       users = fetched.appUsers;
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Failed to fetch users: $e')),
+        SnackBar(content: Text('Failed to fetch users: $e')),
       );
     }
     if (mounted) setState(() => loadingUsers = false);
@@ -133,7 +120,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
       qrCodes = await _qrCodeService.getQrCodes(await AppWriteService().getJWT());
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Failed to fetch Qr Codes: $e')),
+        SnackBar(content: Text('Failed to fetch QR codes: $e')),
       );
     }
     if (mounted) setState(() => loadingQr = false);
@@ -203,7 +190,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
 
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Failed to fetch $status withdrawals: $e')),
+        SnackBar(content: Text('Failed to fetch $status withdrawals: $e')),
       );
     } finally {
       inFlight[status] = false;
@@ -336,7 +323,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
       case 'rejected':
         return Colors.red.shade500;
       default:
-        return Colors.grey.shade100;
+        return Colors.blueGrey;
     }
   }
 
@@ -345,14 +332,8 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
     return DateFormat('dd MMM yyyy, hh:mm a').format(dateTime);
   }
 
-  String formatIndianCurrency(num amount) {
-    final formatter = NumberFormat.currency(
-      locale: 'en_IN',
-      symbol: '₹',
-      decimalDigits: 0,
-    );
-    return formatter.format(amount);
-  }
+  String formatIndianCurrency(num amount) =>
+      CurrencyUtils.formatIndianCurrency(amount);
 
   Future<T> _showBlockingProgress<T>({
     required BuildContext context,
@@ -451,7 +432,6 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
         final valid = validateUtr(utrController.text) == null;
 
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           title: const Text('Approve Withdrawal'),
           content: Form(
             key: formKey,
@@ -460,24 +440,27 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Recap box
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Debit: ${rupees(request.amount)}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 4),
-                      Text('QR: ${request.qrId}'),
-                      Text('Requested By: ${getAppUserRole(request.userId)} ${displayUserNameText(request.userId) ?? request.userId}'),
-                    ],
-                  ),
-                ),
+                Builder(builder: (ctx) {
+                  final t = Theme.of(ctx);
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: t.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: t.colorScheme.outlineVariant),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Debit: ${rupees(request.amount)}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 4),
+                        Text('QR: ${request.qrId}'),
+                        Text('Requested By: ${getAppUserRole(request.userId)} ${displayUserNameText(request.userId) ?? request.userId}'),
+                      ],
+                    ),
+                  );
+                }),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: utrController,
@@ -610,7 +593,6 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
         final valid = validateReason(reasonController.text) == null;
 
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           title: const Text('Reject Withdrawal'),
           content: Form(
             key: formKey,
@@ -749,12 +731,12 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
       labelStyle: TextStyle(
         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
       ),
-      selectedColor: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+      selectedColor: Theme.of(context).colorScheme.primary.withValues(alpha:0.12),
       surfaceTintColor: Colors.transparent,
       side: BorderSide(
         color: selected
             ? Theme.of(context).colorScheme.primary
-            : Colors.grey.shade300,
+            : Theme.of(context).colorScheme.outlineVariant,
       ),
       onSelected: (_) async {
         if (filter == value) return;
@@ -768,15 +750,16 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
   }
 
   Widget _buildInfoTile(String label, String? value, IconData icon, {bool copyable = false, Color? iconColor}) {
+    final theme = Theme.of(context);
     final text = (value?.isNotEmpty == true) ? value!.trim() : '-';
-    final color = iconColor ?? Colors.blueGrey;
+    final color = iconColor ?? theme.colorScheme.onSurfaceVariant;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Row(
         children: [
@@ -786,7 +769,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                Text(label, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
                 const SizedBox(height: 2),
                 copyable
                     ? SelectableText(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))
@@ -813,7 +796,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
               },
               child: Padding(
                 padding: const EdgeInsets.all(4),
-                child: Icon(Icons.copy, size: 14, color: Colors.grey.shade400),
+                child: Icon(Icons.copy, size: 14, color: theme.colorScheme.onSurfaceVariant),
               ),
             ),
         ],
@@ -828,9 +811,6 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
     final debit = formatIndianCurrency(r.amount);
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -842,7 +822,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.blueGrey.shade50,
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(r.mode.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -851,7 +831,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: statusBg.withOpacity(0.12),
+                    color: statusBg.withValues(alpha:0.12),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
@@ -871,9 +851,9 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
               ),
               child: LayoutBuilder(
                 builder: (_, cts) {
@@ -923,7 +903,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                   if (r.mode != 'upi') _buildInfoTile("Bank", r.bankName, Icons.account_balance, copyable: true, iconColor: Colors.blue),
                   if (r.mode != 'upi') _buildInfoTile("Acc No.", r.accountNumber, Icons.numbers, copyable: true, iconColor: Colors.blue),
                   if (r.mode != 'upi') _buildInfoTile("IFSC", r.ifscCode, Icons.code, copyable: true, iconColor: Colors.blue),
-                  _buildInfoTile("Requested at", formatToIST(r.createdAt.toString()), Icons.schedule, iconColor: Colors.grey),
+                  _buildInfoTile("Requested at", formatToIST(r.createdAt.toString()), Icons.schedule),
                   if (r.status == 'approved' && r.utrNumber?.isNotEmpty == true) ...[
                     _buildInfoTile("UTR", r.utrNumber, Icons.confirmation_number, copyable: true, iconColor: Colors.green.shade700),
                     if (r.processedAt != null)
@@ -962,9 +942,9 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        color: color.withValues(alpha:0.06),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.18)),
+        border: Border.all(color: color.withValues(alpha:0.18)),
       ),
       child: Row(
         children: [
@@ -996,7 +976,6 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
           style: FilledButton.styleFrom(
             backgroundColor: Colors.green.shade700,
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
         FilledButton.icon(
@@ -1006,7 +985,6 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
           style: FilledButton.styleFrom(
             backgroundColor: Colors.red.shade600,
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
       ],
@@ -1195,7 +1173,6 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
   Widget _buildFilters(bool userHasQrCodes) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(

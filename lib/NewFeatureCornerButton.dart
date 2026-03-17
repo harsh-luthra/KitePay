@@ -25,9 +25,6 @@ class NewFeatureCornerButton extends StatelessWidget {
           label: label,
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
           ),
         ),
         Positioned(

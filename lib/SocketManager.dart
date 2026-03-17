@@ -31,6 +31,10 @@ class SocketManager {
   final _qrLimitAlertController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get qrLimitAlertController => _qrLimitAlertController.stream;
 
+  // Transaction status change broadcast
+  final _txStatusChangeController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get txStatusChangeStream => _txStatusChangeController.stream;
+
   // Force Refresh broadcast
   final _forceRefreshController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get forceRefreshController => _forceRefreshController.stream;
@@ -68,6 +72,7 @@ class SocketManager {
         ..off('connect')
         ..off('reconnect')
         ..off('txn:new')
+        ..off('txn:statusChange')
         ..off('connect_error')
         ..off('error')
         ..off('disconnect');
@@ -90,6 +95,13 @@ class SocketManager {
           _txController.add(Map<String, dynamic>.from(data));
         } else {
           _txController.add({'raw': data});
+        }
+      })
+      ..on('txn:statusChange', (data) {
+        if (data is Map) {
+          _txStatusChangeController.add(Map<String, dynamic>.from(data));
+        } else {
+          _txStatusChangeController.add({'raw': data});
         }
       })
       ..on('qrsAlert', (data) {
@@ -154,6 +166,7 @@ class SocketManager {
     try {
       _socket
         ?..off('txn:new')
+        ..off('txn:statusChange')
         ..dispose();
     } catch (_) {}
     _socket = null;

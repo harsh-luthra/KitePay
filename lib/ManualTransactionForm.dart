@@ -9,6 +9,7 @@ import 'QRService.dart';
 import 'UsersService.dart';
 import 'models/AppUser.dart';
 import 'models/QrCode.dart';
+import 'utils/app_spacing.dart';
 
 class ManualTransactionForm extends StatefulWidget {
   const ManualTransactionForm({super.key});
@@ -82,7 +83,6 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
     return showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(
           children: [
             Icon(icon, color: color),
@@ -168,16 +168,15 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
           ? const ManualTransactionShimmer()
           : SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
+          padding: AppSpacing.allLg,
           child: Form(
             key: _formKey,
             child: Column(
               children: [
                 // Filters card
                 Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   child: Padding(
-                    padding: const EdgeInsets.all(12),
+                    padding: AppSpacing.allMd,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -220,9 +219,8 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
 
                 // Transaction details card
                 Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   child: Padding(
-                    padding: const EdgeInsets.all(12),
+                    padding: AppSpacing.allMd,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

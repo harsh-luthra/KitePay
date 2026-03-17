@@ -104,7 +104,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       users = fetched.appUsers;
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Failed to fetch users: $e')),
+        SnackBar(content: Text('Failed to fetch users: $e')),
       );
     }
     if(!mounted) return;
@@ -329,7 +329,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.deepPurple.withOpacity(0.1),
+                            color: Colors.deepPurple.withValues(alpha:0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Text(
@@ -392,7 +392,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       });
     } catch (e) {
         _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Failed to fetch Qr Codes: $e')),
+        SnackBar(content: Text('Failed to fetch QR codes: $e')),
       );
     }
 
@@ -432,7 +432,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       });
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('❌ Failed to fetch User Qr Codes: $e')),
+        SnackBar(content: Text('Failed to fetch user QR codes: $e')),
       );
     }
 
@@ -576,15 +576,15 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
               constraints: const BoxConstraints(maxWidth: 320),
               padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
+                  color: Theme.of(context).colorScheme.outlineVariant,
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha:0.1),
                     blurRadius: 40,
                     spreadRadius: -10,
                   ),
@@ -677,15 +677,15 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
               constraints: const BoxConstraints(maxWidth: 320),
               padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
+                  color: Theme.of(context).colorScheme.outlineVariant,
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha:0.1),
                     blurRadius: 40,
                     spreadRadius: -10,
                   ),
@@ -1432,9 +1432,9 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             decoration: InputDecoration(
               hintText: 'Search by QR ID...',
               border: InputBorder.none,
-              hintStyle: TextStyle(color: Colors.black),
+              hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
               suffixIcon: IconButton(
-                icon: const Icon(Icons.close, color: Colors.black),
+                icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface),
                 tooltip: 'Clear search',
                 onPressed: () {
                   setState(() {
@@ -1445,7 +1445,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                 },
               ),
             ),
-            style: const TextStyle(color: Colors.black),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             onChanged: (val) => setState(() => _searchQuery = val),
           )
               : Text(widget.userMode ? 'My QR Codes' : 'Manage All QR Codes'),
@@ -1603,7 +1603,6 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     return Card(
       elevation: 3,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(14.0),
         child: Column(
@@ -1651,13 +1650,13 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             // Always show name & email at the bottom
             Row(
               children: [
-                SizedBox(width: 70, child: Text("User:")),
+                const SizedBox(width: 70, child: Text("User:")),
                 const Icon(Icons.person, size: 18, color: Colors.blueGrey),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     assigneeLine.isEmpty ? 'Unassigned' : assigneeLine,
-                    style: const TextStyle(fontSize: 13, color: Colors.black87),
+                    style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1669,13 +1668,13 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             if(!widget.userMode)
             Row(
               children: [
-                SizedBox(width: 70, child: Text("Manager:")),
+                const SizedBox(width: 70, child: Text("Manager:")),
                 const Icon(Icons.admin_panel_settings, size: 18, color: Colors.blueGrey),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     managerLine.isEmpty ? 'Unassigned' : managerLine,
-                    style: const TextStyle(fontSize: 13, color: Colors.black87),
+                    style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1690,7 +1689,9 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   /// Left: QR image, status, quick actions
   Widget _buildQrLeftSection(QrCode qrCode) {
     final statusColor = qrCode.isActive ? Colors.green : Colors.red;
-    final statusBg = qrCode.isActive ? Colors.green.shade50 : Colors.red.shade50;
+    final statusBg = qrCode.isActive
+        ? Colors.green.withValues(alpha: 0.1)
+        : Colors.red.withValues(alpha: 0.1);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1709,7 +1710,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                   imageUrl: qrCode.imageUrl,
                   fit: BoxFit.cover,
                   placeholder: (c, _) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                  errorWidget: (c, _, __) => const Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                  errorWidget: (c, _, __) => Icon(Icons.broken_image, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 )
                     : const Icon(Icons.qr_code_2, size: 72, color: Colors.blueGrey),
               ),
@@ -1761,7 +1762,6 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     showDialog(
       context: context,
       builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Stack(
           children: [
             Padding(
@@ -1841,14 +1841,15 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             final labelSmall = w < 420;
             final hideIcons = w < 340;
 
+            final tileTheme = Theme.of(context);
             Widget metricTile(String label, String value, {IconData? icon, Color? color}) {
               return ConstrainedBox(
                 constraints: BoxConstraints(minWidth: minTileW, maxWidth: maxTileW),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    border: Border.all(color: Colors.grey.shade200),
+                    color: tileTheme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                    border: Border.all(color: tileTheme.colorScheme.outlineVariant),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
@@ -1868,7 +1869,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                                   .replaceAll('Amount Received', 'Received')
                                   .replaceAll('Today Pay-In', 'Today')
                                   : label,
-                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              style: TextStyle(fontSize: 11, color: tileTheme.colorScheme.onSurfaceVariant),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               softWrap: false,
@@ -1917,7 +1918,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.blueGrey.shade50,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Wrap(
@@ -1935,9 +1936,9 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
         const SizedBox(height: 10),
         Row(
           children: [
-            const Icon(Icons.access_time, size: 16, color: Colors.grey),
+            Icon(Icons.access_time, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(width: 6),
-            Text('Created: $formattedDate', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text('Created: $formattedDate', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ],
         ),
       ],
@@ -1945,11 +1946,12 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   }
 
   Widget _kv(String k, String v) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
+        color: theme.colorScheme.surface,
+        border: Border.all(color: theme.colorScheme.outlineVariant),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -1991,7 +1993,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             icon: qrCode.isActive ? Icons.toggle_on : Icons.toggle_off,
             tip: 'Toggle Status',
             onTap: () => _toggleStatus(qrCode),
-            color: qrCode.isActive ? Colors.green : Colors.grey,
+            color: qrCode.isActive ? Colors.green : Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         if (widget.userMeta.role != "employee" && canUserActions)
           action(

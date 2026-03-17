@@ -11,6 +11,34 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   // Define light and dark themes
+  static final _cardTheme = CardTheme(
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    elevation: 1,
+    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+  );
+
+  static final _dialogTheme = DialogTheme(
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  );
+
+  static final _buttonShape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(10));
+
+  static final _elevatedButtonTheme = ElevatedButtonThemeData(
+    style: ElevatedButton.styleFrom(shape: _buttonShape),
+  );
+
+  static final _filledButtonTheme = FilledButtonThemeData(
+    style: FilledButton.styleFrom(shape: _buttonShape),
+  );
+
+  static final _outlinedButtonTheme = OutlinedButtonThemeData(
+    style: OutlinedButton.styleFrom(shape: _buttonShape),
+  );
+
+  static final _textButtonTheme = TextButtonThemeData(
+    style: TextButton.styleFrom(shape: _buttonShape),
+  );
+
   ThemeData _lightTheme() {
     return ThemeData(
       brightness: Brightness.light,
@@ -19,6 +47,12 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.light,
       ),
       useMaterial3: true,
+      cardTheme: _cardTheme,
+      dialogTheme: _dialogTheme,
+      elevatedButtonTheme: _elevatedButtonTheme,
+      filledButtonTheme: _filledButtonTheme,
+      outlinedButtonTheme: _outlinedButtonTheme,
+      textButtonTheme: _textButtonTheme,
     );
   }
 
@@ -30,6 +64,12 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.dark,
       ),
       useMaterial3: true,
+      cardTheme: _cardTheme,
+      dialogTheme: _dialogTheme,
+      elevatedButtonTheme: _elevatedButtonTheme,
+      filledButtonTheme: _filledButtonTheme,
+      outlinedButtonTheme: _outlinedButtonTheme,
+      textButtonTheme: _textButtonTheme,
     );
   }
 
@@ -42,7 +82,7 @@ class MyApp extends StatelessWidget {
       title: 'KitePay',
       theme: _lightTheme(),
       darkTheme: _darkTheme(),
-      themeMode: ThemeMode.light,
+      themeMode: ThemeMode.system,
       home: SplashScreen(),
     );
   }

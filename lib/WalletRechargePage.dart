@@ -7,6 +7,8 @@ import 'package:admin_qr_manager/WalletService.dart';
 import 'package:admin_qr_manager/models/Wallet.dart';
 import 'package:admin_qr_manager/models/WalletTransaction.dart';
 import 'AppWriteService.dart';
+import 'utils/CurrencyUtils.dart';
+import 'widget/dashboard_widgets.dart';
 
 class WalletRechargePage extends StatefulWidget {
   const WalletRechargePage({super.key});
@@ -105,14 +107,8 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
     }
   }
 
-  String formatIndianCurrency(num amount) {
-    final formatter = NumberFormat.currency(
-      locale: 'en_IN',
-      symbol: '₹',
-      decimalDigits: 2,
-    );
-    return formatter.format(amount);
-  }
+  String formatIndianCurrency(num amount) =>
+      CurrencyUtils.formatIndianCurrency(amount, decimalDigits: 2);
 
   void _showRechargeDialog() {
     _amountController.clear();
@@ -136,7 +132,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
@@ -152,9 +148,6 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                                   vertical: 12,
                                 ),
                                 minimumSize: Size(80, 48),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
                               ),
                               child: Text(
                                 '₹$amt',
@@ -169,7 +162,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text('Cancel'),
+                child: const Text('Cancel'),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -183,7 +176,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                     );
                   }
                 },
-                child: Text('Pay Now'),
+                child: const Text('Pay Now'),
               ),
             ],
           ),
@@ -287,12 +280,12 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                                 Container(
                                   padding: EdgeInsets.all(10),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
+                                    color: Colors.white.withValues(alpha:0.2),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(Icons.account_balance_wallet, color: Colors.white, size: 20),
                                 ),
-                                SizedBox(width: 12),
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,7 +299,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                             ),
                           ),
 
-                          SizedBox(height: 16),
+                          const SizedBox(height: 16),
 
                           // QR Code
                           Container(
@@ -320,7 +313,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                             ),
                             child: Image.memory(imageBytes, fit: BoxFit.contain),
                           ),
-                          SizedBox(height: 12),
+                          const SizedBox(height: 12),
 
                           // Amount
                           Container(
@@ -337,7 +330,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                               ],
                             ),
                           ),
-                          SizedBox(height: 12),
+                          const SizedBox(height: 12),
 
                           // Timer
                           Container(
@@ -351,7 +344,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.access_time, color: Colors.orange[700], size: 18),
-                                SizedBox(width: 6),
+                                const SizedBox(width: 6),
                                 Text(
                                   '${timeLeft.inMinutes.toString().padLeft(2, '0')}:${(timeLeft.inSeconds % 60).toString().padLeft(2, '0')}',
                                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange[800]),
@@ -360,7 +353,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                               ],
                             ),
                           ),
-                          SizedBox(height: 16),
+                          const SizedBox(height: 16),
 
                           SizedBox(
                             width: double.infinity,
@@ -368,15 +361,13 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.red[500]!,
                                 foregroundColor: Colors.white,
-                                elevation: 2,
                                 padding: EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                               onPressed: () => _showCancelConfirmation(dialogContext, dialogTimer),
-                              child: Text('Cancel Payment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                              child: const Text('Cancel Payment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                             ),
                           ),
-                          SizedBox(height: 12),
+                          const SizedBox(height: 12),
 
                           Padding(
                             padding: EdgeInsets.symmetric(horizontal: 8),
@@ -410,17 +401,16 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
         canPop: false,
         child: AlertDialog(
           contentPadding: EdgeInsets.symmetric(horizontal: 32, vertical: 32),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 20),
+              const CircularProgressIndicator(),
+              const SizedBox(height: 20),
               Text(
                 'Cancelling transaction...',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 currentTransactionId!,
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
@@ -488,12 +478,11 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.orange[700], size: 28),
-            SizedBox(width: 12),
-            Text('Confirm Cancel'),
+            const SizedBox(width: 12),
+            const Text('Confirm Cancel'),
           ],
         ),
         content: Column(
@@ -504,7 +493,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
               'Are you sure you want to cancel this recharge?',
               style: TextStyle(fontSize: 16),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               '₹${_amountController.text} will not be added to your wallet.',
               style: TextStyle(
@@ -537,9 +526,13 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isInitialLoad = isLoadingBalance && isLoadingTransactions;
+
     return Scaffold(
       appBar: AppBar(title: Text('Wallet')),
-      body: RefreshIndicator(
+      body: isInitialLoad
+          ? const WalletPageSkeleton()
+          : RefreshIndicator(
         onRefresh: () => Future.wait([fetchBalance(), fetchTransactions()]),
         child: SingleChildScrollView(
           physics: AlwaysScrollableScrollPhysics(),
@@ -555,22 +548,22 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                       'Wallet Balance',
                       style: TextStyle(fontSize: 16, color: Colors.grey),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     if (isLoadingBalance)
-                      CircularProgressIndicator()
+                      const CircularProgressIndicator()
                     else
                       Text(
                         formatIndianCurrency(wallet?.balance ?? 0),
                         style: Theme.of(context).textTheme.headlineLarge
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     if (wallet != null)
                       Text(
                         'Available: ${formatIndianCurrency(wallet!.availableBalance)}',
                         style: TextStyle(fontSize: 14, color: Colors.green),
                       ),
-                    SizedBox(height: 24),
+                    const SizedBox(height: 24),
                     SizedBox(
                       width: 200,
                       child: ElevatedButton(
@@ -600,15 +593,15 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                         ),
                         TextButton(
                           onPressed: fetchTransactions,
-                          child: Text('Refresh'),
+                          child: const Text('Refresh'),
                         ),
                       ],
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     if (isLoadingTransactions)
-                      Center(child: CircularProgressIndicator())
+                      const Center(child: CircularProgressIndicator())
                     else if ((transactionsData?.transactions ?? []).isEmpty)
-                      Center(child: Text('No transactions found'))
+                      const Center(child: Text('No transactions found'))
                     else
                       Column(
                         children: [
@@ -675,7 +668,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                               padding: EdgeInsets.all(16),
                               child: ElevatedButton(
                                 onPressed: loadMoreTransactions,
-                                child: Text('Load More'),
+                                child: const Text('Load More'),
                               ),
                             ),
                         ],
