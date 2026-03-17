@@ -6,18 +6,14 @@ import 'AppConstants.dart';
 import 'models/QrCode.dart';
 import 'package:appwrite/appwrite.dart';
 
-late final Client _client;
-
 class QrCodeService {
-  // Base URL for your Node.js backend
   static final String _baseUrl = AppConstants.baseApiUrl;
 
-  // Appwrite client and storage
   final Client _appwriteClient = Client()
-      .setEndpoint('https://fra.cloud.appwrite.io/v1') // Your Appwrite Endpoint
-      .setProject('688c98fd002bfe3cf596'); // Your project ID
+      .setEndpoint(AppConstants.appwriteEndpoint)
+      .setProject(AppConstants.appwriteProjectId);
 
-  final String bucketId = "688d2517002810ac532b";
+  final String bucketId = AppConstants.appwriteBucketId;
 
   late final Storage _appwriteStorage;
 
@@ -25,9 +21,8 @@ class QrCodeService {
     _appwriteStorage = Storage(_appwriteClient);
   }
 
-  /// Call this only if user is logged in
   void setSession(String jwt) {
-    _client.setJWT(jwt);
+    _appwriteClient.setJWT(jwt);
   }
 
 // Function to create the QR code entry in the database via the Node.js server
@@ -39,7 +34,6 @@ class QrCodeService {
     required String jwtToken,
   }) async {
     try {
-      print('Attempting to create QR entry on server...');
       final response = await http.post(
         Uri.parse('$_baseUrl/create-qr-entry'), // New endpoint for this purpose
         headers: {
@@ -55,14 +49,9 @@ class QrCodeService {
         }),
       ).timeout(Duration(seconds: 10));
 
-      // print('Server response status code: ${response.statusCode}');
-      // print('Server response body: ${response.body}');
-
       if (response.statusCode == 201) {
-        // print('✅ Successfully created QR entry on server.');
         return true;
       } else {
-        // print('❌ Failed to create QR entry on server. Expected status 201, but got ${response.statusCode}');
         return false;
       }
     } on TimeoutException {
@@ -70,7 +59,6 @@ class QrCodeService {
       throw Exception(
           'Request timed out. Please check your connection or try again later.');
     } catch (e) {
-      // print('❌ Error creating QR entry on server: $e');
       return false;
     }
   }
@@ -79,11 +67,7 @@ class QrCodeService {
   // This now handles both file upload and database entry creation.
   Future<bool> uploadQrCode(PlatformFile file, String qrId, String qrType, String jwtToken) async {
     try {
-      // print('Attempting to upload file: ${file.name} to Appwrite...');
-      // print('Using bucketId: $bucketId');
-
       if (file.bytes == null) {
-        print('❌ Error: File bytes are null. Cannot proceed with upload.');
         return false;
       }
 
@@ -102,14 +86,11 @@ class QrCodeService {
       // Check if file upload was successful
       final fileId = fileResult.$id;
       if (fileId.isEmpty) {
-        print('❌ Failed to get a file ID from Appwrite after upload.');
         return false;
-      } else {
-        print('✅ Successfully uploaded file to Appwrite. File ID: $fileId');
       }
 
       // Step 2: Construct the image URL
-      final imageUrl = 'https://fra.cloud.appwrite.io/v1/storage/buckets/$bucketId/files/$fileId/view?project=688c98fd002bfe3cf596';
+      final imageUrl = AppConstants.appwriteFileViewUrl(bucketId, fileId);
 
       // Step 3: Send the QR entry details to the Node.js server
       return await _createQrEntryOnServer(
@@ -120,27 +101,21 @@ class QrCodeService {
         jwtToken: jwtToken,
       );
 
-    } on AppwriteException catch (e) {
-      print('❌ Appwrite Error uploading file: ${e.message}');
-      print('Appwrite Error type: ${e.type}');
+    } on AppwriteException catch (_) {
       return false;
-    } catch (e) {
-      print('❌ General Error during QR code upload and creation: $e');
+    } catch (_) {
       return false;
     }
   }
 
   Future<bool> editQrCodeFile(PlatformFile? file, String qrId, String jwtToken) async {
     try {
-      print('🔄 Editing QR code: $qrId with type:');
 
       // Step 1: If new file provided, upload it first
       String? newFileId;
       String? newImageUrl;
 
       if (file != null && file.bytes != null) {
-        print('📤 Uploading new file: ${file.name}');
-
         final inputFile = InputFile.fromBytes(
           bytes: file.bytes!,
           filename: file.name,
@@ -153,22 +128,12 @@ class QrCodeService {
         );
 
         newFileId = fileResult.$id;
-        if (newFileId.isEmpty) {
-          print('❌ Failed to get new file ID');
-          return false;
-        }
+        if (newFileId.isEmpty) return false;
 
-        newImageUrl = 'https://fra.cloud.appwrite.io/v1/storage/buckets/$bucketId/files/$newFileId/view?project=688c98fd002bfe3cf596';
-        print('✅ New file uploaded. File ID: $newFileId');
+        newImageUrl = AppConstants.appwriteFileViewUrl(bucketId, newFileId);
       }
 
-      // Step 2: Prepare update payload (only changed fields)
       final updateData = <String, dynamic>{};
-
-      // Always include qrType if provided (even if same, server handles it safely)
-      // if (qrType.isNotEmpty) {
-      //   updateData['qrType'] = qrType;
-      // }
 
       // Include file info only if new file was uploaded
       if (newFileId != null) {
@@ -176,9 +141,7 @@ class QrCodeService {
         updateData['imageUrl'] = newImageUrl!;
       }
 
-      // Must have at least one field to update
       if (updateData.isEmpty) {
-        print('⚠️ No update data provided');
         return false;
       }
 
@@ -189,17 +152,11 @@ class QrCodeService {
         jwtToken: jwtToken,
       );
 
-      if (success) {
-        print('✅ QR code $qrId updated successfully');
-      }
-
       return success;
 
-    } on AppwriteException catch (e) {
-      print('❌ Appwrite Error: ${e.message} (type: ${e.type})');
+    } on AppwriteException catch (_) {
       return false;
-    } catch (e) {
-      print('❌ Error editing QR code: $e');
+    } catch (_) {
       return false;
     }
   }
@@ -210,9 +167,6 @@ class QrCodeService {
     required String jwtToken,
   }) async {
     try {
-      // print('📡 Calling PATCH /edit-qr/$qrId');
-      // print('Payload: $updateData');
-
       final response = await http.patch(
         Uri.parse('$_baseUrl/edit-qr/$qrId'),
         headers: {
@@ -222,21 +176,10 @@ class QrCodeService {
         body: json.encode(updateData),
       ).timeout(const Duration(seconds: 20));
 
-      // print('Server response: ${response.statusCode} - ${response.body}');
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        // print('✅ Server response: ${data['message']}');
-        return true;
-      } else {
-        // print('❌ Server error ${response.statusCode}: ${response.body}');
-        return false;
-      }
+      return response.statusCode == 200;
     } on TimeoutException {
-      // print('🔌 Request timed out after 20s');
       return false;
-    } catch (e) {
-      // print('❌ Network error: $e');
+    } catch (_) {
       return false;
     }
   }
@@ -257,18 +200,15 @@ class QrCodeService {
       ).timeout(Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        // print(response.body);
         List<dynamic> jsonList = jsonDecode(response.body);
         return jsonList.map((json) => QrCode.fromJson(json)).toList();
       } else {
         throw Exception('Failed to load QR codes from the server');
       }
     } on TimeoutException {
-      // 🔌 API took too long
       throw Exception('Request timed out. Please check your connection or try again later.');
     } catch (e) {
-      print('Error fetching QR codes: $e');
-      return []; // Return an empty list on error
+      return [];
     }
   }
 
@@ -285,7 +225,6 @@ class QrCodeService {
 
       if (response.statusCode == 200) {
         List<dynamic> jsonList = jsonDecode(response.body);
-        // print(response.body);
         return jsonList.map((json) => QrCode.fromJson(json)).toList();
       } else {
         throw Exception('Failed to load user QR codes from the server');
@@ -294,7 +233,6 @@ class QrCodeService {
       throw Exception(
           'Request timed out. Please check your connection or try again later.');
     } catch (e) {
-      print('Error fetching user QR codes: $e');
       return [];
     }
   }
@@ -312,7 +250,6 @@ class QrCodeService {
 
       if (response.statusCode == 200) {
         List<dynamic> jsonList = jsonDecode(response.body);
-        // print(response.body);
         return jsonList.map((json) => QrCode.fromJson(json)).toList();
       } else {
         throw Exception('Failed to load user QR codes from the server');
@@ -321,7 +258,6 @@ class QrCodeService {
       throw Exception(
           'Request timed out. Please check your connection or try again later.');
     } catch (e) {
-      print('Error fetching user QR codes: $e');
       return [];
     }
   }
@@ -340,11 +276,9 @@ class QrCodeService {
       ).timeout(Duration(seconds: 10));
       return response.statusCode == 200;
     } on TimeoutException {
-      // 🔌 API took too long
       throw Exception(
           'Request timed out. Please check your connection or try again later.');
     } catch (e) {
-      print('Error toggling status: $e');
       return false;
     }
   }
@@ -375,9 +309,8 @@ class QrCodeService {
 
       return response.statusCode == 200;
     } on TimeoutException {
-      throw Exception('Request timed out. Please check the connection and try again.'); // unchanged UX
+      throw Exception('Request timed out. Please check the connection and try again.');
     } catch (e) {
-      print('Error assigning QR: $e');
       return false;
     }
   }
@@ -405,12 +338,10 @@ class QrCodeService {
       )
           .timeout(const Duration(seconds: 10));
 
-      print(response.body);
       return response.statusCode == 200;
     } on TimeoutException {
-      throw Exception('Request timed out. Please check the connection and try again.'); // unchanged UX
+      throw Exception('Request timed out. Please check the connection and try again.');
     } catch (e) {
-      print('Error assigning QR: $e');
       return false;
     }
   }
@@ -428,11 +359,9 @@ class QrCodeService {
       ).timeout(Duration(seconds: 10));
       return response.statusCode == 200;
     } on TimeoutException {
-      // 🔌 API took too long
       throw Exception(
           'Request timed out. Please check your connection or try again later.');
     } catch (e) {
-      print('Error deleting QR code: $e');
       return false;
     }
   }
@@ -446,14 +375,10 @@ class QrCodeService {
         headers: {
           'Authorization': 'Bearer $jwtToken',
           'Content-Type': 'application/json',
-          // Add auth headers if needed
         },
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        // print(response.body);
-        // If your backend returns the QR info directly
         return true;
       } else {
         throw Exception(
@@ -463,7 +388,6 @@ class QrCodeService {
       throw Exception(
           'Request timed out. Please check your connection or try again later.');
     } catch (e) {
-      print('Error creating user QR code: $e');
       return false;
     }
   }
@@ -477,14 +401,10 @@ class QrCodeService {
         headers: {
           'Authorization': 'Bearer $jwtToken',
           'Content-Type': 'application/json',
-          // Add auth headers if needed
         },
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        print(response.body);
-        // If your backend returns the QR info directly
         return true;
       } else {
         throw Exception('Failed to create QR code. Status: ${response.statusCode}');
@@ -492,7 +412,6 @@ class QrCodeService {
     } on TimeoutException {
       throw Exception('Request timed out. Please check your connection or try again later.');
     } catch (e) {
-      print('Error creating user QR code: $e');
       return false;
     }
   }

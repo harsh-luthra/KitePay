@@ -1,5 +1,5 @@
 import 'package:admin_qr_manager/AppConfig.dart';
-import 'package:admin_qr_manager/WithdrawalAccountsService.dart'; // Your service from previous
+import 'package:admin_qr_manager/WithdrawalAccountsService.dart';
 import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:admin_qr_manager/models/WithdrawalAccount.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +8,7 @@ import 'models/AppUser.dart';
 
 class WithdrawalAccountsPage extends StatefulWidget {
   final bool userMode;
-  final AppUser userMeta; // keep nullable if not always provided
+  final AppUser userMeta;
 
   const WithdrawalAccountsPage({super.key, required this.userMode, required this.userMeta});
 
@@ -26,17 +26,10 @@ class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
   void initState() {
     super.initState();
     _loadAccounts();
-    if(!widget.userMode){
-      String name = widget.userMeta.name;
-      String email = widget.userMeta.email;
-      // print("Name: $name");
-      // print("Email: $email");
-    }
   }
 
   Future<void> _loadAccounts({bool refresh = false}) async {
     if (refresh) {
-      // print("refreshing");
       _nextCursor = null;
       _accounts.clear();
     }
@@ -72,7 +65,7 @@ class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
       title: 'Delete Account?',
       message: 'This action cannot be undone. Are you sure?',
     );
-    if (!confirm!) return;
+    if (confirm != true) return;
 
     try {
       final jwtToken = await AppWriteService().getJWT();
@@ -151,21 +144,6 @@ class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
             icon: const Icon(Icons.close),
             label: const Text('Got it'),
           ),
-          // ElevatedButton.icon(
-          //   onPressed: () {
-          //     Navigator.pop(context);
-          //     // Optional: Navigate to accounts page
-          //     Navigator.push(
-          //       context,
-          //       MaterialPageRoute(builder: (_) => const WithdrawalAccountsPage()),
-          //     ).then((_) => _loadWithdrawalAccounts());
-          //   },
-          //   icon: const Icon(Icons.account_balance_wallet),
-          //   label: const Text('Manage Accounts'),
-          //   style: ElevatedButton.styleFrom(
-          //     backgroundColor: Colors.orange,
-          //   ),
-          // ),
         ],
       ),
     );
@@ -214,7 +192,6 @@ class _WithdrawalAccountsPageState extends State<WithdrawalAccountsPage> {
             ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            // onPressed: _loadAccounts,
             onPressed: () => _loadAccounts(refresh: true),
           ),
         ],
@@ -360,7 +337,7 @@ class _AccountCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: Text(
-                  '****${account.accountNumber!.substring(account.accountNumber!.length - 4)} • ${account.ifscCode}',
+                  '****${account.accountNumber!.length >= 4 ? account.accountNumber!.substring(account.accountNumber!.length - 4) : account.accountNumber!} • ${account.ifscCode}',
                   style: TextStyle(color: Colors.grey[500], fontSize: 14),
                 ),
               ),
@@ -398,7 +375,6 @@ class _LoadMoreTile extends StatelessWidget {
   }
 }
 
-// 🔹 Dialog Form (matches WithdrawalFormPage design)
 void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext context, VoidCallback? onSuccess, required bool userMode, required AppUser userMeta}) {
   final isEdit = account != null;
   final notesController = TextEditingController(text: account?.notes);
@@ -411,7 +387,6 @@ void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext c
   String currentMode = account?.mode ?? 'upi';
   bool isDialogLoading = false;
 
-  // ✅ Form key for validation
   final formKey = GlobalKey<FormState>();
 
   showDialog(
@@ -421,7 +396,7 @@ void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext c
         title: Text(isEdit ? 'Edit Account' : 'Add Account'),
         content: SingleChildScrollView(
           child: Form(
-            key: formKey, // ✅ Form validation
+            key: formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -462,7 +437,6 @@ void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext c
                 const SizedBox(height: 12),
 
                 if (currentMode == 'upi') ...[
-                  // ✅ UPI ID Validation
                   TextFormField(
                     controller: upiIdController,
                     decoration: const InputDecoration(
@@ -482,7 +456,6 @@ void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext c
                     },
                   ),
                 ] else ...[
-                  // ✅ Bank Account Number
                   TextFormField(
                     controller: accountNumberController,
                     keyboardType: TextInputType.number,
@@ -505,7 +478,6 @@ void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext c
                   ),
                   const SizedBox(height: 12),
 
-                  // ✅ IFSC Code Validation
                   TextFormField(
                     controller: ifscController,
                     textCapitalization: TextCapitalization.characters,
@@ -524,7 +496,6 @@ void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext c
                       }
                       return null;
                     },
-                    // onChanged: (val) => ifscController.text = val.toUpperCase(),
                   ),
                   const SizedBox(height: 12),
 
@@ -532,7 +503,7 @@ void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext c
                   TextFormField(
                     controller: bankNameController,
                     decoration: const InputDecoration(
-                      labelText: 'Bank Name *', // ✅ Asterisk
+                      labelText: 'Bank Name *',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.account_balance),
                     ),
@@ -575,7 +546,6 @@ void _showAccountFormDialog({WithdrawalAccount? account, required BuildContext c
             onPressed: isDialogLoading
                 ? null
                 : () async {
-              // ✅ Validate form first
               if (!formKey.currentState!.validate()) return;
 
               setDialogState(() => isDialogLoading = true);

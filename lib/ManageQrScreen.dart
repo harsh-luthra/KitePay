@@ -50,7 +50,6 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
   int userQrCount = 0;
   int activeUserQrCount = 0;
-  // late AppUser userMeta;
   late AppUser userMeta;
 
   String _managerScope = 'ALL'; // 'ALL' | 'SUBADMIN'
@@ -66,38 +65,18 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   @override
   void initState() {
     super.initState();
-    // Simulate a login to get a token, for a real app this would be a user action
-    // _loginAsAdmin();
-    // loadUserMeta();
     userMeta = MyMetaApi.current!;
-
-    // if (userMeta.role.toLowerCase() == 'employee') {
-    //   _roleFilter = RoleFilter.all;  // Use "All" but scoped to assigned
-    // } else if (userMeta.role.toLowerCase() == 'subadmin') {
-    //   _roleFilter = RoleFilter.users;
-    // } else {
-    //   _roleFilter = RoleFilter.all;
-    // }
 
     if(!widget.userMode){
         _fetchQrCodes();
         _fetchUsers();
     }else{
-      // print("User Mode");
       if(widget.userMeta.role.contains("subadmin")){
         _fetchUsers();
       }
       _fetchOnlyUserQrCodes();
     }
   }
-
-  // Future<void> loadUserMeta() async {
-  //   String jwtToken = await AppWriteService().getJWT();
-  //   userMeta = (await MyMetaApi.getMyMetaData(
-  //     jwtToken: jwtToken,
-  //     refresh: false, // set true to force re-fetch
-  //   ))!;
-  // }
 
   @override
   void dispose() {
@@ -107,26 +86,13 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   }
 
   Future<void> checkQrLimitTodayPayin() async {
-
-    // print("Checking QR Today Limit Value: ${QR_PayIn_Today_limit}");
-    for (QrCode qr in _qrCodes){
-      int? todayPayIn = qr.todayTotalPayIn;
-      if(todayPayIn! >= QR_PayIn_Today_limit){
+    for (QrCode qr in _qrCodes) {
+      final todayPayIn = qr.todayTotalPayIn ?? 0;
+      if (todayPayIn >= QR_PayIn_Today_limit) {
         SocketManager.instance.emitQrLimitAlert({
           "qrCodeId": qr.qrId,
           "todayPayIn": todayPayIn,
         });
-        // await DialogSingleton.showReplacing(
-        //   builder: (ctx) => AlertDialog(
-        //     title: Text('QR Limit Reached'),
-        //     content: Text("QR: ${qr.qrId}\nToday: ${CurrencyUtils.formatIndianCurrency(todayPayIn/100)}"),
-        //     actions: [TextButton(
-        //         onPressed: () => Navigator.of(ctx).pop(),
-        //         child: Text('OK')
-        //     )],
-        //   ),
-        // );
-        // print("Qr Limit ${todayPayIn} Reached for Today QR_ID: ${qr.qrId}");
       }
     }
   }
@@ -285,10 +251,9 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   Future<void> _assignSubAdmin(String? qrId, String? fileId, {QrCode? qr}) async {
     if (_jwtToken == null || qrId == null || fileId == null || _isProcessing) return;
 
-    // Resolve the current assigned user (if any)
     final String? assignedId = qr?.assignedUserId;
-    final AppUser? assignedUser =
-    assignedId == null ? null : users.firstWhere((u) => u.id == assignedId, orElse: () => null as AppUser);
+    final assignedMatch = assignedId == null ? <AppUser>[] : users.where((u) => u.id == assignedId);
+    final AppUser? assignedUser = assignedMatch.isNotEmpty ? assignedMatch.first : null;
 
     // Base: subadmins only
     final Iterable<AppUser> allSubs = users.where((u) => u.role == 'subadmin');
@@ -309,14 +274,12 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       filtered = allSubs.toList();
     }
 
-    // Optional: if required, deduplicate and ensure the parent subadmin (if exists) is present
     if (assignedUser?.parentId != null) {
-      final AppUser parentSub = users.firstWhere(
+      final parentMatch = users.where(
             (u) => u.id == assignedUser!.parentId && u.role == 'subadmin',
-        orElse: () => null as AppUser,
       );
-      if (!filtered.any((s) => s.id == parentSub.id)) {
-        filtered.insert(0, parentSub);
+      if (parentMatch.isNotEmpty && !filtered.any((s) => s.id == parentMatch.first.id)) {
+        filtered.insert(0, parentMatch.first);
       }
     }
 
@@ -416,21 +379,16 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
   Future<void> _fetchQrCodes() async {
     _jwtToken = await AppWriteService().getJWT();
-    if (_jwtToken == null) {
-      // Don't fetch if not logged in
-      return;
-    }
+    if (_jwtToken == null) return;
+
     setState(() {
       _isLoading = true;
     });
 
-    try{
-      _jwtToken = await AppWriteService().getJWT();
+    try {
       final codes = await _qrCodeService.getQrCodes(_jwtToken);
       setState(() {
-        _qrCodes = codes.reversed.toList(); // Reversed so New Codes comes on top;
-        // _qrCodes.clear();
-        // _qrCodes = codes.where((q) => q.qrId == 'qr_R9jZFGVNtKDQRc').toList();
+        _qrCodes = codes.reversed.toList();
       });
     } catch (e) {
         _scaffoldMessengerKey.currentState?.showSnackBar(
@@ -468,12 +426,9 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     try{
       final codes = await _qrCodeService.getUserQrCodes(widget.userModeUserid!, await AppWriteService().getJWT());
       setState(() {
-        _qrCodes = codes.reversed.toList(); // Reversed so New Codes comes on top
-        // print(_qrCodes[0].toString());
+        _qrCodes = codes.reversed.toList();
         userQrCount = _qrCodes.length;
         activeUserQrCount = activeQrCount(_qrCodes);
-        // print('userQrCount: '+userQrCount.toString());
-        // print('activeUserQrCount: '+activeUserQrCount.toString());
       });
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
@@ -877,7 +832,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     String contentForDialog = "Are you sure you want to $statusText this QR code?";
 
     if (widget.userMeta.role == 'subadmin' && newStatus == false){
-      contentForDialog = "Are you sure you want to deactivate this QR code? It cannot be re-activated by sub-admins. Only an admin can activate deactivated QR codes.”";
+      contentForDialog = "Are you sure you want to deactivate this QR code? It cannot be re-activated by sub-admins. Only an admin can activate deactivated QR codes.";
     }
 
     final bool? shouldToggle = await showDialog<bool>(
@@ -1355,7 +1310,6 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   }
 
   Future<void> _createAssignUserQR() async {
-    print(widget.userMeta.labels.toString());
     if(!widget.userMeta.labels.contains('admin') && !widget.userMeta.labels.contains('SelfQr')){
       await showDialog<bool>(
         context: context,
@@ -1439,16 +1393,6 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
         _isProcessing = false;
       });
     }
-
-    //
-    // bool success = await _qrCodeService.createUserQrCode(widget.userModeUserid!);
-    //
-    // if(_jwtToken != null){
-    //
-    // }else{
-    //
-    // }
-
   }
 
   Future<void> _createAssignAdminQR() async {
@@ -1456,7 +1400,6 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   }
 
   void assignmentOptionForAdminSubAdminUser(QrCode qrCode){
-    // !widget.userMode ? _showAssignOptions(qrCode) : _showCannotAssign(qrCode);
     if(widget.userMeta.role.contains("subadmin")){
       // IF QR ASSIGNED TO SUB ADMIN THEN HE CAN ASSIGN TO OTHER USER
       if(qrCode.assignedUserId == widget.userMeta.id){
@@ -1642,17 +1585,15 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     final String managerId = qrCode.managedByUserId ?? '';
 
     final bool isSelf = assignedId == widget.userMeta.id;
-    final String assignedName =  displayUserNameText(assignedId) ?? '';
-    // final String assignedEmail = displayUserNameText?.call(assignedId) ?? ''; // if you have this helper
+    final String assignedName = displayUserNameText(assignedId);
     final String assigneeLine = assignedId == ''
         ? 'Unassigned'
         : (isSelf
         ? 'Self'
         : [assignedName].where((s) => s.isNotEmpty).join(' • '));
 
-    final String managerName = displayUserNameText(managerId) ?? '';
+    final String managerName = displayUserNameText(managerId);
     final bool isSelfManager = managerId == widget.userMeta.id;
-    // final String assignedEmail = displayUserNameText?.call(assignedId) ?? ''; // if you have this helper
     final String managerLine = managerId == ''
         ? 'Unassigned'
         : (isSelfManager
@@ -1673,8 +1614,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
               'QR ID: ${qrCode.qrId}',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
-            // Limit Check Widget
-            if(qrCode.todayTotalPayIn! >= QR_PayIn_Today_limit)
+            if ((qrCode.todayTotalPayIn ?? 0) >= QR_PayIn_Today_limit)
               Row(
                 children: [
                   Icon(
@@ -1692,9 +1632,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
               children: [
                 _buildQrLeftSection(qrCode),      // image, status chip, download/zoom
                 const SizedBox(height: 16),
-                _rightMetricsBlock(qrCode, formattedDate), // metrics + ledger + created
-                // const Divider(height: 20),
-                // _buildActionButtons(qrCode),
+                _rightMetricsBlock(qrCode, formattedDate),
               ],
             )
                 : Row(
@@ -1718,7 +1656,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    assigneeLine.isEmpty ? (assignedId ?? 'Unassigned') : assigneeLine,
+                    assigneeLine.isEmpty ? 'Unassigned' : assigneeLine,
                     style: const TextStyle(fontSize: 13, color: Colors.black87),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1736,7 +1674,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    managerLine.isEmpty ? (managerId ?? 'Unassigned') : managerLine,
+                    managerLine.isEmpty ? 'Unassigned' : managerLine,
                     style: const TextStyle(fontSize: 13, color: Colors.black87),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1744,54 +1682,11 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
               ],
             ),
 
-            // Optional: show raw assigned id in a subtle line under name/email
-            // if (assignedId != null) ...[
-            //   const SizedBox(height: 4),
-            //   Row(
-            //     children: [
-            //       const SizedBox(width: 26),
-            //       Expanded(
-            //         child: Text(
-            //           'User ID: $assignedId',
-            //           style: const TextStyle(fontSize: 12, color: Colors.grey),
-            //           overflow: TextOverflow.ellipsis,
-            //         ),
-            //       ),
-            //     ],
-            //   ),
-            // ],
           ],
         ),
       ),
     );
   }
-  // Header with QR ID and assignment chip
-  Widget _qrHeader(QrCode qrCode) {
-    final String? assignedId = qrCode.assignedUserId;
-    final bool isSelf = assignedId != null && assignedId == widget.userMeta.id;
-    final String assignedDisplay = assignedId == null
-        ? 'Unassigned'
-        : (isSelf ? 'Self' : (displayUserNameText(assignedId) ?? assignedId));
-
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            'QR • ${qrCode.qrId}',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        const SizedBox(width: 8),
-        InputChip(
-          label: Text(assignedDisplay, overflow: TextOverflow.ellipsis),
-          avatar: const Icon(Icons.person, size: 18),
-          onPressed: null,
-        ),
-      ],
-    );
-  }
-
   /// Left: QR image, status, quick actions
   Widget _buildQrLeftSection(QrCode qrCode) {
     final statusColor = qrCode.isActive ? Colors.green : Colors.red;
@@ -1931,35 +1826,6 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     final bool isSubAdmin = widget.userMeta.role == "subadmin";
     final bool isEmployee = widget.userMeta.role == "employee";
     String inr(num p) => CurrencyUtils.formatIndianCurrency(p / 100);
-
-    Widget metric(String label, String value, {IconData? icon, Color? color}) {
-      return Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          border: Border.all(color: Colors.grey.shade200),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 18, color: color ?? Colors.blueGrey),
-              const SizedBox(width: 8),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  const SizedBox(height: 2),
-                  Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

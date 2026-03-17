@@ -1,4 +1,4 @@
-import 'package:admin_qr_manager/splashScreen.dart';
+import 'package:admin_qr_manager/SplashScreen.dart';
 import 'package:flutter/material.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -40,11 +40,9 @@ class MyApp extends StatelessWidget {
       navigatorKey: rootNavigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'KitePay',
-      // theme: ThemeData(
-      //   colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      // ),
+      theme: _lightTheme(),
       darkTheme: _darkTheme(),
-      themeMode: ThemeMode.light, // auto switch based on system theme
+      themeMode: ThemeMode.light,
       home: SplashScreen(),
     );
   }

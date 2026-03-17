@@ -177,7 +177,7 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                       _money('Self Withdrawable Amount', data.selfWithdrawableAmount, Icons.savings, Colors.cyan.shade700),
                       _money('Self Amount On Hold', data.selfTotalAmountOnHold, Icons.lock_clock_outlined, Colors.deepOrangeAccent),
                       _money('Self Commission On Hold', data.selfTotalCommissionOnHold, Icons.savings_outlined, Colors.purple),
-                      _money('Self Commission Paid', data.selfTotalAmountPaid, Icons.payments, Colors.purpleAccent),
+                      _money('Self Commission Paid', data.selfTotalCommissionPaid, Icons.payments, Colors.purpleAccent),
                     ]),
                   ],
                 ),
@@ -202,11 +202,11 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
 
                 _Section(
                   title: 'User Assigned QR — Overview',
-                  accentColor: Colors.purple,
+                  accentColor: Colors.teal,
                   children: [
                     _metricGrid([
-                      _metric('User Total QRs', data.totalUserAssignedQrs, Icons.qr_code, Colors.purple),
-                      _metric('User Transactions', data.userTotalTxCount, Icons.swap_horiz, Colors.purple.shade300),
+                      _metric('User Total QRs', data.totalUserAssignedQrs, Icons.qr_code, Colors.teal),
+                      _metric('User Transactions', data.userTotalTxCount, Icons.swap_horiz, Colors.teal.shade300),
                       _money('User Total Pay-In', data.userTotalAmountReceived, Icons.account_balance_wallet, Colors.teal),
                     ]),
                   ],
@@ -243,9 +243,6 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                   ],
                 ),
 
-                // ════════════════════════════════════════════════════════════
-                // 4. OTHER
-                // ════════════════════════════════════════════════════════════
                 // _Section(
                 //   title: 'Merchant Profit',
                 //   children: [
@@ -265,7 +262,7 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                 //     ]),
                 //   ],
                 // ),
-                //
+
                 // _Section(
                 //   title: 'Memberships',
                 //   children: [
@@ -280,7 +277,7 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Last updated: ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}',
+                    'Last updated: ${DateFormat('dd MMM yyyy, hh:mm a').format(data.fetchedAt)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ),
@@ -559,6 +556,9 @@ class SubAdminDashboardData {
   final int totalMembershipPurchased;
   final int pendingMembershipUsers;
 
+  // ── Meta ──────────────────────────────────────────────────────────────────
+  final DateTime fetchedAt;
+
   const SubAdminDashboardData({
     required this.totalQrsAssignedToMerchant,
     required this.todayPayInAllQrs,
@@ -607,13 +607,14 @@ class SubAdminDashboardData {
     required this.userTotalCommissionOnHold,
     required this.userTotalCommissionPaid,
 
-
     required this.totalMerchantProfit,
     required this.activeUsers,
     required this.disabledUsers,
     required this.totalUsers,
     required this.totalMembershipPurchased,
     required this.pendingMembershipUsers,
+
+    required this.fetchedAt,
   });
 
   factory SubAdminDashboardData.fromJson(Map<String, dynamic> j) =>
@@ -666,13 +667,14 @@ class SubAdminDashboardData {
         userTotalCommissionOnHold:         j['userTotalCommissionOnHold'],
         userTotalCommissionPaid:           j['userTotalCommissionPaid'],
 
-        // Other
         totalMerchantProfit:       j['totalMerchantProfit'],
         activeUsers:               j['activeUsers'],
         disabledUsers:             j['disabledUsers'],
         totalUsers:                j['totalUsers'],
         totalMembershipPurchased:  j['totalMembershipPurchased'],
         pendingMembershipUsers:    j['pendingMembershipUsers'],
+
+        fetchedAt: DateTime.now(),
       );
 }
 
@@ -745,7 +747,6 @@ Future<SubAdminDashboardData> fetchSubadminDashboard({
       'userTotalCommissionOnHold':             raw['userTotalCommissionOnHold']             ?? 0,
       'userTotalCommissionPaid':             raw['userTotalCommissionPaid']             ?? 0,
 
-      // Other
       'totalMerchantProfit':       raw['totalMerchantProfit']       ?? 0,
       'activeUsers':               raw['activeUsers']               ?? 0,
       'disabledUsers':             raw['disabledUsers']             ?? 0,

@@ -27,15 +27,12 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _startCheck() async {
     while (true) {
       final connectivityResult = await Connectivity().checkConnectivity();
-      print(connectivityResult.toString());
       if (connectivityResult.contains(ConnectivityResult.none)) {
         await _showNoInternetDialog();
       } else {
         break;
       }
-
     }
-
     _checkLogin();
   }
 
@@ -61,15 +58,14 @@ class _SplashScreenState extends State<SplashScreen> {
 
     try {
       final user = await appwrite.account.get();
-      // final List<String> availableLabels = user.labels;
-      // Logged in → go to dashboard
       if (!mounted) return;
 
-      String jwtToken = await AppWriteService().getJWT();
-      AppUser userMeta = (await MyMetaApi.getMyMetaData(
+      final jwtToken = await AppWriteService().getJWT();
+      final userMeta = await MyMetaApi.getMyMetaData(
         jwtToken: jwtToken,
-        refresh: false, // set true to force re-fetch
-      ))!;
+        refresh: false,
+      );
+      if (userMeta == null) throw Exception('Failed to load user metadata');
 
       Navigator.pushAndRemoveUntil(
         context,

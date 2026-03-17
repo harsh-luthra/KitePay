@@ -25,17 +25,7 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
   final amountController = TextEditingController();
   final isoDateController = TextEditingController();
 
-  // final isoDateController = TextEditingController(
-  //   text: DateTime.now().toIso8601String(),
-  // );
-
-  // final payloadController = TextEditingController();
-  // final paymentIdController = TextEditingController();
-  // final vpaController = TextEditingController();
-
   final QrCodeService _qrCodeService = QrCodeService();
-
-  String? _jwtToken; // Placeholder for the JWT token
 
   bool loading = false;
 
@@ -50,25 +40,25 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     loadInitialData();
   }
 
   Future<void> loadInitialData() async {
-    if(mounted) {
-      setState(() => loading = true);
+    if (mounted) setState(() => loading = true);
+    try {
+      final jwt = await AppWriteService().getJWT();
+      final fetched = await UsersService.listUsers(jwtToken: jwt);
+      users = fetched.appUsers;
+      qrCodes = await _qrCodeService.getQrCodes(jwt);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load data: $e')),
+        );
+      }
     }
-    final fetched = await UsersService.listUsers(jwtToken: await AppWriteService().getJWT());
-    users = fetched.appUsers;
-    qrCodes = await _qrCodeService.getQrCodes(await AppWriteService().getJWT());
-
-    // print(users.toString());
-    // print(qrCodes.toString());
-
-    if(mounted) {
-      setState(() => loading = false);
-    }
+    if (mounted) setState(() => loading = false);
   }
 
   @override
@@ -77,9 +67,6 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
     rrnController.dispose();
     amountController.dispose();
     isoDateController.dispose();
-    // payloadController.dispose();
-    // paymentIdController.dispose();
-    // vpaController.dispose();
     super.dispose();
   }
 
@@ -117,6 +104,12 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
 
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {
+      if (timeDateValue == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a date & time')),
+        );
+        return;
+      }
       if (mounted) setState(() => loading = true);
 
       try {
@@ -132,6 +125,10 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
 
         if (success) {
           qrCodeController.clear();
+          rrnController.clear();
+          amountController.clear();
+          isoDateController.clear();
+          timeDateValue = null;
           await _showResultDialog(
             context,
             title: 'Success',
@@ -164,14 +161,6 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
   Widget build(BuildContext context) {
     final userHasQrCodes = selectedUserId == null || filteredQrCodes.isNotEmpty;
     final isWide = MediaQuery.of(context).size.width >= 900;
-
-    // // form completeness hint (0–4)
-    // final filledCount = [
-    //   qrCodeController.text.isNotEmpty,
-    //   rrnController.text.length == 12,
-    //   (double.tryParse(amountController.text) ?? 0) > 0,
-    //   isoDateController.text.isNotEmpty
-    // ].where((e) => e).length;
 
     return Scaffold(
       appBar: AppBar(title: const Text("Manual Transaction Upload")),
@@ -316,35 +305,11 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
                 const SizedBox(height: 16),
 
                 // Progress hint + Submit button under the form
-                Row(
-                  children: [
-                    // Expanded(
-                    //   child: ClipRRect(
-                    //     borderRadius: BorderRadius.circular(8),
-                    //     child: LinearProgressIndicator(
-                    //       value: (filledCount / 4).clamp(0, 1.0),
-                    //       backgroundColor: Colors.grey.shade200,
-                    //       minHeight: 6,
-                    //     ),
-                    //   ),
-                    // ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: loading ? null : _submitForm,
-                      icon: const Icon(Icons.cloud_upload),
-                      label: const Text("Submit Transaction"),
-                    ),
-                  ],
+                ElevatedButton.icon(
+                  onPressed: loading ? null : _submitForm,
+                  icon: const Icon(Icons.cloud_upload),
+                  label: const Text("Submit Transaction"),
                 ),
-
-                // const SizedBox(height: 12),
-                // Align(
-                //   alignment: Alignment.centerLeft,
-                //   child: Text(
-                //     'Fields completed: $filledCount / 4',
-                //     style: const TextStyle(fontSize: 12, color: Colors.grey),
-                //   ),
-                // ),
 
                 const SizedBox(height: 24),
               ],
@@ -508,14 +473,8 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
     // Convert local time to UTC for proper storage
     final utcDateTime = localDateTime.toUtc();
 
-    // print('User selected (local): ${localDateTime.toString()}');
-    // print('Saving as UTC: ${utcDateTime.toIso8601String()}');
-
     timeDateValue = utcDateTime.toIso8601String();
-
     isoDateController.text = DateFormat('dd MMM yyyy, hh:mm a').format(localDateTime.toLocal());
-
-    // isoDateController.text = utcDateTime.toIso8601String();
   }
 
   List<QrCode> get filteredQrCodes {
@@ -523,54 +482,5 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
     return qrCodes.where((qr) => qr.assignedUserId == selectedUserId).toList();
   }
 
-}
-
-// Sticky submit bar with progress indicator
-class _StickySubmitBar extends StatelessWidget {
-  final bool enabled;
-  final VoidCallback onSubmit;
-  final int filledCount;
-  final int totalCount;
-
-  const _StickySubmitBar({
-    required this.enabled,
-    required this.onSubmit,
-    required this.filledCount,
-    required this.totalCount,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final pct = (filledCount / totalCount).clamp(0, 1.0);
-    return Material(
-      elevation: 6,
-      color: Theme.of(context).cardColor,
-      child: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: pct == 0 ? null : pct as double,
-                    backgroundColor: Colors.grey.shade200,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                onPressed: enabled ? onSubmit : null,
-                icon: const Icon(Icons.cloud_upload),
-                label: const Text("Submit Transaction"),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -8,170 +7,85 @@ import 'models/Commission.dart';
 class CommissionService {
   static final String _baseUrl = AppConstants.baseApiUrl;
 
-  static String _formatDate(DateTime d) {
-    // YYYY-MM-DD
-    final m = d.month.toString().padLeft(2, '0');
-    final day = d.day.toString().padLeft(2, '0');
-    return '${d.year}-$m-$day';
-  }
-
-  // GET /admin/commissions
   static Future<PaginatedCommissions> fetchCommissions({
     String? userId,
-    String? earningType,           // 'admin' | 'subadmin'
+    String? earningType,
     String? sourceWithdrawalId,
-    int? minAmount,                // paise
-    int? maxAmount,                // paise
-    DateTime? from,                // IST day string sent as YYYY-MM-DD, server maps to IST range
+    int? minAmount,
+    int? maxAmount,
+    DateTime? from,
     DateTime? to,
     String? cursor,
     int limit = 25,
-    String? searchField,           // 'userId' | 'sourceWithdrawalId'
+    String? searchField,
     String? searchValue,
     required String jwtToken,
   }) async {
-    try {
-      String url = '$_baseUrl/admin/commissions';
-      final qp = <String, String>{ 'limit': limit.toString() };
+    final qp = <String, String>{'limit': limit.toString()};
 
-      if (userId != null) qp['userId'] = userId;
-      if (earningType != null) qp['earningType'] = earningType; // 'admin'/'subadmin'
-      if (sourceWithdrawalId != null) qp['sourceWithdrawalId'] = sourceWithdrawalId;
+    if (userId != null) qp['userId'] = userId;
+    if (earningType != null) qp['earningType'] = earningType;
+    if (sourceWithdrawalId != null) qp['sourceWithdrawalId'] = sourceWithdrawalId;
+    if (minAmount != null) qp['minAmount'] = minAmount.toString();
+    if (maxAmount != null) qp['maxAmount'] = maxAmount.toString();
+    if (from != null) qp['from'] = from.ymd;
+    if (to != null) qp['to'] = to.ymd;
+    if (cursor != null) qp['cursor'] = cursor;
 
-      if (minAmount != null) qp['minAmount'] = minAmount.toString();
-      if (maxAmount != null) qp['maxAmount'] = maxAmount.toString();
-
-      if (from != null) qp['from'] = _formatDate(from);
-      if (to != null) qp['to'] = _formatDate(to);
-
-      if (cursor != null) qp['cursor'] = cursor;
-
-      if (searchField != null && searchValue != null) {
-        qp['searchField'] = searchField;
-        qp['searchValue'] = searchValue;
-      }
-
-      url += '?${Uri(queryParameters: qp).query}';
-
-      final resp = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $jwtToken',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 5));
-
-      if (resp.statusCode == 200) {
-        final body = json.decode(resp.body) as Map<String, dynamic>;
-        final List list = (body['commissions'] as List? ?? []);
-        final nextCursor = body['nextCursor'] as String?;
-
-        return PaginatedCommissions(
-          commissions: list.map((e) => Commission.fromJson(e as Map<String, dynamic>)).toList(),
-          nextCursor: nextCursor,
-        );
-      } else {
-        throw Exception('Failed to load commissions: ${resp.body}');
-      }
-    } on TimeoutException {
-      throw Exception('Request timed out. Please check connection.');
-    } catch (e) {
-      print('Error fetching commissions: $e');
-      return PaginatedCommissions(commissions: [], nextCursor: null);
+    if (searchField != null && searchValue != null) {
+      qp['searchField'] = searchField;
+      qp['searchValue'] = searchValue;
     }
+
+    final uri = Uri.parse('$_baseUrl/admin/commissions').replace(queryParameters: qp);
+    final resp = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $jwtToken',
+        'Content-Type': 'application/json',
+      },
+    ).timeout(const Duration(seconds: 5));
+
+    if (resp.statusCode == 200) {
+      final body = json.decode(resp.body) as Map<String, dynamic>;
+      final List list = (body['commissions'] as List? ?? []);
+      final nextCursor = body['nextCursor'] as String?;
+
+      return PaginatedCommissions(
+        commissions: list.map((e) => Commission.fromJson(e as Map<String, dynamic>)).toList(),
+        nextCursor: nextCursor,
+      );
+    }
+    throw Exception('Failed to load commissions: ${resp.body}');
   }
 
   static Future<CommissionSummaryResult> fetchCommissionSummary({
     required String userId,
-    String mode = 'today',           // today | date | range | last
-    DateTime? date,                  // for mode=date
-    DateTime? start,                 // for mode=range
-    DateTime? end,                   // for mode=range
-    int days = 7,                    // for mode=last
+    String mode = 'today',
+    DateTime? date,
+    DateTime? start,
+    DateTime? end,
+    int days = 7,
     required String jwtToken,
   }) async {
-    try {
-      final qp = <String, String>{
-        'userId': userId,
-        'mode': mode,
-      };
-
-      switch (mode) {
-        case 'today':
-          break;
-        case 'date':
-          if (date == null) throw Exception('date is required for mode=date');
-          qp['date'] = date.ymd;
-          break;
-        case 'range':
-          if (start == null || end == null) {
-            throw Exception('start and end are required for mode=range');
-          }
-          qp['start'] = start.ymd;
-          qp['end'] = end.ymd;
-          break;
-        case 'last':
-          qp['days'] = days.toString();
-          break;
-        default:
-          throw Exception('Invalid mode');
-      }
-
-      final url = '$_baseUrl/admin/commissions/summary?${Uri(queryParameters: qp).query}';
-
-      final resp = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $jwtToken',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 6));
-
-      if (resp.statusCode == 200) {
-        final body = json.decode(resp.body) as Map<String, dynamic>;
-        if ((body['success'] as bool?) != true) {
-          throw Exception(body['message']?.toString() ?? 'Unknown API error');
-        }
-        return CommissionSummaryResult.fromJson(body);
-      } else {
-        throw Exception('Failed: ${resp.statusCode} ${resp.body}');
-      }
-    } on TimeoutException {
-      throw Exception('Request timed out. Please check connection.');
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-// CommissionService.dart
-  static Future<AllSummaryResult> fetchCommissionSummaryAll({
-    required String mode,        // 'today' | 'date' | 'range' | 'last'
-    DateTime? date,              // for 'date'
-    DateTime? start,             // for 'range'
-    DateTime? end,               // for 'range'
-    int days = 7,                // for 'last'
-    required String jwtToken,
-  }) async {
-    final qp = <String, String>{ 'mode': mode, 'includeUsers': 'true' };
-    // add date/start/end/days as before, then call URL with qp
-
-    String ymd(DateTime d) {
-      final m = d.month.toString().padLeft(2, '0');
-      final day = d.day.toString().padLeft(2, '0');
-      return '${d.year}-$m-$day';
-    }
+    final qp = <String, String>{
+      'userId': userId,
+      'mode': mode,
+    };
 
     switch (mode) {
       case 'today':
         break;
       case 'date':
-        if (date == null) { throw Exception('date is required for mode=date'); }
-        qp['date'] = ymd(date);
+        if (date == null) throw Exception('date is required for mode=date');
+        qp['date'] = date.ymd;
         break;
       case 'range':
-        if (start == null || end == null) { throw Exception('start/end required for mode=range'); }
-        qp['start'] = ymd(start);
-        qp['end'] = ymd(end);
+        if (start == null || end == null) {
+          throw Exception('start and end are required for mode=range');
+        }
+        qp['start'] = start.ymd;
+        qp['end'] = end.ymd;
         break;
       case 'last':
         qp['days'] = days.toString();
@@ -180,9 +94,9 @@ class CommissionService {
         throw Exception('Invalid mode');
     }
 
-    final url = '$_baseUrl/admin/commissions/summary-all?${Uri(queryParameters: qp).query}';
+    final uri = Uri.parse('$_baseUrl/admin/commissions/summary').replace(queryParameters: qp);
     final resp = await http.get(
-      Uri.parse(url),
+      uri,
       headers: {
         'Authorization': 'Bearer $jwtToken',
         'Content-Type': 'application/json',
@@ -190,7 +104,54 @@ class CommissionService {
     ).timeout(const Duration(seconds: 6));
 
     if (resp.statusCode == 200) {
-      // print('ALL resp: ${resp.body}');
+      final body = json.decode(resp.body) as Map<String, dynamic>;
+      if ((body['success'] as bool?) != true) {
+        throw Exception(body['message']?.toString() ?? 'Unknown API error');
+      }
+      return CommissionSummaryResult.fromJson(body);
+    }
+    throw Exception('Failed: ${resp.statusCode} ${resp.body}');
+  }
+
+  static Future<AllSummaryResult> fetchCommissionSummaryAll({
+    required String mode,
+    DateTime? date,
+    DateTime? start,
+    DateTime? end,
+    int days = 7,
+    required String jwtToken,
+  }) async {
+    final qp = <String, String>{'mode': mode, 'includeUsers': 'true'};
+
+    switch (mode) {
+      case 'today':
+        break;
+      case 'date':
+        if (date == null) throw Exception('date is required for mode=date');
+        qp['date'] = date.ymd;
+        break;
+      case 'range':
+        if (start == null || end == null) throw Exception('start/end required for mode=range');
+        qp['start'] = start.ymd;
+        qp['end'] = end.ymd;
+        break;
+      case 'last':
+        qp['days'] = days.toString();
+        break;
+      default:
+        throw Exception('Invalid mode');
+    }
+
+    final uri = Uri.parse('$_baseUrl/admin/commissions/summary-all').replace(queryParameters: qp);
+    final resp = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $jwtToken',
+        'Content-Type': 'application/json',
+      },
+    ).timeout(const Duration(seconds: 6));
+
+    if (resp.statusCode == 200) {
       final body = json.decode(resp.body) as Map<String, dynamic>;
       if ((body['success'] as bool?) != true) {
         throw Exception(body['message']?.toString() ?? 'Unknown API error');
@@ -207,9 +168,9 @@ class CommissionService {
       'mode': 'today',
       'includeUsers': 'true',
     };
-    final url = '$_baseUrl/admin/commissions/summary-all?${Uri(queryParameters: qp).query}';
+    final uri = Uri.parse('$_baseUrl/admin/commissions/summary-all').replace(queryParameters: qp);
     final resp = await http.get(
-      Uri.parse(url),
+      uri,
       headers: {
         'Authorization': 'Bearer $jwtToken',
         'Content-Type': 'application/json',

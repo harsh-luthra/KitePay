@@ -22,7 +22,7 @@ class UserDashboardPage extends StatefulWidget {
 class _UserDashboardPageState extends State<UserDashboardPage> {
   late Future<UserDashboardData> _future;
   bool _refreshing = false;
-  bool _showFullNumbers = false; // NEW
+  bool _showFullNumbers = false;
 
   @override
   void initState() {
@@ -142,7 +142,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Last updated: ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}',
+                    'Last updated: ${DateFormat('dd MMM yyyy, hh:mm a').format(data.fetchedAt)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ),
@@ -162,9 +162,9 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
       final cross = w > 1400 ? 5 : w > 1100 ? 4 : w > 800 ? 3 : w > 520 ? 2 : 1;
       return GridView.count(
         crossAxisCount: cross,
-        mainAxisSpacing: 8,       // was 12
-        crossAxisSpacing: 8,      // was 12
-        childAspectRatio: 3.4,    // was 2.6
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 3.4,
         physics: const NeverScrollableScrollPhysics(),
         shrinkWrap: true,
         children: items,
@@ -186,18 +186,6 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     return _metricCard(title: title, leading: Icon(icon, color: color), value: formatted, color: color);
   }
 
-  // Optional: for count + amount combos
-  Widget _moneyPair(String title, int count, int paise, Color color, IconData icon) {
-    final amt = formatMoneyPaise(paise);
-    final cnt = formatCount(count);
-    return _metricCard(
-      title: title,
-      leading: Icon(icon, color: color),
-      value: '$cnt • $amt',
-      color: color,
-    );
-  }
-
   Widget _metricCard({
     required String title,
     required Widget leading,
@@ -207,27 +195,27 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     return Tooltip(
       message: title,
       child: Container(
-        padding: const EdgeInsets.all(8), // was 12
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(10), // was 12
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color.withOpacity(0.15)),
         ),
         child: Row(
           children: [
             Container(
-              width: 32, height: 32,             // was 38
+              width: 32, height: 32,
               decoration: BoxDecoration(
                 color: color.withOpacity(0.10),
                 borderRadius: BorderRadius.circular(8),
               ),
               alignment: Alignment.center,
-              child: IconTheme(                     // smaller icon
+              child: IconTheme(
                 data: IconThemeData(size: 18, color: color),
                 child: leading,
               ),
             ),
-            const SizedBox(width: 8),              // was 12
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,14 +223,14 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontSize: 11, color: Colors.black54), // was 12
+                    style: const TextStyle(fontSize: 11, color: Colors.black54),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4), // was 6
+                  const SizedBox(height: 4),
                   Text(
                     value,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700), // was 18
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -280,22 +268,21 @@ class _Section extends StatelessWidget {
   const _Section({required this.title, required this.children});
 
   @override
-  @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 10), // was 14
+      margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10), // was 12
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              const Icon(Icons.dashboard_customize, size: 16, color: Colors.blueGrey), // was 18
-              const SizedBox(width: 6), // was 8
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), // smaller
+              const Icon(Icons.dashboard_customize, size: 16, color: Colors.blueGrey),
+              const SizedBox(width: 6),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
             ]),
-            const SizedBox(height: 8), // was 12
+            const SizedBox(height: 8),
             ...children,
           ],
         ),
@@ -315,27 +302,23 @@ class _UserDashboardSkeleton extends StatelessWidget {
 }
 
 class UserDashboardData {
-  // QR breakdown
   final int totalQrs;
   final int todayPayInAllQrs;
   final int yesterdayPayInAllQrs;
   final int qrCodesActive;
   final int qrCodesDisabled;
+  final int totalTxCount;
+  final int totalAmountPayIn;
+  final int totalWithdrawalApprovedAmount;
+  final int totalWithdrawalPendingAmount;
+  final int totalAvailableAmount;
+  final int withdrawableAmount;
+  final int totalAmountOnHold;
+  final int totalCommissionOnHold;
+  final int totalCommissionPaid;
 
-  // Transactions
-  final int totalTxCount;       // sum of qr.totalTransactions
-  final int totalAmountPayIn;   // sum of qr.totalPayInAmount (paise)
-
-  // Payouts
-  final int totalWithdrawalApprovedAmount; // sum of qr.withdrawalApprovedAmount (paise)
-  final int totalWithdrawalPendingAmount;  // sum of qr.withdrawalRequestedAmount (paise)
-  final int totalAvailableAmount;          // sum of qr.amountAvailableForWithdrawal (paise)
-  final int withdrawableAmount;            // withdrawableAmount = totalAvailableAmount - todayPayInAllQrs
-  final int totalAmountOnHold;             // sum of qr.amountOnHold (paise)
-
-  // Commission
-  final int totalCommissionOnHold; // sum of qr.commissionOnHold (paise)
-  final int totalCommissionPaid;   // sum of qr.commissionPaid (paise)
+  // Meta
+  final DateTime fetchedAt;
 
   const UserDashboardData({
     required this.totalQrs,
@@ -352,6 +335,7 @@ class UserDashboardData {
     required this.totalAmountOnHold,
     required this.totalCommissionOnHold,
     required this.totalCommissionPaid,
+    required this.fetchedAt,
   });
 
   factory UserDashboardData.fromJson(Map<String, dynamic> j) => UserDashboardData(
@@ -369,6 +353,7 @@ class UserDashboardData {
     totalAmountOnHold: j['totalAmountOnHold'] ?? 0,
     totalCommissionOnHold: j['totalCommissionOnHold'] ?? 0,
     totalCommissionPaid: j['totalCommissionPaid'] ?? 0,
+    fetchedAt: DateTime.now(),
   );
 }
 
@@ -400,8 +385,6 @@ Future<UserDashboardData> fetchUserDashboard({required String userId}) async {
     'totalCommissionOnHold': raw['totalCommissionOnHold'] ?? 0,
     'totalCommissionPaid': raw['totalCommissionPaid'] ?? 0,
   };
-
-  // print(normalized);
 
   return UserDashboardData.fromJson(normalized);
 }

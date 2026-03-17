@@ -7,7 +7,7 @@ import 'package:admin_qr_manager/widget/TransactionCardShimmer.dart';
 import 'package:admin_qr_manager/widget/TransactionImageDialog.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/material.dart' as material;  // ✅ Alias Flutter
+import 'package:flutter/material.dart' as material;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'AppWriteService.dart';
@@ -18,8 +18,6 @@ import 'TransactionService.dart';
 import 'UsersService.dart';
 import 'models/QrCode.dart';
 import 'models/Transaction.dart';
-
-import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 import 'package:audioplayers/audioplayers.dart';
 
@@ -51,20 +49,16 @@ class TransactionPageNew extends StatefulWidget {
   State<TransactionPageNew> createState() => _TransactionPageNewState();
 }
 
-int? selectedMaxTxns = 50;
-
-enum TxnStatus { normal, cyber, refund, chargeback }
-
 extension TxnStatusX on TxnStatus {
-  String get label => name; // send this to API as text [19]
+  String get label => name;
 }
 
 class _TransactionPageNewState extends State<TransactionPageNew> {
   final QrCodeService _qrCodeService = QrCodeService();
-  String? _jwtToken;
 
-  // List<Transaction> allTransactions = [];
   List<Transaction> transactions = [];
+
+  int? selectedMaxTxns = 50;
 
   bool loading = false;
   bool loadingUsers = false;
@@ -97,8 +91,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   String searchText = '';
 
   late AppUser userMeta;
-
-  late IO.Socket _socket;
 
   StreamSubscription<Map<String, dynamic>>? _txSub;
 
@@ -137,74 +129,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     _searchController.dispose();
     _debounce?.cancel();
     _scrollController.dispose();
-    // Later, to clean up:
     _txSub?.cancel();
-    disposeSocket();
     super.dispose();
-  }
-
-  Future<void> initSocket({required List<String> qrIds}) async {
-    final jwt = await AppWriteService().getJWT();
-
-    String? firstQrId = qrCodes.isNotEmpty ? qrCodes.first.qrId : null;
-
-    firstQrId = "119188392";
-
-    _socket = IO.io(
-      // 'http://localhost:3000',
-      AppConstants.baseApiUrlSocket,
-      // 'https://kite-pay-api-v1.onrender.com',
-      IO.OptionBuilder()
-          .setTransports(['websocket'])
-          .setAuth({'token': jwt}) // JWT on connect [web:522]
-          .enableReconnection() // auto-retry [web:522]
-          .enableForceNew() // isolate this connection
-          .setQuery({'v': '1'}) // optional versioning
-          .build(),
-    );
-
-    _socket.onConnect((_) {
-      print("Socket Connected :${firstQrId!}");
-      // Send the list of qrIds as plain strings, e.g., ['119188392', ...]
-      _socket.emit('subscribe:qrs', {'qrIds': [firstQrId]});
-    }); // Socket.IO rooms pattern [web:493]
-
-    _socket.onReconnect((_) {
-      // Re-emit subscriptions after reconnect
-      _socket.emit('subscribe:qrs', {'qrIds': [firstQrId]});
-    }); // reconnection flow [web:522]
-
-    _socket.on('txn:new', (data) {
-      print(data);
-      // Update UI: prepend to list, optional toast
-      // Ensure this matches your event payload from server
-    }); // event-driven updates [web:522]
-
-    _socket.onError((err) {
-      // Log or show a non-blocking error message
-    }); // basic error handling [web:522]
-
-    _socket.onDisconnect((_) {
-      // Optionally set a flag to show "reconnecting..."
-    }); // lifecycle handling [web:522]
-  }
-
-  void updateSubscriptions(List<String> qrIds) {
-    if (_socket.connected) {
-      _socket.emit('unsubscribe:qrs', {'qrIds': []}); // optional: clear old
-      _socket.emit('subscribe:qrs', {'qrIds': qrIds});
-    }
-  } // dynamic room updates [web:493]
-
-  void disposeSocket() {
-    try {
-      _socket.dispose();
-      _socket.close();
-    } catch (_) {}
-  }
-
-  Future<String> getJwtTokenFromAppWriteService() async {
-    return await AppWriteService().getJWT();
   }
 
   Future<void> _playNewTxnSound() async {
@@ -235,65 +161,18 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   }
 
   void socketManagerConnect() async {
-    await initTts(); // TTS initialize
-    // if (!SocketManager.instance.isConnected) {
-    //   await SocketManager.instance.connect(
-    //     url: 'https://kite-pay-api-v1.onrender.com',
-    //     // url: 'http://localhost:3000',
-    //     jwt: _jwtToken!,
-    //     // qrIds: ["119188392"],
-    //     qrIds: ["119188392"],
-    //   );
-    // } else {
-    //   // SocketManager.instance.subscribeQrIds(["119188392"]);
-    // }
+    await initTts();
 
     _txSub = SocketManager.instance.txStream.listen((event) async {
-      // event: { id, qrCodeId, amountPaise, createdAtIso, ... }
       Transaction txn = Transaction.fromJson(event);
-      if (mounted) {
-        final String newRrn = txn.rrnNumber; // may be null
-        final bool exists = transactions.any((t) => (t.rrnNumber ?? '').trim() ==
-                newRrn.trim());
-        if (!exists) {
-          // speakAmountReceived(txn.amount);
-          // final amt = (txn.amount / 100).toStringAsFixed(0);
-          // final message = '₹$amt received in KitePay';
-          // await _tts.stop();                // avoid overlap
-          // await _tts.speak(message);        // speak it
-          if (!mounted) return;
-          setState(() {
-              transactions.insert(0, txn);
-              // print(transactions[0]);
-              // After duplicate check and successful insert
-              // showDialog(
-              //   context: context,
-              //   barrierDismissible: true, // tap outside to close [1]
-              //   builder: (ctx) =>
-              //       AlertDialog(
-              //         title: const Text('New Payment Received'),
-              //         content: Column(
-              //           mainAxisSize: MainAxisSize.min,
-              //           children: [
-              //             TransactionCard(txn: txn),
-              //           ],
-              //         ),
-              //         actions: [
-              //           TextButton(
-              //             onPressed: () => Navigator.of(ctx).pop(),
-              //             child: const Text('Close'),
-              //           ),
-              //         ],
-              //       ),
-              // );
-            });
-          }
-
-        // setState(() {
-        //   transactions.insert(0, txn); // or convert to your model then insert
-        //   print(transactions[0]);
-        // });
-
+      if (!mounted) return;
+      final String newRrn = txn.rrnNumber;
+      final bool exists = transactions.any((t) => (t.rrnNumber ?? '').trim() == newRrn.trim());
+      if (!exists) {
+        if (!mounted) return;
+        setState(() {
+          transactions.insert(0, txn);
+        });
       }
     });
   }
@@ -302,20 +181,19 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     if (!mounted) return;
 
     setState(() {
-        loading = true;
-        _searchController.clear();
-        transactions.clear();
-        // allTransactions.clear();
-        nextCursor = null; // reset for new load
-        hasMore = true;
-      });
+      loading = true;
+      _searchController.clear();
+      transactions.clear();
+      nextCursor = null;
+      hasMore = true;
+    });
 
-    userMeta = (await MyMetaApi.getMyMetaData(
+    final meta = await MyMetaApi.getMyMetaData(
       jwtToken: await AppWriteService().getJWT(),
-      refresh: true, // set true to force re-fetch
-    ))!;
-
-    _jwtToken = await AppWriteService().getJWT();
+      refresh: true,
+    );
+    if (meta == null) throw Exception('Failed to load user metadata');
+    userMeta = meta;
 
     if (widget.userMode) {
       if (widget.filterQrCodeId == null) {
@@ -326,10 +204,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         await fetchUsersQrCodes();
       }
     }
-
-    // if(userMeta.role == 'admin'){
-    //   socketManagerConnect();
-    // }
 
     socketManagerConnect();
 
@@ -347,13 +221,12 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     if (!mounted) return;
 
     setState(() {
-        loading = true;
-        _searchController.clear();
-        transactions.clear();
-        // allTransactions.clear();
-        nextCursor = null; // reset for new load
-        hasMore = true;
-      });
+      loading = true;
+      _searchController.clear();
+      transactions.clear();
+      nextCursor = null;
+      hasMore = true;
+    });
 
     if (widget.userMode) {
       await fetchUserTransactions();
@@ -395,7 +268,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
     if (mounted) setState(() => loadingQr = true);
     try {
-      qrCodes = await _qrCodeService.getQrCodes(_jwtToken);
+      qrCodes = await _qrCodeService.getQrCodes(await AppWriteService().getJWT());
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('❌ Failed to fetch Qr Codes: $e')),
@@ -405,8 +278,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   }
 
   Future<void> fetchTransactions({bool firstLoad = false}) async {
-    _jwtToken = await AppWriteService().getJWT();
     if ((loadingMore && !firstLoad) || !hasMore) return;
+    final jwt = await AppWriteService().getJWT();
 
     if (firstLoad) {
       setState(() => loading = true);
@@ -429,22 +302,17 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         cursor: nextCursor,
         searchField: selectedSearchField,
         searchValue: searchText.isEmpty ? null : searchText,
-        jwtToken: _jwtToken!,
+        jwtToken: jwt,
       );
 
       if (firstLoad) {
         transactions = fetched.transactions.toList();
-        // print(transactions[0].toString());
-        // for(Transaction t in transactions){
-        //   print(t.toString());
-        // }
       } else {
         final existingIds = transactions.map((t) => t.id).toSet();
         final newOnes = fetched.transactions.where(
               (t) => !existingIds.contains(t.id),
         );
         transactions.addAll(newOnes);
-        // transactions.addAll(fetched.transactions);
       }
 
       nextCursor = fetched.nextCursor;
@@ -458,19 +326,15 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     }
 
     if (firstLoad) {
-      if(mounted) {
-        setState(() => loading = false);
-      }
+      if (mounted) setState(() => loading = false);
     } else {
-      if(mounted) {
-        setState(() => loadingMore = false);
-      }
+      if (mounted) setState(() => loadingMore = false);
     }
   }
 
   Future<void> fetchUserTransactions({bool firstLoad = false}) async {
-    _jwtToken = await AppWriteService().getJWT();
     if ((loadingMore && !firstLoad) || !hasMore) return;
+    final jwt = await AppWriteService().getJWT();
 
     if (firstLoad) {
       setState(() => loading = true);
@@ -489,7 +353,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         cursor: nextCursor,
         searchField: selectedSearchField,
         searchValue: searchText.isEmpty ? null : searchText,
-        jwtToken: _jwtToken!,
+        jwtToken: jwt,
       );
 
       if (firstLoad) {
@@ -500,7 +364,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
               (t) => !existingIds.contains(t.id),
         );
         transactions.addAll(newOnes);
-        // transactions.addAll(fetched.transactions);
       }
 
       nextCursor = fetched.nextCursor;
@@ -514,18 +377,14 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     }
 
     if (firstLoad) {
-      if(mounted) {
-        setState(() => loading = false);
-      }
+      if (mounted) setState(() => loading = false);
     } else {
-      if(mounted) {
-        setState(() => loadingMore = false);
-      }
+      if (mounted) setState(() => loadingMore = false);
     }
   }
 
   Future<void> _refetchWithCurrentFilters() async {
-    _jwtToken = await AppWriteService().getJWT();
+    final jwt = await AppWriteService().getJWT();
     // reset pagination
     setState(() {
       transactions.clear();
@@ -554,7 +413,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           cursor: null,
           searchField: selectedSearchField,
           searchValue: searchText.isEmpty ? null : searchText,
-          jwtToken: _jwtToken!,
+          jwtToken: jwt,
         );
         transactions = fetched.transactions.toList();
         nextCursor = fetched.nextCursor;
@@ -569,14 +428,13 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           status: selectedStatus,
           searchField: selectedSearchField,
           searchValue: searchText.isEmpty ? null : searchText,
-          jwtToken: _jwtToken!,
+          jwtToken: jwt,
         );
         transactions = fetched.transactions.toList();
         nextCursor = fetched.nextCursor;
         hasMore = fetched.nextCursor != null;
       }
 
-      // Keep your existing filtering pass if you want to still enforce UI-side filters
       applyFilters();
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
@@ -646,9 +504,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       context: context,
       initialDate: selectedFromDate ?? DateTime.now(),
       firstDate: DateTime(2025),
-      lastDate: DateTime(DateTime
-          .now()
-          .year),
+      lastDate: DateTime.now(),
     );
     if (picked != null) {
       selectedFromDate = picked;
@@ -660,9 +516,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       context: context,
       initialDate: selectedToDate ?? DateTime.now(),
       firstDate: DateTime(2025),
-      lastDate: DateTime(DateTime
-          .now()
-          .year),
+      lastDate: DateTime.now(),
     );
     if (picked != null) {
       selectedToDate = picked;
@@ -1144,7 +998,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   Future<void> onTransactionImageUpload(BuildContext context, {
     required Transaction txn,
   }) async {
-    if (_jwtToken == null) return;
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       withData: true,
       type: FileType.image,
@@ -1218,15 +1071,14 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       String txnId = txn.id;
 
       try {
-        _jwtToken = await AppWriteService().getJWT();
+        final jwt = await AppWriteService().getJWT();
         bool success = await TransactionService.uploadTransactionImage(
-            file, txnId, _jwtToken!);
+            file, txnId, jwt);
         Navigator.pop(context); // Close loader
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Transaction Image uploaded successfully!')),
           );
-          // _fetchQrCodes(); // Refresh the list
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Failed to upload Transaction Image.')),
@@ -1324,11 +1176,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     ); // loading modal [11][2]
 
     try {
-      // final ok = await changeStatusApi(
-      //   txnId: txn.id,
-      //   status: selected!.name, // send text form [19]
-      // ); // call UPDATE API
-
       final ok = await TransactionService.editTransactionStatus(
         id: txn.id,
         jwtToken: await AppWriteService().getJWT(),
@@ -1385,7 +1232,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         : (selectedUserId ?? widget.filterUserId);
     final effectiveQrId = selectedQrCodeId ?? widget.filterQrCodeId;
 
-    AppUser? cachedUser = MyMetaApi.cached;
+    AppUser? cachedUser = MyMetaApi.current;
 
     return ScaffoldMessenger(
       key: _scaffoldMessengerKey,
@@ -1393,21 +1240,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         appBar: AppBar(
           title: Text(widget.userMode ? 'Transactions' : 'All Transactions'),
           actions: [
-            // if (widget.filterUserId == null && widget.filterQrCodeId == null)
-
-            // if(effectiveUserId != null || effectiveQrId != null)
-            // ElevatedButton.icon(
-            //   icon: const Icon(Icons.download_for_offline_outlined, size: 25,),
-            //   // label: const Text('Download Txns'),
-            //   label: const Text(''),
-            //   onPressed: () {
-            //     _showDownloadDialog();
-            //     // FocusScope.of(context).unfocus();
-            //     // _refetchWithCurrentFilters();
-            //   },
-            // ),
-
-            // STATEMENT DOWNLOAD BUTTON IS DISABLED
             if((effectiveUserId != null || effectiveQrId != null) && cachedUser?.role == 'admin')
             IconButton(onPressed: loading ? null : _showDownloadDialog, icon: const Icon(Icons.download, size: 35,),),
 
@@ -1437,14 +1269,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
             IconButton(
               icon: const Icon(Icons.refresh),
-              onPressed:
-                  () =>
-              !widget.userMode
-                  ? loadInitialData()
-                  : loadInitialData(),
+              onPressed: loadInitialData,
             ),
-            // Compact switch + label
-
           ],
         ),
         body: Column(
@@ -1478,10 +1304,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                 itemCount: transactions.length + (loadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index < transactions.length) {
-                    // print(transactions[index].imageUrl);
-                    // if(compactMode){
-                    //   TransactionCardCompact(txn: transactions[index]);
-                    // }else{
                       return (userMeta.role == 'admin' || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.editTransactions))) ? TransactionCard(
                           compactMode: compactMode,
                           txn: transactions[index],
@@ -1498,8 +1320,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                             : null,
                           )
                           : TransactionCard(txn: transactions[index], compactMode: compactMode,);
-                    // }
-                    // return TransactionCard(txn: transactions[index],onEdit: (txn) => editTransaction(context, txn: txn),onDelete: (txn) => deleteTransaction(context, txn: txn),);
                   }
                   return const TransactionCardShimmer();
                 },
@@ -1513,32 +1333,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   }
 
   Future<void> _showDownloadDialog() async {
-    // int? dialogMaxTxns;  // Local state for dialog
-
-    // final effectiveUserId =
-    // widget.userMode
-    //     ? widget.userModeUserid
-    //     : (selectedUserId ?? widget.filterUserId);
-    // final effectiveQrId = selectedQrCodeId ?? widget.filterQrCodeId;
-    //
-    // if((effectiveUserId == null || effectiveQrId == null)){
-    //   await showDialog(
-    //     context: context,
-    //     builder: (_) => AlertDialog(
-    //       title: const Text('No UserId or QrId Selected'),
-    //       content: const Text('PLease Select User'),
-    //       actions: [
-    //         TextButton(
-    //           onPressed: () => Navigator.pop(context),
-    //           child: const Text('OK'),
-    //         ),
-    //       ],
-    //     ),
-    //   );
-    //   return;
-    // }
-
-    if(transactions.isEmpty){
+    if (transactions.isEmpty) {
       await showDialog(
         context: context,
         builder: (_) => AlertDialog(
@@ -1572,7 +1367,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                   const DropdownMenuItem(value: 100, child: Text('Last 100')),
                   const DropdownMenuItem(value: 200, child: Text('Last 200')),
                   const DropdownMenuItem(value: 500, child: Text('Last 500')),
-                  // const DropdownMenuItem(value: null, child: Text('All Available')),
                 ],
                 onChanged: (value) {
                   setDialogState(() => selectedMaxTxns = value);  // ← Local setState
@@ -1629,21 +1423,10 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       if (selectedFromDate != null) queryParams.add('from=${selectedFromDate!.toIso8601String()}');
       if (selectedToDate != null) queryParams.add('to=${selectedToDate!.toIso8601String()}');
       if (selectedStatus != null) queryParams.add('status=$selectedStatus');
-      if (selectedSearchField != null && selectedSearchField != null) {
+      if (selectedSearchField != null && searchText.isNotEmpty) {
         queryParams.add('searchField=$selectedSearchField');
         queryParams.add('searchValue=$searchText');
       }
-
-      // final fetched = await TransactionService.fetchTransactions(
-      //   userId: effectiveUserId,
-      //   qrId: effectiveQrId,
-      //   from: selectedFromDate,
-      //   to: selectedToDate,
-      //   cursor: nextCursor,
-      //   searchField: selectedSearchField,
-      //   searchValue: searchText.isEmpty ? null : searchText,
-      //   jwtToken: _jwtToken!,
-      // );
 
       // Add maxTxns
       if (selectedMaxTxns != null) {
@@ -1651,9 +1434,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       }
 
       final uri = Uri.parse('${AppConstants.exportTransactions}?${queryParams.join('&')}');
-
-      // print(uri.toString());
-
       var token = await AppWriteService().getJWT();
 
       final response = await http.get(uri, headers: {
@@ -1709,30 +1489,10 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       );
     }
 
-    // Data rows
-    // for (final txn in transactions) {
-    //   sheet.appendRow([
-    //     // DoubleCellValue((txn['amount'] ?? 0) / 100.0),  // ✅ Add .0 for double
-    //     IntCellValue(((txn['amount'] ?? 0) / 100).round()),  // ✅ Whole rupees
-    //     // DoubleCellValue((txn['amount'] ?? 0) / 100.round()),
-    //     TextCellValue(txn['rrnNumber']?.toString() ?? ''),
-    //     TextCellValue(txn['vpa']?.toString() ?? ''),
-    //     TextCellValue(_formatDateTime(txn['created_at']?.toString() ?? '')),
-    //     TextCellValue(txn['qrCodeId']?.toString() ?? ''),
-    //     TextCellValue(txn['paymentId']?.toString() ?? ''),
-    //     TextCellValue(txn['status']?.toString() ?? 'normal'),
-    //     TextCellValue(txn['id']?.toString() ?? ''),
-    //   ]);
-    // }
-
-    // Data rows
     for (int i = 0; i < transactions.length; i++) {
       final txn = transactions[i];
       sheet.appendRow([
-        // IntCellValue(((txn['amount'] ?? 0) / 100).round()),
-        // TextCellValue(NumberFormat('#,##0.00').format(((txn['amount'] ?? 0) / 100.0).roundToDouble())),
         DoubleCellValue(((txn['amount'] ?? 0) / 100.0).roundToDouble()),
-        // TextCellValue('₹${((txn['amount'] ?? 0) / 100.0).roundToDouble().toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}'),
         TextCellValue(txn['rrnNumber']?.toString() ?? ''),
         TextCellValue(txn['vpa']?.toString() ?? ''),
         TextCellValue(_formatDateTime(txn['created_at']?.toString() ?? '')),
@@ -1765,58 +1525,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       return isoString;
     }
   }
-
-
-  // 3. Generate & download Excel
-  // Future<void> _generateAndDownloadExcel(List<dynamic> transactions) async {
-  //   final excel = Excel.createExcel();
-  //   final sheet = excel['Transaction Statement'];
-  //
-  //   // Headers
-  //   sheet.appendRow([
-  //     TextCellValue('ID'),
-  //     TextCellValue('Amount (₹)'),
-  //     TextCellValue('Status'),
-  //     TextCellValue('Date'),
-  //     TextCellValue('QR ID'),
-  //     TextCellValue('Payment ID'),
-  //     TextCellValue('VPA'),
-  //     TextCellValue('RRN'),
-  //   ]);
-  //
-  //   // Data rows
-  //   for (final txn in transactions) {
-  //     sheet.appendRow([
-  //       TextCellValue(txn['id'] ?? ''),
-  //       DoubleCellValue((txn['amount'] ?? 0) / 100),  // paise to rupees
-  //       TextCellValue(txn['status'] ?? 'normal'),
-  //       TextCellValue(_formatDateTime(txn['created_at'] ?? '')),
-  //       TextCellValue(txn['qrCodeId'] ?? ''),
-  //       TextCellValue(txn['paymentId'] ?? ''),
-  //       TextCellValue(txn['vpa'] ?? ''),
-  //       TextCellValue(txn['rrnNumber'] ?? ''),
-  //     ]);
-  //   }
-  //
-  //   // ✅ Downloads ONE file with custom name
-  //   excel.save(
-  //       fileName: 'txns_statement_${DateTime.now().millisecondsSinceEpoch}.xlsx'
-  //   );
-  //
-  //   // Web download
-  //   // final bytes = excel.save()!;
-  //   // final blob = html.Blob([bytes]);
-  //   // final url = html.Url.createObjectUrlFromBlob(blob);
-  //   // final anchor = html.AnchorElement(href: url)
-  //   //   ..setAttribute('download', 'txns_statement_${DateTime.now().millisecondsSinceEpoch}.xlsx')
-  //   //   ..click();
-  //   // html.Url.revokeObjectUrl(url);
-  // }
-  //
-  // String _formatDateTime(String isoString) {
-  //   final date = DateTime.parse(isoString);
-  //   return DateFormat('MMM dd, yyyy HH:mm').format(date.toLocal());
-  // }
 
 
   Widget _buildSearchArea() {
@@ -2084,9 +1792,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
             const SizedBox(height: 12),
 
-            // Status row (optional)
-            // buildStatusFilter(),
-
             if (selectedUserId != null && !userHasQrCodes)
               const Padding(
                 padding: EdgeInsets.only(top: 8),
@@ -2179,113 +1884,5 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       ],
     );
   }
-
-// Widget _buildFilters(bool userHasQrCodes) {
-//   return Padding(
-//     padding: const EdgeInsets.all(8.0),
-//     child: Column(
-//       children: [
-//         Row(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             if (!widget.userMode)
-//               Expanded(
-//                 child: Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     const Padding(
-//                       padding: EdgeInsets.only(bottom: 4),
-//                       child: Text(
-//                         'Filter User',
-//                         style: TextStyle(fontWeight: FontWeight.bold),
-//                       ),
-//                     ),
-//                     loadingUsers
-//                         ? const CircularProgressIndicator()
-//                         : DropdownButtonFormField<String>(
-//                           isExpanded: true,
-//                           value: selectedUserId,
-//                           hint: const Text('Select User'),
-//                           items: [
-//                             const DropdownMenuItem(
-//                               value: null,
-//                               child: Text('--------'),
-//                             ),
-//                             ...users.map(
-//                               (user) => DropdownMenuItem(
-//                                 value: user.id,
-//                                 child: Text(user.name),
-//                               ),
-//                             ),
-//                           ],
-//                           onChanged: (value) {
-//                             setState(() {
-//                               selectedUserId = value;
-//                               selectedQrCodeId = null;
-//                             });
-//                             // applyFilters();
-//                             _refetchWithCurrentFilters();
-//                           },
-//                         ),
-//                   ],
-//                 ),
-//               ),
-//             const SizedBox(width: 8),
-//             Expanded(
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   const Padding(
-//                     padding: EdgeInsets.only(bottom: 4),
-//                     child: Text(
-//                       'Filter QR Code',
-//                       style: TextStyle(fontWeight: FontWeight.bold),
-//                     ),
-//                   ),
-//                   loadingQr
-//                       ? const CircularProgressIndicator()
-//                       : DropdownButtonFormField<String>(
-//                         isExpanded: true,
-//                         value: selectedQrCodeId,
-//                         hint: const Text('Select QR Code'),
-//                         items: [
-//                           const DropdownMenuItem(
-//                             value: null,
-//                             child: Text('--------'),
-//                           ),
-//                           ...filteredQrCodes.map(
-//                             (qr) => DropdownMenuItem(
-//                               value: qr.qrId,
-//                               child: Text('${qr.qrId} (${qr.totalTransactions})'),
-//                             ),
-//                           ),
-//                         ],
-//                         onChanged: (value) {
-//                           setState(() {
-//                             selectedQrCodeId = value;
-//                           });
-//                           // applyFilters();
-//                           // Server-side refetch for new filters
-//                           _refetchWithCurrentFilters();
-//                         },
-//                       ),
-//                 ],
-//               ),
-//             ),
-//           ],
-//         ),
-//         if (selectedUserId != null && !userHasQrCodes)
-//           const Padding(
-//             padding: EdgeInsets.only(top: 10),
-//             child: Text(
-//               'No QR codes assigned to this user.',
-//               style: TextStyle(color: Colors.red),
-//             ),
-//           ),
-//       ],
-//     ),
-//   );
-// }
-
 
 }

@@ -23,7 +23,7 @@ class SocketManager {
   final _connController = StreamController<SocketStatus>.broadcast();
   Stream<SocketStatus> get connectionStream => _connController.stream;
 
-  // Connection status broadcast
+  // QR alert broadcast
   final _qrAlertController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get qrAlertController => _qrAlertController.stream;
 
@@ -62,13 +62,6 @@ class SocketManager {
           .build(),
     );
 
-    // socket = IO.io(
-    //   'https://kite-pay-api-v1.onrender.com', // Your server URL
-    //   IO.OptionBuilder()
-    //       .setTransports(['websocket']) // Connect manually for logging
-    //       .build(),
-    // );
-
     // Remove old listeners if reusing socket object across hot restarts
     if (_initialized) {
       _socket!
@@ -83,66 +76,48 @@ class SocketManager {
     _socket!
       ..onConnect((_) async {
         subscribeQrIds(qrIds);
-        if(userMeta.role == 'admin'){
+        if (userMeta.role == 'admin') {
           subscribeQrAlert();
         }
         _connController.add(SocketStatus.connected);
-        // print("socket Connected Single");
       })
       ..onReconnect((_) {
         subscribeQrIds(qrIds);
         _connController.add(SocketStatus.reconnected);
       })
       ..on('txn:new', (data) {
-        // print(data);
-        // Ensure a Map payload for downstream consumers
         if (data is Map) {
           _txController.add(Map<String, dynamic>.from(data));
         } else {
           _txController.add({'raw': data});
         }
-        // TODO: forward to a StreamController/BLoC/callback
       })
       ..on('qrsAlert', (data) {
-        // print('QR ALERT:'+ data.toString());
-        // QrCode qrCode = QrCode.fromJson(data);
-        // print(qrCode.toString());
         if (data is Map) {
           _qrAlertController.add(Map<String, dynamic>.from(data));
         } else {
           _qrAlertController.add({'raw': data});
         }
-        // TODO: forward to a StreamController/BLoC/callback
       })
       ..on('qrLimitAlert', (data) {
-        // print('QR ALERT:'+ data.toString());
-        // QrCode qrCode = QrCode.fromJson(data);
-        // print(qrCode.toString());
-        // print("qrLimitAlert");
-        // print(data);
         if (data is Map) {
           _qrLimitAlertController.add(Map<String, dynamic>.from(data));
         } else {
           _qrLimitAlertController.add({'raw': data});
         }
-        // TODO: forward to a StreamController/BLoC/callback
       })
       ..on('forceRefresh', (data) {
-        print('Force Refresh:$data');
         if (data is Map) {
           _forceRefreshController.add(Map<String, dynamic>.from(data));
         } else {
           _forceRefreshController.add({'raw': data});
         }
-        // TODO: forward to a StreamController/BLoC/callback
       })
-      ..onConnectError((err) {
+      ..onConnectError((_) {
         _connController.add(SocketStatus.error);
-        print(err);
       })
-      ..onError((err) {
+      ..onError((_) {
         _connController.add(SocketStatus.error);
-        print(err);
       })
       ..onDisconnect((_) {
         _connController.add(SocketStatus.disconnected);
@@ -163,16 +138,12 @@ class SocketManager {
 
   void sendQrCodeAlert(QrCode qr) {
     if (!isConnected) return;
-    // print("Sedning Qr Alert: "+qr.toString());
     _socket!.emit('send:qrsAlert', qr.toJson());
   }
 
-  /// ✅ Send qrLimitAlert event from ANYWHERE in your app
   void emitQrLimitAlert(Map<String, dynamic> data) {
-    // print("🔥 Manual QR Limit Alert: $data");
-
     _qrLimitAlertController.add(Map<String, dynamic>.from(data));
-    }
+  }
 
   void unsubscribeQrIds(List<String> qrIds) {
     if (!isConnected) return;
@@ -183,20 +154,10 @@ class SocketManager {
     try {
       _socket
         ?..off('txn:new')
-        ..dispose()
-        ..close();
+        ..dispose();
     } catch (_) {}
     _socket = null;
     _initialized = false;
     _connController.add(SocketStatus.disconnected);
   }
-
-  void closeStreams() {
-    _txController.close();
-    _connController.close();
-    _qrAlertController.close();
-    _qrLimitAlertController.close();
-    _forceRefreshController.close();
-  }
-
 }

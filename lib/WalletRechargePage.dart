@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:admin_qr_manager/WalletService.dart';
-import '../models/Wallet.dart';
-import '../models/WalletTransaction.dart';
+import 'package:admin_qr_manager/models/Wallet.dart';
+import 'package:admin_qr_manager/models/WalletTransaction.dart';
 import 'AppWriteService.dart';
 
 class WalletRechargePage extends StatefulWidget {
@@ -22,8 +22,6 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
   bool isLoadingBalance = true;
   bool isRecharging = false;
 
-  // bool showQR = false;
-  // String? qrBase64;
   String? currentTransactionId;
   int expirySeconds = 0;
   Timer? _timer;
@@ -31,7 +29,6 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
   bool hasMoreTransactions = true;
 
   int? qrExpirySeconds;
-  bool _showingQRDialog = false;
 
   final TextEditingController _amountController = TextEditingController();
 
@@ -43,7 +40,6 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
 
   Future<void> _loadInitialData() async {
     await Future.wait([fetchBalance(), fetchTransactions()]);
-    // await Future.wait([fetchBalance()]);
   }
 
   @override
@@ -206,7 +202,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
         qrBase64: response.qrBase64,
         transactionId: response.transactionId,
         expirySeconds: response.expirySeconds,
-        amount: amount,  // 🔥 Pass amount
+        amount: amount,
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Recharge failed: $e')));
@@ -215,39 +211,6 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
     }
   }
 
-
-  // void _startTimer() {
-  //   _timer?.cancel();
-  //   _timer = Timer.periodic(Duration(seconds: 1), (timer) {
-  //     if (expirySeconds > 0) {
-  //       setState(() => expirySeconds--);
-  //     } else {
-  //       timer.cancel();
-  //       setState(() => showQR = false);
-  //       fetchBalance(); // Refresh balance
-  //       fetchTransactions(); // Refresh transactions
-  //     }
-  //   });
-  // }
-
-  // Future<void> _cancelQR() async {
-  //   if (currentTransactionId == null) return;
-  //   try {
-  //     await WalletService.cancelRecharge(
-  //       jwtToken: await AppWriteService().getJWT(),
-  //       transactionId: currentTransactionId!,
-  //     );
-  //   } catch (e) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(content: Text('Cancel failed')));
-  //   }
-  //   setState(() {
-  //     showQR = false;
-  //     qrBase64 = null;
-  //     currentTransactionId = null;
-  //   });
-  //   _timer?.cancel();
-  // }
 
   Future<void> _showQRDialogNonDismissible({
     required String qrBase64,
@@ -271,8 +234,8 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
         int localExpirySeconds = expirySeconds;
         Timer? dialogTimer;
 
-        return WillPopScope(
-          onWillPop: () async => false,
+        return PopScope(
+          canPop: false,
           child: StatefulBuilder(
             builder: (context, setDialogState) {
               if (dialogTimer == null && localExpirySeconds > 0) {
@@ -294,13 +257,12 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
 
               final timeLeft = Duration(seconds: localExpirySeconds);
               return Dialog(
-                insetPadding: EdgeInsets.all(20), // 🔥 Back to uniform compact padding
+                insetPadding: EdgeInsets.all(20),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
                   child: SingleChildScrollView(
                     child: Container(
                       width: 400,
-                      // 🔥 REMOVED: width: double.infinity, constraints: BoxConstraints(maxWidth: 400)
                       padding: EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -310,9 +272,8 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Header (compact)
                           Container(
-                            padding: EdgeInsets.all(14), // 🔥 Slightly reduced
+                            padding: EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [Colors.blue[600]!, Colors.blue[800]!],
@@ -337,7 +298,6 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text('Pay to Kitepay', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                                      // Text('yourapp.com', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
                                     ],
                                   ),
                                 ),
@@ -402,9 +362,8 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                           ),
                           SizedBox(height: 16),
 
-                          // Red Cancel Button (compact width)
                           SizedBox(
-                            width: double.infinity, // 🔥 Fits container naturally
+                            width: double.infinity,
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.red[500]!,
@@ -437,7 +396,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
           ),
         );
       },
-    ).then((_) => setState(() => _showingQRDialog = false));
+    );
   }
 
 
@@ -447,8 +406,8 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (loadingContext) => WillPopScope(
-        onWillPop: () async => false,
+      builder: (loadingContext) => PopScope(
+        canPop: false,
         child: AlertDialog(
           contentPadding: EdgeInsets.symmetric(horizontal: 32, vertical: 32),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -482,10 +441,8 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
         transactionId: currentTransactionId!,
       );
 
-      print('✅ Transaction cancelled successfully');
     } catch (e) {
-      print('❌ Cancel API failed: $e');
-      // Don't throw - user already sees success
+      // Cancel failed silently — user already sees success
     } finally {
       // 4. Close BOTH dialogs (loading + QR)
       if (Navigator.canPop(context)) {
@@ -499,7 +456,6 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
       setState(() {
         currentTransactionId = null;
         qrExpirySeconds = null;
-        _showingQRDialog = false;
       });
 
       // 6. Refresh data
@@ -579,53 +535,6 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
   }
 
 
-  // Widget _buildQRSection() {
-  //   if (!showQR || qrBase64 == null) return SizedBox();
-  //
-  //   // 🔥 CRITICAL: Remove data URI prefix
-  //   String cleanBase64 = qrBase64!;
-  //   if (cleanBase64.startsWith('data:image/png;base64,')) {
-  //     cleanBase64 = cleanBase64.substring('data:image/png;base64,'.length);
-  //   } else if (cleanBase64.startsWith('data:image;base64,')) {
-  //     cleanBase64 = cleanBase64.substring('data:image;base64,'.length);
-  //   }
-  //
-  //   final imageBytes = base64Decode(cleanBase64); // ✅ Now works!
-  //
-  //   final timeLeft = Duration(seconds: expirySeconds);
-  //   return Container(
-  //     padding: EdgeInsets.all(16),
-  //     margin: EdgeInsets.all(16),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(12),
-  //       boxShadow: [BoxShadow(blurRadius: 10, color: Colors.black26)],
-  //     ),
-  //     child: Column(
-  //       children: [
-  //         Image.memory(imageBytes, height: 250, width: 250),
-  //         SizedBox(height: 16),
-  //         Text(
-  //           '${timeLeft.inMinutes}:${(timeLeft.inSeconds % 60)
-  //               .toString()
-  //               .padLeft(2, '0')}',
-  //           style: Theme
-  //               .of(context)
-  //               .textTheme
-  //               .headlineMedium
-  //               ?.copyWith(color: Colors.red),
-  //         ),
-  //         SizedBox(height: 16),
-  //         ElevatedButton(
-  //           onPressed: _cancelQR,
-  //           style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-  //           child: Text('Cancel'),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -677,8 +586,6 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                   ],
                 ),
               ),
-              // _buildQRSection(),
-              // Transactions
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Column(

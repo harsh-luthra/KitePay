@@ -102,9 +102,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
     setState(() => loading = true);
     try {
       if (!widget.userMode) {
-        // await _fetchUsers();
         await fetchUsersQrCodes();
-        // print("Fetching users");
       }
       // First page for current tab
       await fetchPage(status: filter, firstLoad: true);
@@ -146,7 +144,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
     required String status,
     bool firstLoad = false,
   }) async {
-    // print('Fetching Page');
+
     final page = pages[status]!;
 
     // If this is an explicit first load (after reset or mutation),
@@ -190,12 +188,6 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
         // limit: 20,
       );
 
-      final existingIds = page.items.map((e) => e.id)
-          .whereType<String>()
-          .toSet();
-      // final newOnes = resp.requests.where((r) =>
-      // r.id != null && !existingIds.contains(r.id));
-
       final newOnes = resp.requests;
 
       if (firstLoad && page.items.isEmpty) {
@@ -204,12 +196,10 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
         page.items.addAll(newOnes);
       }
 
-      // print(resp.requests.length);
 
       page.nextCursor = resp.nextCursor;
       page.hasMore = resp.nextCursor != null;
 
-      // print('Fetched Page');
 
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
@@ -374,8 +364,8 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
       context: context,
       barrierDismissible: false,
       builder:
-          (_) => WillPopScope(
-            onWillPop: () async => false,
+          (_) => PopScope(
+            canPop: false,
             child: AlertDialog(
               content: Row(
                 children: [
@@ -708,36 +698,6 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
     );
   }
 
-  bool shouldSkipIndependenceDayDialog() {
-    final now = DateTime.now();
-    if (now.month == 8 && now.day == 15) {
-      return false;
-    }
-    return true;
-  }
-
-  void showIndependenceDayDialog(BuildContext context) {
-    final now = DateTime.now();
-    if (now.month == 8 && now.day == 15) {
-      showDialog(
-        context: context,
-        builder:
-            (_) => AlertDialog(
-              title: const Text("Notice"),
-              content: const Text(
-                "On the occasion of 15th August (Independence Day), withdrawals will not be processed.",
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("OK"),
-                ),
-              ],
-            ),
-      );
-    }
-  }
-
   bool hasReachedMaxPending(List<WithdrawalRequest> requests, int maxPending) {
     int pendingCount = 0;
     for (final r in requests) {
@@ -807,33 +767,37 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
     );
   }
 
-  Widget _buildInfoRow(String label, String? value, {bool copyable = false}) {
+  Widget _buildInfoTile(String label, String? value, IconData icon, {bool copyable = false, Color? iconColor}) {
     final text = (value?.isNotEmpty == true) ? value!.trim() : '-';
+    final color = iconColor ?? Colors.blueGrey;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          // Label
-          copyable
-              ? SelectableText('$label: ', style: const TextStyle(fontWeight: FontWeight.w600))
-              : Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w600)),
-
-          // Value
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
           Expanded(
-            child: copyable
-                ? SelectableText(text, style: const TextStyle(color: Colors.black87))
-                : Text(text, style: const TextStyle(color: Colors.black87), overflow: TextOverflow.ellipsis),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                const SizedBox(height: 2),
+                copyable
+                    ? SelectableText(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))
+                    : Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+              ],
+            ),
           ),
-
-          // Copy icon only if copyable and has a real value
           if (copyable && text != '-' && text.isNotEmpty)
-            IconButton(
-              tooltip: 'Copy $label',
-              icon: const Icon(Icons.copy, size: 16),
-              onPressed: () async {
+            InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () async {
                 await Clipboard.setData(ClipboardData(text: text));
                 if (mounted) {
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -847,6 +811,10 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                   );
                 }
               },
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(Icons.copy, size: 14, color: Colors.grey.shade400),
+              ),
             ),
         ],
       ),
@@ -947,35 +915,36 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
               builder: (_, cts) {
                 final twoCols = cts.maxWidth > 620;
                 final details = [
-                  _buildInfoRow("Name", r.holderName),
+                  _buildInfoTile("Name", r.holderName, Icons.person_outline, copyable: true),
                   if (!widget.userMode)
-                    _buildInfoRow("Requested By", "${getAppUserRole(r.userId)} - ${displayUserNameText(r.userId)}"?? 'Not Available'),
-                  _buildInfoRow("QR Id", r.qrId, copyable: true),
-                  if (r.mode == 'upi') _buildInfoRow("VPA", r.upiId , copyable: true),
-                  if (r.mode != 'upi') _buildInfoRow("Bank", r.bankName , copyable: true),
-                  if (r.mode != 'upi') _buildInfoRow("Acc No.", r.accountNumber , copyable: true),
-                  if (r.mode != 'upi') _buildInfoRow("IFSC", r.ifscCode , copyable: true),
-                  _buildInfoRow("Requested at", formatToIST(r.createdAt.toString())),
-                  if (r.status == 'approved' && r.utrNumber?.isNotEmpty == true)...[
-                    _buildInfoRow("UTR", r.utrNumber , copyable: true),
-                    if(r.processedAt != null)
-                    _buildInfoRow("Approved at", formatToIST(r.processedAt.toString())),
+                    _buildInfoTile("Requested By", "${getAppUserRole(r.userId) ?? 'N/A'} - ${displayUserNameText(r.userId) ?? 'Not Available'}", Icons.account_circle_outlined, iconColor: Colors.indigo),
+                  _buildInfoTile("QR Id", r.qrId, Icons.qr_code, copyable: true, iconColor: Colors.teal),
+                  if (r.mode == 'upi') _buildInfoTile("VPA", r.upiId, Icons.alternate_email, copyable: true, iconColor: Colors.green),
+                  if (r.mode != 'upi') _buildInfoTile("Bank", r.bankName, Icons.account_balance, copyable: true, iconColor: Colors.blue),
+                  if (r.mode != 'upi') _buildInfoTile("Acc No.", r.accountNumber, Icons.numbers, copyable: true, iconColor: Colors.blue),
+                  if (r.mode != 'upi') _buildInfoTile("IFSC", r.ifscCode, Icons.code, copyable: true, iconColor: Colors.blue),
+                  _buildInfoTile("Requested at", formatToIST(r.createdAt.toString()), Icons.schedule, iconColor: Colors.grey),
+                  if (r.status == 'approved' && r.utrNumber?.isNotEmpty == true) ...[
+                    _buildInfoTile("UTR", r.utrNumber, Icons.confirmation_number, copyable: true, iconColor: Colors.green.shade700),
+                    if (r.processedAt != null)
+                      _buildInfoTile("Approved at", formatToIST(r.processedAt.toString()), Icons.check_circle_outline, iconColor: Colors.green),
                   ],
-                  if (r.status == 'rejected' && r.rejectionReason?.isNotEmpty == true)...[
-                    _buildInfoRow("Reason", r.rejectionReason, copyable: true),
-                    if(r.processedAt != null)
-                    _buildInfoRow("Rejected at", formatToIST(r.processedAt.toString())),
+                  if (r.status == 'rejected' && r.rejectionReason?.isNotEmpty == true) ...[
+                    _buildInfoTile("Reason", r.rejectionReason, Icons.info_outline, copyable: true, iconColor: Colors.red),
+                    if (r.processedAt != null)
+                      _buildInfoTile("Rejected at", formatToIST(r.processedAt.toString()), Icons.cancel_outlined, iconColor: Colors.red),
                   ],
-                  if(getAppUserRole(r.userId) == "user")
-                    _buildInfoRow("Managed By:", getAppUserNameEmail(getAppUserParentId(r.userId))),
+                  if (getAppUserRole(r.userId) == "user")
+                    _buildInfoTile("Managed By", getAppUserNameEmail(getAppUserParentId(r.userId)), Icons.supervised_user_circle, iconColor: Colors.purple),
                 ];
 
-                if (!twoCols) return Column(children: details);
-                // Two-column flowing grid
+                if (!twoCols) {
+                  return Wrap(spacing: 8, runSpacing: 8, children: details);
+                }
                 return Wrap(
-                  spacing: 24,
-                  runSpacing: 6,
-                  children: details.map((w) => SizedBox(width: (cts.maxWidth - 24) / 2, child: w)).toList(),
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: details.map((w) => SizedBox(width: (cts.maxWidth - 10) / 2, child: w)).toList(),
                 );
               },
             ),
@@ -1280,8 +1249,6 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                               selectedQrCodeId = null;
                             });
                             reFetchWithCurrentFilters();
-                            // fetchPage(status: filter, firstLoad: true);
-                            // _refetchWithCurrentFilters(); /////////////
                           },
                         ),
                       ],
@@ -1319,8 +1286,6 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                         onChanged: (value) {
                           setState(() => selectedQrCodeId = value);
                           reFetchWithCurrentFilters();
-                          // fetchPage(status: filter, firstLoad: true);
-                          // _refetchWithCurrentFilters(); ///////////////
                         },
                       ),
                     ],
@@ -1329,24 +1294,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
               ],
             ),
 
-            const SizedBox(height: 16),
-
-            // Date range row
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                ],
-              ),
-            ),
-
             const SizedBox(height: 12),
-
-            // Status row (optional)
-            // buildStatusFilter(),
 
             if (selectedUserId != null && !userHasQrCodes)
               const Padding(
@@ -1371,8 +1319,6 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                       selectedQrCodeId = null;
                     });
                     reFetchWithCurrentFilters();
-                    // fetchPage(status: filter, firstLoad: true);
-                    // _refetchWithCurrentFilters(); /////////////
                   },
                 ),
                 const SizedBox(width: 8),
@@ -1381,8 +1327,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                   label: const Text('Apply'),
                   onPressed: () {
                     FocusScope.of(context).unfocus();
-                    reFetchWithCurrentFilters();  /////////////
-                    // fetchPage(status: filter, firstLoad: true);
+                    reFetchWithCurrentFilters();
                   },
                 ),
               ],

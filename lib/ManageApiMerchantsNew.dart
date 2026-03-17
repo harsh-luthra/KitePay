@@ -4,9 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
-import 'ApiMerchantsService.dart';  // Your service with CRUD methods
-import 'models/ApiMerchant.dart';  // Your ApiApiMerchant model
-// import 'ApiApiMerchantsFormPage.dart';  // New form page (defined below)
+import 'ApiMerchantsService.dart';
+import 'models/ApiMerchant.dart';
 
 // Generic page state (same as withdrawals)
 class PageState<T> {
@@ -42,7 +41,6 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
   // Global loading
   bool loading = false;
 
-  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -139,38 +137,6 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
     fetchPage(firstLoad: true);
   }
 
-  Map<String, int> get counts {
-    return {
-      'all': pageState.items.length,
-      'active': pageState.items.where((m) => m.status == 'active').length,
-      'suspended': pageState.items.where((m) => m.status == 'suspended').length,
-      'pending': pageState.items.where((m) => m.status == 'pending').length,
-    };
-  }
-
-  // Widget buildFilterChip(String label, String value) {
-  //   final count = counts[value] ?? 0;
-  //   final selected = filter == value;
-  //   return ChoiceChip(
-  //     label: Text('$label (${count.toString()})'),
-  //     selected: selected,
-  //     labelStyle: TextStyle(fontWeight: selected ? FontWeight.w700 : FontWeight.w500),
-  //     selectedColor: Theme.of(context).colorScheme.primary.withOpacity(0.12),
-  //     surfaceTintColor: Colors.transparent,
-  //     side: BorderSide(color: selected ? Theme.of(context).colorScheme.primary : Colors.grey.shade300),
-  //     onSelected: (_) => _onFilterChanged(value),
-  //   );
-  // }
-
-  Color getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'active': return Colors.green.shade500;
-      case 'suspended': return Colors.red.shade500;
-      case 'pending_kyc': return Colors.orange.shade500;
-      default: return Colors.grey.shade600;
-    }
-  }
-
   Widget _buildInfoRow(String label, String? value, {bool copyable = false}) {
     final text = value?.trim().isNotEmpty == true ? value!.trim() : '-';
     return Padding(
@@ -208,7 +174,6 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
   }
 
   Widget buildApiMerchantCard(ApiMerchant apiMerchant) {
-    // final statusColor = getStatusColor(ApiMerchant.status ?? 'unknown');
     final statusColor = apiMerchant.status ? Colors.green : Colors.redAccent;
 
     return Card(
@@ -257,7 +222,7 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
                   _buildInfoRow('Api', apiMerchant.apiSecret, copyable: true),
                   _buildInfoRow('Email', apiMerchant.email),
                   _buildInfoRow('VPA', apiMerchant.vpa, copyable: true),
-                  _buildInfoRow('Daily Limit', '${apiMerchant.dailyLimit.toString() ?? 'N/A'} QRs'),
+                  _buildInfoRow('Daily Limit', '${apiMerchant.dailyLimit} QRs'),
                   _buildInfoRow('Created', apiMerchant.createdAt != null
                       ? DateFormat('dd MMM yyyy').format(DateTime.parse(apiMerchant.createdAt!))
                       : null),
@@ -276,15 +241,6 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
             // Actions
             Row(
               children: [
-                // Expanded(
-                //   child: FilledButton.icon(
-                //     onPressed: () => _showEditDialog(apiMerchant),
-                //     icon: const Icon(Icons.edit, size: 16),
-                //     label: const Text('Edit'),
-                //   ),
-                // ),
-                // Text(""),
-                const SizedBox(width: 12),
                 apiMerchant.status ?
                 Expanded(
                   child: FilledButton.icon(
@@ -319,14 +275,13 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
     }
   }
 
-  Future<void> _showToggleDialog(ApiMerchant merchant) async {  // ✅ Renamed
-    final isActive = merchant.status;  // ✅ Current status
-    final willSuspend = isActive;     // ✅ New status
+  Future<void> _showToggleDialog(ApiMerchant merchant) async {
+    final willSuspend = merchant.status;
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(willSuspend ? 'Suspend Merchant' : 'Reactivate Merchant'),  // ✅ Dynamic
+      builder: (ctx) => AlertDialog(
+        title: Text(willSuspend ? 'Suspend Merchant' : 'Reactivate Merchant'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,30 +291,29 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
             const SizedBox(height: 8),
             Text(willSuspend
                 ? 'This will suspend the merchant and block new QR requests.'
-                : 'This will reactivate the merchant and restore QR generation access.'),  // ✅ Dynamic
+                : 'This will reactivate the merchant and restore QR generation access.'),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: willSuspend
-                  ? Colors.red.shade600
-                  : Colors.green.shade600,  // ✅ Dynamic color
+              backgroundColor: willSuspend ? Colors.red.shade600 : Colors.green.shade600,
             ),
-            onPressed: () async {
-              Navigator.pop(context, true);
-              await _toggleMerchant(merchant);  // ✅ Toggle call
-            },
-            child: Text(willSuspend ? 'Suspend' : 'Reactivate'),  // ✅ Dynamic text
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(willSuspend ? 'Suspend' : 'Reactivate'),
           ),
         ],
       ),
     );
+
+    if (confirmed == true) {
+      await _toggleMerchant(merchant);
     }
+  }
 
     Future<void> _toggleMerchant(ApiMerchant merchant) async {
       try {
@@ -381,25 +335,6 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
       }
     }
 
-  // Future<void> _deleteApiMerchant(ApiMerchant merchant) async {
-  //   try {
-  //     await _showBlockingProgress(
-  //       context: context,
-  //       message: 'Suspending ApiMerchant...',
-  //       future: ApiMerchantsService.deleteApiMerchant(
-  //         jwtToken: await AppWriteService().getJWT(),
-  //         merchantId: merchant.merchantId!,
-  //       ),
-  //     );
-  //     if (mounted) {
-  //       _showSnackBar('✅ ApiMerchant suspended successfully');
-  //       await fetchPage(firstLoad: true);
-  //     }
-  //   } catch (e) {
-  //     if (mounted) _showSnackBar('❌ Failed to suspend ApiMerchant: $e');
-  //   }
-  // }
-
   Future<T> _showBlockingProgress<T>({
     required BuildContext context,
     required String message,
@@ -408,8 +343,8 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => WillPopScope(
-        onWillPop: () async => false,
+      builder: (_) => PopScope(
+        canPop: false,
         child: AlertDialog(
           content: Row(
             children: [
@@ -442,9 +377,7 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
   Widget build(BuildContext context) {
     final ApiMerchants = pageState.items;
 
-    return ScaffoldMessenger(
-      key: _scaffoldMessengerKey,
-      child: Scaffold(
+    return Scaffold(
         appBar: AppBar(
           title: const Text('ApiMerchants'),
           actions: [
@@ -476,45 +409,6 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
         )
             : Column(
           children: [
-            // Filter + Search
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                children: [
-                  // Filters
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    // child: Row(
-                    //   children: [
-                    //     buildFilterChip('ALL', 'all'),
-                    //     const SizedBox(width: 8),
-                    //     buildFilterChip('ACTIVE', 'active'),
-                    //     const SizedBox(width: 8),
-                    //     buildFilterChip('SUSPENDED', 'suspended'),
-                    //     const SizedBox(width: 8),
-                    //     buildFilterChip('PENDING', 'pending_kyc'),
-                    //   ],
-                    // ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Search
-                  // TextField(
-                  //   decoration: InputDecoration(
-                  //     hintText: 'Search ApiMerchants...',
-                  //     prefixIcon: const Icon(Icons.search),
-                  //     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  //     suffixIcon: searchQuery != null && searchQuery!.isNotEmpty
-                  //         ? IconButton(
-                  //       icon: const Icon(Icons.clear),
-                  //       onPressed: () => _onSearchChanged(null),
-                  //     )
-                  //         : null,
-                  //   ),
-                  //   onChanged: _onSearchChanged,
-                  // ),
-                ],
-              ),
-            ),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _refresh,
@@ -541,10 +435,10 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
             ),
           ],
         ),
-      ),
     );
   }
 }
+
 
 class ApiMerchantsFormPage extends StatefulWidget {
   final ApiMerchant? apiMerchant;
@@ -558,7 +452,6 @@ class _ApiMerchantsFormPageState extends State<ApiMerchantsFormPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  // final _phoneController = TextEditingController();
   final _vpaController = TextEditingController();
   final _dailyLimitController = TextEditingController();
 
@@ -573,8 +466,8 @@ class _ApiMerchantsFormPageState extends State<ApiMerchantsFormPage> {
       _nameController.text = m.name ?? '';
       _emailController.text = m.email ?? '';
       _vpaController.text = m.vpa ?? '';
-      _dailyLimitController.text = m.dailyLimit.toString() ?? '';
-      _status = false;
+      _dailyLimitController.text = m.dailyLimit.toString();
+      _status = m.status;
     }
   }
 
@@ -582,7 +475,6 @@ class _ApiMerchantsFormPageState extends State<ApiMerchantsFormPage> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-    // _phoneController.dispose();
     _vpaController.dispose();
     _dailyLimitController.dispose();
     super.dispose();
@@ -591,12 +483,6 @@ class _ApiMerchantsFormPageState extends State<ApiMerchantsFormPage> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.apiMerchant != null;
-
-    // _nameController.text = 'ReddyAnna';
-    // _emailController.text = 'reddyanna@kitepay.in';
-    // _vpaController.text = 'reddyanna@okhdfc';
-    // _dailyLimitController.text = "1000";
-    // _status = true;
 
     return Scaffold(
       appBar: AppBar(title: Text(isEdit ? 'Edit ApiMerchant' : 'New ApiMerchant')),
@@ -698,10 +584,7 @@ class _ApiMerchantsFormPageState extends State<ApiMerchantsFormPage> {
   }
 
   Future<void> _submit() async {
-
     if (!_formKey.currentState!.validate()) return;
-
-    print("TEST 1");
 
     setState(() => _isLoading = true);
     try {
@@ -712,23 +595,17 @@ class _ApiMerchantsFormPageState extends State<ApiMerchantsFormPage> {
         status: _status,
         dailyLimit: int.parse(_dailyLimitController.text),
       );
-      print("TEST 4");
-
-      // await ApiMerchantsService.createApiMerchant(
-      //     jwtToken: await AppWriteService().getJWT(),
-      //     merchant: apiMerchant,
-      // );
 
       final result = widget.apiMerchant == null
           ? await ApiMerchantsService.createApiMerchant(
-        jwtToken: await AppWriteService().getJWT(),
-        merchant: apiMerchant,
-      )
-        : await ApiMerchantsService.updateApiMerchant(
-        jwtToken: await AppWriteService().getJWT(),
-        merchantId: widget.apiMerchant!.merchantId!,
-        merchant: widget.apiMerchant!,
-      );
+              jwtToken: await AppWriteService().getJWT(),
+              merchant: apiMerchant,
+            )
+          : await ApiMerchantsService.updateApiMerchant(
+              jwtToken: await AppWriteService().getJWT(),
+              merchantId: widget.apiMerchant!.merchantId!,
+              merchant: apiMerchant,
+            );
 
       if (mounted) {
         Navigator.pop(context, true);

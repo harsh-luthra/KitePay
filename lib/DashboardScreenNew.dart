@@ -49,8 +49,6 @@ class DashboardScreenNew extends StatefulWidget {
   State<DashboardScreenNew> createState() => _DashboardScreenNewState();
 }
 
-// final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
-
 class _DashboardScreenNewState extends State<DashboardScreenNew> {
   final AppWriteService _appWriteService = AppWriteService();
 
@@ -64,21 +62,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
 
   // Menu definition: label, icon, and builder to return corresponding screen
   late final List<_MenuItem> _allMenuItems;
-
-  // late AppUser userMetaGlobal;
-
-  // @override
-  //   // void initState() {
-  //   //   super.initState();
-  //   //
-  //   //   // Do not await in initState. Schedule after first build.
-  //   //   WidgetsBinding.instance.addPostFrameCallback((_) {
-  //   //     _initialize();
-  //   //   });
-  //   //
-  //   //   // Provide a minimal initial menu or leave empty until loaded
-  //   //   _allMenuItems = [];
-  //   // }
 
   final FlutterTts _tts = FlutterTts();
 
@@ -123,12 +106,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     super.initState();
 
     userTitle = widget.userMeta.role.toUpperCase();
-
-    // if(widget.userMeta.role == "employee"){
-    //   userTitle = "SubAdmin";
-    // }else if(widget.userMeta.role == "subadmin"){
-    //   userTitle = "Merchant";
-    // }
 
     _notifStore.load().then((_) {
       setState(() {
@@ -180,7 +157,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         id: 3,
         label: 'Manage Users',
         icon: Icons.person,
-        visibleFor: (labels) => checkRole('admin') || checkRole("semployee") || (checkRole("subadmin") && checkLabel("users") || (checkRole("employee") && checkLabel(AppConstants.viewAllUsers))  ),
+        visibleFor: (labels) => checkRole('admin') || checkRole("employee") || (checkRole("subadmin") && checkLabel("users") || (checkRole("employee") && checkLabel(AppConstants.viewAllUsers))  ),
         builder: (_) => ManageUsersScreen(),
       ),
       _MenuItem(
@@ -201,7 +178,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         id: 6,
         label: 'Manual TXN',
         icon: Icons.add_box_outlined,
-        // visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.manualTransactions)),
         visibleFor: (labels) => (checkRole('admin') && AppConfig().manualTxnPageEnabled),
         builder: (_) => ManualTransactionForm(),
       ),
@@ -224,7 +200,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         label: 'View Commission TXNs',
         icon: Icons.receipt,
         visibleFor: (labels) => checkRole('admin') || checkRole('subadmin'),
-        // visibleFor: (labels) => checkRole('admin') || checkRole('subadmin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
         builder: (user) => CommissionTransactionsPage(
           userMeta: widget.userMeta,
           initialUserId: checkRole('subadmin') ? widget.userMeta.id : null,
@@ -236,7 +211,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         label: 'View Commission Summary',
         icon: Icons.receipt,
         visibleFor: (labels) => checkRole('admin') || checkRole('subadmin'),
-        // visibleFor: (labels) => checkRole('admin') || checkRole('subadmin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
         builder: (user) => CommissionSummaryBoardPage(userMeta: widget.userMeta),
       ),
       _MenuItem(
@@ -282,13 +256,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         visibleFor: (labels) => checkRole('admin'),
         builder: (user) => ManageApiMerchantsNew(),
       ),
-      // _MenuItem(
-      //   id: 8,
-      //   label: 'SocketTest',
-      //   icon: Icons.settings,
-      //   visibleFor: (labels) => true,
-      //   builder: (_) => SocketTestApp(),
-      // ),
     ];
 
     // init hovering states
@@ -308,21 +275,11 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     super.dispose();
   }
 
-  bool checkRole(String role){
-    if(widget.userMeta.role.toLowerCase() == (role.toLowerCase())) {
-      return true;
-    }else{
-      return false;
-    }
-  }
+  bool checkRole(String role) =>
+      widget.userMeta.role.toLowerCase() == role.toLowerCase();
 
-  bool checkLabel(String label){
-    if(widget.userMeta.labels.contains(label.toLowerCase())) {
-      return true;
-    }else{
-      return false;
-    }
-  }
+  bool checkLabel(String label) =>
+      widget.userMeta.labels.contains(label.toLowerCase());
 
   Future<void> setupSocketTransactionSpeech() async {
     final QrCodeService qrCodeService = QrCodeService();
@@ -369,50 +326,29 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
   }
 
   Future<void> speakAmountReceived(int amountPaise) async {
-    // List supported languages (optional, for debugging/install hints)
     final langs = await _tts.getLanguages;
-    // print(langs);
 
-    // Prefer Hindi (India)
     const hindiIndia = 'hi-IN';
     if (langs is List && langs.contains(hindiIndia)) {
-      await _tts.setLanguage(hindiIndia); // Hindi (India)
+      await _tts.setLanguage(hindiIndia);
       await _tts.setSpeechRate(0.8);
       await _tts.setPitch(1.0);
 
-      final words = amountToHindiWords(amountPaise); // Hindi Indian numbering
-      final sentence = 'काइटपे पर $words रुपये प्राप्त हुए'; // natural Hindi announcement
+      final words = amountToHindiWords(amountPaise);
+      final sentence = 'काइटपे पर $words रुपये प्राप्त हुए';
       await _tts.speak(sentence);
-
     } else {
-      // Fallback or show a prompt that Hindi voice is not installed
-      await _tts.setLanguage('en-IN'); // fallback
+      await _tts.setLanguage('en-IN');
 
-      final words = amountToWordsIndian(amountPaise); // 125.00 INR -> "one hundred twenty five" [9]
-      // ₹
+      final words = amountToWordsIndian(amountPaise);
       final sentence = '$words rupees received in Kitepay';
-      await _tts.speak(sentence); // say full words, not digits [18]
+      await _tts.speak(sentence);
     }
-
-    // await _tts.setSpeechRate(0.9);
-    // await _tts.setPitch(1.0);
-    //
-    // final words = amountToHindiWords(amountPaise); // Hindi Indian numbering
-    // final sentence = 'काइटपे में $words रुपये प्राप्त हुए'; // natural Hindi announcement
-    // await _tts.speak(sentence);
-
-    // final words = amountToWordsIndian(amountPaise); // 125.00 INR -> "one hundred twenty five" [9]
-    // // ₹
-    // final sentence = 'KitePay per $words rupees prapt hue';
-    // await _tts.speak(sentence); // say full words, not digits [18]
   }
 
   Future<void> speakQrAlert({required String condition}) async {
-    // List supported languages (optional, for debugging/install hints)
     final langs = await _tts.getLanguages;
-    // print(langs);
 
-    // Prefer Hindi (India)
     const hindiIndia = 'hi-IN';
     if(condition.contains("work")){
       if (langs is List && langs.contains(hindiIndia)) {
@@ -450,44 +386,23 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         await _tts.setPitch(1.0);
 
         final sentence = 'QR ki aaj ki limit puri ho gayi hai aur payment mat lijiye is qr id me nahi to sara amount freeze ho sakta hai';
-        await _tts.speak(sentence); // say full words, not digits [18]
+        await _tts.speak(sentence);
       }
     }
-
-    // await _tts.setSpeechRate(0.9);
-    // await _tts.setPitch(1.0);
-    //
-    // // final sentence = 'QR ka kaam shuru ho gaya hai';
-    // await _tts.speak(sentence); // say full words, not digits [18]
   }
 
   Future<void> initTts() async {
-
     final langs = await _tts.getLanguages;
-    // print(langs);
 
-    // Prefer Hindi (India)
     const hindiIndia = 'hi-IN';
     if (langs is List && langs.contains(hindiIndia)) {
-      await _tts.setLanguage(hindiIndia); // Hindi (India)
+      await _tts.setLanguage(hindiIndia);
     } else {
-      // Fallback or show a prompt that Hindi voice is not installed
-      await _tts.setLanguage('en-IN'); // fallback
+      await _tts.setLanguage('en-IN');
     }
 
-    // await _tts.setLanguage('en-IN'); // Indian English accent [18]
     await _tts.setSpeechRate(0.9);
     await _tts.setPitch(1.0);
-
-    // await _tts.setLanguage('en-IN'); // or 'en-US' etc.
-    // await _tts.setSpeechRate(0.9); // 0.0–1.0
-    // await _tts.setPitch(1.0); // 0.5–2.0
-    // Optional handlers
-    _tts.setStartHandler(() {});
-    _tts.setCompletionHandler(() {});
-    _tts.setErrorHandler((msg) {
-      /* log */
-    });
   }
 
   void socketManagerConnect(List<String> myQrCodes) async {
@@ -495,10 +410,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     if (!SocketManager.instance.isConnected) {
       await SocketManager.instance.connect(
         url: AppConstants.baseApiUrlSocket,
-        // url: 'https://kite-pay-api-v1.onrender.com',
-        // url: 'http://localhost:3000',
         jwt: await AppWriteService().getJWT(),
-        // qrIds: ["119188392"],
         qrIds: myQrCodes,
         userMeta: widget.userMeta,
       );
@@ -518,8 +430,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         setState(() => socketConnected = connected);
       }
       if(status == SocketStatus.connected){
-        print("Socket Connected");
-        // speakQrAlert('रीयल-टाइम ट्रांज़ैक्शन्स सर्वर कनेक्ट हो गया है');
+        debugPrint("Socket Connected");
       }
     });
 
@@ -576,13 +487,8 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     });
 
     _qrLimitAlertSub = SocketManager.instance.qrLimitAlertController.listen((event) async {
-      // final qr = QrCode.fromJson(event);
-
       final qrId = event["qrCodeId"];
       final todayPayIn = event["todayPayIn"];
-      // print("today_payin alert qr limit");
-
-      // print("today_pay_in ${QR_ID} : ${todayPayIn}");
 
       // Add to notifications
       final item = NotificationItem(
@@ -609,12 +515,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     });
 
     _forceRefreshAlertSub = SocketManager.instance.forceRefreshController.listen((event) async {
-      // final qr = QrCode.fromJson(event);
-
-      // final QR_ID = event["qrCodeId"];
-      // final todayPayIn = event["todayPayIn"];
-
-      print("Refreshing Page");
+      debugPrint("Refreshing Page");
 
       if(widget.userMeta.role != "admin"){
         if (kIsWeb) {
@@ -820,31 +721,17 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     );
   }
 
-  // Future<void> loadUserMeta() async {
-  //   String jwtToken = await AppWriteService().getJWT();
-  //   userMetaGlobal = (await MyMetaApi.getMyMetaData(
-  //     jwtToken: jwtToken,
-  //     refresh: false, // set true to force re-fetch
-  //   ))!;
-  // }
-
   Future<void> loadConfig() async {
-    // print("loading config");
-    try{
-      final response = await http.get(Uri.parse('${AppConstants.baseApiUrl}/get_app_config')).timeout(Duration(seconds: 5));
+    try {
+      final response = await http.get(Uri.parse('${AppConstants.baseApiUrl}/get_app_config')).timeout(const Duration(seconds: 5));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // print("got 200 config");
         if (data['success']) {
-          // print("loaded config");
           AppConfig().loadFromJson(data['config']);
         }
       }
-    } on TimeoutException {
-      throw Exception('Request timed out. Please check your internet connection.');
     } catch (e) {
-      print('❌ Exception in Fetching App Config: $e');
-      throw Exception('Exception in Fetching App Config: $e');
+      debugPrint('Exception in Fetching App Config: $e');
     }
   }
 
@@ -866,7 +753,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         await _appWriteService.account.deleteSession(sessionId: 'current');
         final prefs = await SharedPreferences.getInstance(); await prefs.clear();
         if (!mounted) return;
-        // Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const AdminLoginScreen()),
@@ -874,7 +760,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         );
 
       } catch (e) {
-        print(e);
+        debugPrint('Logout failed: $e');
         if (!mounted) return;
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Logout failed: ${e.toString()}')));
@@ -982,14 +868,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     final bg2 = Colors.grey.shade50;
     final items = _visibleMenuItems;
 
-    // var userTitle = widget.userMeta.role.toUpperCase();
-    //
-    // if(widget.userMeta.role == "employee"){
-    //   userTitle = "SubAdmin";
-    // }else if(widget.userMeta.role == "subadmin"){
-    //   userTitle = "Merchant";
-    // }
-
     return Container(
       width: collapsed ? 96 : 248, // tighter
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
@@ -1012,7 +890,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                         radius: 18,
                         backgroundColor: Colors.blue.shade700,
                         child: Text(
-                          (widget.userMeta.name.isNotEmpty ?? false)
+                          widget.userMeta.name.isNotEmpty
                               ? widget.userMeta.name.substring(0, 1).toUpperCase()
                               : 'U',
                           style: const TextStyle(color: Colors.white),
@@ -1024,9 +902,9 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(widget.userMeta.name ?? 'Unknown',
+                              Text(widget.userMeta.name.isEmpty ? 'Unknown' : widget.userMeta.name,
                                   style: const TextStyle(fontWeight: FontWeight.bold)),
-                              Text(widget.userMeta.email ?? '',
+                              Text(widget.userMeta.email,
                                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                             ],
                           ),
@@ -1059,19 +937,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                 ),
 
                 const SizedBox(height: 8),
-                // menu list
-                // Expanded(
-                //   child: SingleChildScrollView(
-                //     child: Column(
-                //       children: items.map((mi) {
-                //         final isActive = _activeIndex == mi.id;
-                //         return _buildSidebarItem(mi, isActive, collapsed, isDesktop);
-                //       }).toList(),
-                //     ),
-                //   ),
-                // ),
-
-                // menu list (rendered inline so it scrolls with the rest)
                 ...items.map((mi) {
                   final isActive = _activeIndex == mi.id;
                   // final badge = mi.id == 8 ? AppConfig().pendingWithdrawalsCount : null; // example
@@ -1212,12 +1077,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
               }
             ),
           const SizedBox(width: 8),
-          // Text(
-          //   '${widget.userMeta.name ?? "Dashboard"}',
-          //   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-          // ),
           const Spacer(),
-          // small profile + quick logout
           Row(
             children: [
               Container(
@@ -1242,14 +1102,6 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                 child: Text(userTitle, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
               ),
               const SizedBox(width: 16),
-              // Column(
-              //   crossAxisAlignment: CrossAxisAlignment.end,
-              //   mainAxisAlignment: MainAxisAlignment.center,
-              //   children: [
-              //     Text(widget.userMeta.name ?? '', overflow: TextOverflow.ellipsis),
-              //     Text(widget.userMeta.email ?? '', style: const TextStyle(fontSize: 12, color: Colors.grey), overflow: TextOverflow.ellipsis),
-              //   ],
-              // ),
               const SizedBox(width: 12),
               if(widget.userMeta.role == 'admin' || widget.userMeta.role == 'employee' )
               _bellIcon(context),

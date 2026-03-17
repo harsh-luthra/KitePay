@@ -1,4 +1,5 @@
 import 'package:appwrite/appwrite.dart';
+import 'package:flutter/foundation.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -35,20 +36,21 @@ class AppWriteService {
   Future<bool> isLoggedIn() async {
     try {
       final user = await account.get();
-      print("User is logged in: ${user.email}");
+      debugPrint("User is logged in: ${user.email}");
       return true;
     } on AppwriteException catch (e) {
-      print("User is not logged in: ${e.message}");
+      debugPrint("User is not logged in: ${e.message}");
       return false;
     }
   }
 
   Future<String> getUserId() async {
-    if (await isLoggedIn()) {
+    try {
       final user = await account.get();
       return user.$id;
+    } on AppwriteException {
+      return "";
     }
-    return "";
   }
 
   /// Returns a valid JWT, creating a new one if expired or missing.
@@ -60,11 +62,9 @@ class AppWriteService {
       final cachedJwt = prefs.getString(_jwtKey);
       final expiryMillis = prefs.getInt(_jwtExpiryKey);
 
-      final bool isValid = cachedJwt != null &&
+      if (cachedJwt != null &&
           expiryMillis != null &&
-          _isTokenStillValid(cachedJwt, expiryMillis);
-
-      if (isValid) {
+          _isTokenStillValid(cachedJwt, expiryMillis)) {
         return cachedJwt;
       }
     } catch (_) {

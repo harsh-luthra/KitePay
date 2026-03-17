@@ -15,10 +15,7 @@ class MyMetaApi {
     _inMemory = await _loadFromCache();
   }
 
-  // ✅ NEW: Sync cached data access for other classes
-  static AppUser? get cached => _inMemory;
-
-  static AppUser? get current => _inMemory; // sync access everywhere [web:80]
+  static AppUser? get current => _inMemory;
 
   static Future<AppUser?> getMyMetaData({
     required String jwtToken,
@@ -44,7 +41,6 @@ class MyMetaApi {
     });
 
     if (res.statusCode == 200) {
-      // print(res.body);
       final Map<String, dynamic> data = jsonDecode(res.body);
       final meta = AppUser.fromJson(data);
       _inMemory = meta; // warm memory [web:80]

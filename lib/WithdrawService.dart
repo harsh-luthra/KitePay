@@ -42,7 +42,6 @@ class WithdrawService {
         return jsonResponse;
       }
     } catch (e) {
-      print('Error parsing response JSON: $e');
       return null;
     }
   }
@@ -52,7 +51,7 @@ class WithdrawService {
       final response = await http.get(
         Uri.parse('$_baseUrl/user/withdrawal_time_check'),
         headers: {
-          'Authorization': 'Bearer $jwtToken',   // ✅ authenticateToken reads this
+          'Authorization': 'Bearer $jwtToken',
           'Content-Type': 'application/json',
         },
       ).timeout(const Duration(seconds: 10));
@@ -116,15 +115,12 @@ class WithdrawService {
       if (response.statusCode == 200) {
         return true;
       } else {
-        print('❌ Withdrawal request failed: ${response.body}');
         throw Exception(response.body);
-        return false;
       }
     } on TimeoutException {
       throw Exception('Request timed out. Please check your internet connection.');
     } catch (e) {
-      print('❌ Withdrawal request failed: $e');
-      throw Exception('❌ Withdrawal request failed: $e');
+      throw Exception('Withdrawal request failed: $e');
     }
   }
 
@@ -153,7 +149,6 @@ class WithdrawService {
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        // print(response.body);
         final Map<String, dynamic> data = jsonDecode(response.body) as Map<String, dynamic>;
         final List<dynamic> rawList = (data['withdrawals'] as List?) ?? const [];
         final String? next = data['nextCursor'] as String?;
@@ -167,8 +162,6 @@ class WithdrawService {
     } on TimeoutException {
       throw Exception('Request timed out. Please check your internet connection.');
     } catch (e) {
-      // ignore: avoid_print
-      print('❌ Exception in fetchWithdrawalsPaginated: $e');
       throw Exception('Failed to fetch withdrawals: $e');
     }
   }
@@ -198,7 +191,6 @@ class WithdrawService {
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        // print(response.body);
         final Map<String, dynamic> data = jsonDecode(response.body) as Map<String, dynamic>;
         final List<dynamic> rawList = (data['withdrawals'] as List?) ?? const [];
         final String? next = data['nextCursor'] as String?;
@@ -212,75 +204,6 @@ class WithdrawService {
     } on TimeoutException {
       throw Exception('Request timed out. Please check your internet connection.');
     } catch (e) {
-      // ignore: avoid_print
-      print('❌ Exception in fetchWithdrawalsPaginated: $e');
-      throw Exception('Failed to fetch withdrawals: $e');
-    }
-  }
-
-  static Future<List<WithdrawalRequest>> fetchAllWithdrawals(String jwtToken, {String? status}) async {
-    try {
-      final url = status != null
-          ? Uri.parse('$_baseUrl/user/withdrawals?status=$status')
-          : Uri.parse('$_baseUrl/user/withdrawals');
-
-      // final response = await http.get(url).timeout(const Duration(seconds: 10));
-
-        final response = await http.get(
-          Uri.parse('$_baseUrl/user/withdrawals'),
-          headers: {
-            'Authorization': 'Bearer $jwtToken',
-          },
-        ).timeout(Duration(seconds: 10));
-
-      // try {
-      //   final response = await http.get(
-      //     Uri.parse('$_baseUrl/qr-codes'),
-      //     headers: {
-      //       'Authorization': 'Bearer $jwtToken',
-      //     },
-      //   ).timeout(Duration(seconds: 10));
-
-      // print(response.body);
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        final List<dynamic> rawList = data['withdrawals'];
-        return rawList.map((e) => WithdrawalRequest.fromJson(e)).toList();
-      } else {
-        final body = jsonDecode(response.body);
-        final error = body['error'] ?? 'Unknown error';
-        throw Exception('Failed to fetch withdrawals: $error');
-      }
-    } on TimeoutException {
-      throw Exception('Request timed out. Please check your internet connection.');
-    } catch (e) {
-      print('❌ Exception in fetchAllWithdrawals: $e');
-      throw Exception('Failed to fetch withdrawals: $e');
-    }
-  }
-
-  static Future<List<WithdrawalRequest>> fetchUserWithdrawals(String userId) async {
-    try {
-      final url = Uri.parse('$_baseUrl/user/user_withdrawals?userId=$userId');
-
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
-
-      print(response.body);
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        final List<dynamic> rawList = data['withdrawals'];
-        return rawList.map((e) => WithdrawalRequest.fromJson(e)).toList();
-      } else {
-        final body = jsonDecode(response.body);
-        final error = body['error'] ?? 'Unknown error';
-        throw Exception('Failed to fetch withdrawals: $error');
-      }
-    } on TimeoutException {
-      throw Exception('Request timed out. Please check your internet connection.');
-    } catch (e) {
-      print('❌ Exception in fetchUserWithdrawals: $e');
       throw Exception('Failed to fetch withdrawals: $e');
     }
   }
@@ -305,12 +228,11 @@ class WithdrawService {
         return (false, data['error']?.toString() ?? 'Failed to approve');
       }
     } on TimeoutException {
-    // 🔌 API took too long
-    throw Exception(
-    'Request timed out. Please check your connection or try again later.');
-    }  catch (e) {
+      throw Exception(
+          'Request timed out. Please check your connection or try again later.');
+    } catch (e) {
       return (false, 'Error: ${e.toString()}');
-  }
+    }
   }
 
   static Future<(bool, String)> rejectWithdrawal({
@@ -329,15 +251,14 @@ class WithdrawService {
 
       if (res.statusCode == 200) {
         return (true, (data['message']?.toString() ?? 'Withdrawal rejected'));
-    } else {
-    return (false, (data['error']?.toString() ?? 'Failed to reject'));
-    }
+      } else {
+        return (false, (data['error']?.toString() ?? 'Failed to reject'));
+      }
     } on TimeoutException {
-    // 🔌 API took too long
-    throw Exception(
-    'Request timed out. Please check your connection or try again later.');
-    }  catch (e) {
-    return (false, 'Error: ${e.toString()}');
+      throw Exception(
+          'Request timed out. Please check your connection or try again later.');
+    } catch (e) {
+      return (false, 'Error: ${e.toString()}');
     }
   }
 

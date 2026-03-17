@@ -7,28 +7,22 @@ import 'package:http/http.dart' as http;
 import 'AppConstants.dart';
 import 'models/Transaction.dart';
 
-// Enum used in UI layer
 enum TxnStatus { normal, cyber, refund, chargeback }
 
 class TransactionService {
   static final String _baseUrl = AppConstants.baseApiUrl;
 
-  // Appwrite client and storage
   static final Client _appwriteClient = Client()
-      .setEndpoint('https://fra.cloud.appwrite.io/v1') // Your Appwrite Endpoint
-      .setProject('688c98fd002bfe3cf596'); // Your project ID
+      .setEndpoint(AppConstants.appwriteEndpoint)
+      .setProject(AppConstants.appwriteProjectId);
 
-  static final String bucketId = "688d2517002810ac532b";
+  static final String bucketId = AppConstants.appwriteBucketId;
 
   static final Storage _appwriteStorage = Storage(_appwriteClient);
-
-  // TransactionService() {
-  // }
 
   static Future<bool> uploadTransactionImage(PlatformFile file, String txnId, String jwtToken) async {
     try {
       if (file.bytes == null) {
-        print('❌ Error: File bytes are null. Cannot proceed with upload.');
         return false;
       }
 
@@ -47,13 +41,11 @@ class TransactionService {
 
       final fileId = fileResult.$id;
       if (fileId.isEmpty) {
-        print('❌ Failed to get a file ID from Appwrite after upload.');
         return false;
       }
-      print('✅ Uploaded to TxnImages/: $fileId');
 
       // Image URL remains the same (path doesn't affect access)
-      final imageUrl = 'https://fra.cloud.appwrite.io/v1/storage/buckets/$bucketId/files/$fileId/view?project=688c98fd002bfe3cf596';
+      final imageUrl = AppConstants.appwriteFileViewUrl(bucketId, fileId);
 
       return await _createImageEntryInTransaction(
         txnId: txnId,
@@ -62,11 +54,9 @@ class TransactionService {
         jwtToken: jwtToken,
       );
 
-    } on AppwriteException catch (e) {
-      print('❌ Appwrite Error: ${e.message}');
+    } on AppwriteException catch (_) {
       return false;
-    } catch (e) {
-      print('❌ General Error: $e');
+    } catch (_) {
       return false;
     }
   }
@@ -78,9 +68,8 @@ class TransactionService {
     required String jwtToken,
   }) async {
     try {
-      // print('Attempting to create Txn Image entry on server...');
       final response = await http.post(
-        Uri.parse('$_baseUrl/admin/create-image-entry-in-transaction'), // New endpoint for this purpose
+        Uri.parse('$_baseUrl/admin/create-image-entry-in-transaction'),
         headers: {
           'Authorization': 'Bearer $jwtToken',
           'Content-Type': 'application/json',
@@ -93,22 +82,11 @@ class TransactionService {
         }),
       ).timeout(Duration(seconds: 10));
 
-      // print('Server response status code: ${response.statusCode}');
-      // print('Server response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        // print('✅ Successfully created QR entry on server.');
-        return true;
-      } else {
-        // print('❌ Failed to create QR entry on server. Expected status 201, but got ${response.statusCode}');
-        return false;
-      }
+      return response.statusCode == 200;
     } on TimeoutException {
-      // 🔌 API took too long
       throw Exception(
           'Request timed out. Please check your connection or try again later.');
     } catch (e) {
-      // print('❌ Error creating QR entry on server: $e');
       return false;
     }
   }
@@ -127,15 +105,8 @@ class TransactionService {
         body: jsonEncode({'txnId': txnId}),
       );
 
-      if (response.statusCode == 200) {
-        print('✅ Transaction image deleted successfully');
-        return true;
-      } else {
-        print('❌ Delete failed: ${response.statusCode} - ${response.body}');
-        return false;
-      }
+      return response.statusCode == 200;
     } catch (e) {
-      print('❌ Error deleting transaction image: $e');
       return false;
     }
   }
@@ -174,8 +145,6 @@ class TransactionService {
 
       url += '?${Uri(queryParameters: queryParams).query}';
 
-      // print(url);
-
       final response = await http.get(
         Uri.parse(url),
         headers: {
@@ -189,8 +158,6 @@ class TransactionService {
         final List data = responseData['transactions'];
         final String? nextCursor = responseData['nextCursor'];
 
-        // print(data);
-
         return PaginatedTransactions(
           transactions: data.map((e) => Transaction.fromJson(e)).toList(),
           nextCursor: nextCursor,
@@ -201,12 +168,9 @@ class TransactionService {
     } on TimeoutException {
       throw Exception('Request timed out. Please check your connection.');
     } catch (e) {
-      print('Error fetching transactions: $e');
       return PaginatedTransactions(transactions: [], nextCursor: null);
     }
   }
-
-  // String url = '$_baseUrl/admin/user/transactions';
 
   static Future<PaginatedTransactions> fetchUserTransactions({
     String? userId,
@@ -254,8 +218,6 @@ class TransactionService {
         final List data = responseData['transactions'];
         final String? nextCursor = responseData['nextCursor'];
 
-        // print('responseData : $responseData');
-
         return PaginatedTransactions(
           transactions: data.map((e) => Transaction.fromJson(e)).toList(),
           nextCursor: nextCursor,
@@ -266,7 +228,6 @@ class TransactionService {
     } on TimeoutException {
       throw Exception('Request timed out. Please check your connection.');
     } catch (e) {
-      print('Error fetching user transactions: $e');
       return PaginatedTransactions(transactions: [], nextCursor: null);
     }
   }
@@ -276,9 +237,6 @@ class TransactionService {
     required String rrnNumber,
     required double amount,
     required String isoDate,
-    // String? payload,
-    // String? paymentId,
-    // String? vpa,
     required String jwtToken,
   }) async {
     try {
@@ -289,16 +247,11 @@ class TransactionService {
         'isoDate': isoDate,
       };
 
-      // Optional fields if provided
-      // if (payload != null) body['payload'] = payload;
-      // if (paymentId != null) body['paymentId'] = paymentId;
-      // if (vpa != null) body['vpa'] = vpa;
-
       final response = await http.post(
         Uri.parse('$_baseUrl/admin/transactions/manual'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $jwtToken', // 👈 attach admin JWT here
+          'Authorization': 'Bearer $jwtToken',
         },
         body: jsonEncode(body),
       ).timeout(const Duration(seconds: 10));
@@ -306,14 +259,12 @@ class TransactionService {
       if (response.statusCode == 201) {
         return true;
       } else {
-        print('❌ Manual transaction upload failed: ${response.body}');
         throw Exception(response.body);
       }
     } on TimeoutException {
       throw Exception('Request timed out. Please check your internet connection.');
     } catch (e) {
-      print('❌ Manual transaction upload failed: $e');
-      throw Exception('❌ Manual transaction upload failed: $e');
+      throw Exception('Manual transaction upload failed: $e');
     }
   }
 

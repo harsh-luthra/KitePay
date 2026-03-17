@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -17,8 +16,10 @@ class CommissionSummaryBoardPage extends StatefulWidget {
 }
 
 class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage> {
+  bool get _isAdmin => widget.userMeta.role.toLowerCase() == 'admin';
+
   // Filters
-  String _roleFilter = 'subadmin'; // 'admin' | 'subadmin'
+  String _roleFilter = 'subadmin';
   final List<AppUser> _allSubadmins = [];
   AppUser? _selectedSubadmin;      // single selection
   bool _loadingUsers = false;
@@ -40,13 +41,13 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
   @override
   void initState() {
     super.initState();
-    if ((widget.userMeta.role).toLowerCase() == 'subadmin') {
+    if (!_isAdmin) {
       _roleFilter = 'subadmin';
       _selectedSubadmin = widget.userMeta;
     }else{
       _roleFilter = 'admin';
     }
-    if ((widget.userMeta.role).toLowerCase() == 'admin') {
+    if (_isAdmin) {
       _loadUsers();
     }
   }
@@ -60,7 +61,7 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
         _allSubadmins
           ..clear()
           ..addAll(list);
-        if ((widget.userMeta.role).toLowerCase() == 'admin') {
+        if (_isAdmin) {
           _selectedSubadmin ??= list.isNotEmpty ? list.first : null;
         } else {
           // subadmin: ensure selection is self
@@ -77,7 +78,7 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
   }
 
   Future<void> _fetchSummaries() async {
-    final isAdmin = (widget.userMeta.role).toLowerCase() == 'admin';
+    final isAdmin = _isAdmin;
 
     setState(() { _loading = true; _results.clear(); });
 
@@ -126,10 +127,8 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
           );
         });
 
-        setState(() { _loading = false; });
-
         if (mounted) setState(() => _loading = false);
-        return; // IMPORTANT: stop here so we don't fall into per-user logic
+        return;
       }
 
       // Per-user flow (admin/subadmin)
@@ -254,7 +253,7 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
   }
 
   Widget _filterBar() {
-    final isAdmin = (widget.userMeta.role).toLowerCase() == 'admin';
+    final isAdmin = _isAdmin;
     final df = DateFormat('yyyy-MM-dd');
 
     return Card(
@@ -394,8 +393,7 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
                   icon: const Icon(Icons.refresh),
                   label: const Text('Fetch'),
                   onPressed: () {
-                    final isAdmin = (widget.userMeta.role).toLowerCase() == 'admin';
-                    if (!isAdmin && _roleFilter == 'subadmin' && _selectedSubadmin == null) return;
+                    if (_roleFilter == 'subadmin' && _selectedSubadmin == null) return;
                     _fetchSummaries();
                   },
                 ),
@@ -436,7 +434,7 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
   }
 
   Widget _summaryCard(String userId, CommissionSummaryResult r, {String? title}) {
-    final isAdmin = (widget.userMeta.role).toLowerCase() == 'admin';
+    final isAdmin = _isAdmin;
     final isAllKey = userId == '*ALL*';
     final match = _allSubadmins.where((u) => u.id == userId);
 

@@ -6,66 +6,44 @@ class AppConfig {
   AppConfig._internal();
 
   bool isLoaded = false;
-  int defaultMaxWithdrawalRequests = 2;
-  int defaultOverheadBalanceRequired = 0;
 
-  double defaultMinCommission = 1.0;
-  double defaultMaxCommission = 2.0;
+  int maxWithdrawalAmount = 0;
+  int minWithdrawalAmount = 0;
+  int maxWithdrawalRequests = 2;
+  double transactionFeePercent = 0;
+  int overheadBalanceRequired = 0;
 
-  double defaultQrLimitTodayPayIn = 30000000.0;
+  double minCommission = 1.0;
+  double maxCommission = 2.0;
 
-  late int maxWithdrawalAmount;
-  late int minWithdrawalAmount;
-  late int maxWithdrawalRequests;
-  late double transactionFeePercent;
-  late int overheadBalanceRequired;
-
-  late double minCommission;
-  late double maxCommission;
-
-  late double qrLimitTodayPayIn;
+  double qrLimitTodayPayIn = 30000000.0;
 
   int maxWithdrawalAccounts = 5;
 
   bool userCanEditWithdrawalAccounts = false;
 
-  bool txnImageSupport= false;
+  bool txnImageSupport = false;
 
   bool manualTxnPageEnabled = false;
 
   void loadFromJson(Map<String, dynamic> json) {
-    maxWithdrawalAmount = json['max_withdrawal_amount'] ?? 0;
-    minWithdrawalAmount = json['min_withdrawal_amount'] ?? 0;
-    transactionFeePercent = (json['transaction_fee_percent'] ?? 0).toDouble();
-    maxWithdrawalRequests = json['max_withdrawal_requests'] ?? defaultMaxWithdrawalRequests;
-    overheadBalanceRequired = json['overhead_balance_required'] ?? defaultOverheadBalanceRequired;
+    maxWithdrawalAmount = json['max_withdrawal_amount'] ?? maxWithdrawalAmount;
+    minWithdrawalAmount = json['min_withdrawal_amount'] ?? minWithdrawalAmount;
+    transactionFeePercent = (json['transaction_fee_percent'] ?? transactionFeePercent).toDouble();
+    maxWithdrawalRequests = json['max_withdrawal_requests'] ?? maxWithdrawalRequests;
+    overheadBalanceRequired = json['overhead_balance_required'] ?? overheadBalanceRequired;
 
-    minCommission = (json['min_commission'] ?? 0).toDouble() ?? defaultMinCommission;
-    maxCommission = (json['max_commission'] ?? 0).toDouble() ?? defaultMaxCommission;
+    minCommission = (json['min_commission'] ?? minCommission).toDouble();
+    maxCommission = (json['max_commission'] ?? maxCommission).toDouble();
 
-    qrLimitTodayPayIn = (json['qr_limit_today_pay_in'] ?? 0).toDouble() ?? defaultQrLimitTodayPayIn;
+    qrLimitTodayPayIn = (json['qr_limit_today_pay_in'] ?? qrLimitTodayPayIn).toDouble();
 
-    maxWithdrawalAccounts = json['max_withdrawal_accounts'] ?? 5;
+    maxWithdrawalAccounts = json['max_withdrawal_accounts'] ?? maxWithdrawalAccounts;
+    userCanEditWithdrawalAccounts = json['user_can_edit_withdrawal_accounts'] ?? userCanEditWithdrawalAccounts;
+    txnImageSupport = json['txn_image_support'] ?? txnImageSupport;
+    manualTxnPageEnabled = json['manual_txn_page_enabled'] ?? manualTxnPageEnabled;
 
-    userCanEditWithdrawalAccounts = json['user_can_edit_withdrawal_accounts'] ?? false;
-
-    txnImageSupport = json['txn_image_support'] ?? false;
-
-    manualTxnPageEnabled = json['manual_txn_page_enabled'] ?? false;
-
-    // print("min_commission $minCommission");
-    // print("max_commission $maxCommission");
-
-    // print("max_withdrawal_amount: $maxWithdrawalAmount");
-    // print("min_withdrawal_amount: $minWithdrawalAmount");
-    // print("transaction_fee_percent: $transactionFeePercent");
-    // print("max_withdrawal_requests: $maxWithdrawalrequests");
-    // print("overhead_balance_required: $overheadBalanceRequired");
-
-    // print("maxWithdrawalAccounts: $maxWithdrawalAccounts");
-    //
-    // print("userCanEditWithdrawalAccounts: $userCanEditWithdrawalAccounts");
-
+    isLoaded = true;
   }
 
 }

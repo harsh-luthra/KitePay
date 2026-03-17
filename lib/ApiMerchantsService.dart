@@ -2,7 +2,6 @@
 import 'package:admin_qr_manager/models/ApiMerchant.dart';
 
 import 'AppConstants.dart';
-import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -20,8 +19,6 @@ class ApiMerchantsService {
     if (status != null && status != 'all') params['status'] = status;
     if (search != null) params['search'] = search;
     if (cursor != null) params['cursor'] = cursor;
-
-    print(jwtToken);
 
     final uri = Uri.parse('$_baseUrl/merchant/admin/merchants').replace(queryParameters: params);
     final resp = await http.get(uri, headers: {'Authorization': 'Bearer $jwtToken'});
@@ -42,8 +39,6 @@ class ApiMerchantsService {
       headers: {'Authorization': 'Bearer $jwtToken', 'Content-Type': 'application/json'},
       body: jsonEncode(merchant.toJson()),
     );
-    print(resp.statusCode);
-    print(resp.body);
     if (resp.statusCode == 200) return ApiMerchant.fromJson(jsonDecode(resp.body));
     throw Exception('Create failed: ${resp.statusCode}');
   }
@@ -88,47 +83,3 @@ class PaginatedMerchants {
   final String? nextCursor;
   PaginatedMerchants({required this.merchants, this.nextCursor});
 }
-
-// class Merchant {
-//   final String? id;
-//   final String merchantId;
-//   final String name;
-//   final String email;
-//   final String vpa;
-//   final String status;
-//   final int? dailyLimit;
-//   final String? createdAt;
-//   final String? lastLogin;
-//
-//   Merchant({
-//     this.id,
-//     required this.merchantId,
-//     required this.name,
-//     required this.email,
-//     required this.vpa,
-//     required this.status,
-//     this.dailyLimit,
-//     this.createdAt,
-//     this.lastLogin,
-//   });
-//
-//   factory Merchant.fromJson(Map<String, dynamic> json) => Merchant(
-//     id: json['id'],
-//     merchantId: json['merchantId'] ?? '',
-//     name: json['name'] ?? '',
-//     email: json['email'] ?? '',
-//     vpa: json['vpa'] ?? '',
-//     status: json['status'] ?? 'unknown',
-//     dailyLimit: json['dailyLimit'],
-//     createdAt: json['createdAt'],
-//     lastLogin: json['lastLogin'],
-//   );
-//
-//   Map<String, dynamic> toJson() => {
-//     'name': name,
-//     'email': email,
-//     'vpa': vpa,
-//     'status': status,
-//     'dailyLimit': dailyLimit,
-//   };
-// }

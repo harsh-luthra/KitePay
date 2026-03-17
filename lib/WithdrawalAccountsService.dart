@@ -1,5 +1,4 @@
-// WithdrawalAccountsService - Matches your withdrawal_accounts Node.js API
-import 'package:admin_qr_manager/models/WithdrawalAccount.dart'; // Create this model
+import 'package:admin_qr_manager/models/WithdrawalAccount.dart';
 import 'AppConstants.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -8,7 +7,7 @@ class WithdrawalAccountsService {
 
   static final String _baseUrl = AppConstants.baseApiUrl;
 
-  // ✅ LIST user's own accounts (paginated)
+  // List user's own accounts (paginated)
   static Future<PaginatedWithdrawalAccounts> fetchWithdrawalAccountsPaginated({
     required String jwtToken,
     String? cursor,
@@ -35,7 +34,7 @@ class WithdrawalAccountsService {
     throw Exception('Failed: ${resp.statusCode}');
   }
 
-  // ✅ LIST any user accounts (paginated)
+  // List any user's accounts (paginated, admin)
   static Future<PaginatedWithdrawalAccounts> fetchUserWithdrawalAccountsPaginated({
     required String jwtToken,
     required String userId,
@@ -66,7 +65,7 @@ class WithdrawalAccountsService {
     throw Exception('Failed: ${resp.statusCode}');
   }
 
-  // ✅ CREATE Self new account
+  // Create own account
   static Future<WithdrawalAccount> createWithdrawalAccount({
     required String jwtToken,
     required WithdrawalAccount account,
@@ -87,7 +86,7 @@ class WithdrawalAccountsService {
     throw Exception('Create failed: ${resp.statusCode} - ${resp.body}');
   }
 
-  // ✅ UPDATE Self existing account
+  // Update own account
   static Future<WithdrawalAccount> updateWithdrawalAccount({
     required String jwtToken,
     required String accountId,
@@ -109,7 +108,7 @@ class WithdrawalAccountsService {
     throw Exception('Update failed: ${resp.statusCode}');
   }
 
-  // ✅ DELETE Self account
+  // Delete own account
   static Future<bool> deleteWithdrawalAccount({
     required String jwtToken,
     required String accountId,
@@ -124,7 +123,7 @@ class WithdrawalAccountsService {
 
 
 
-  // ✅ CREATE User's account
+  // Create account for a user (admin)
   static Future<WithdrawalAccount> createUserWithdrawalAccount({
     required String jwtToken,
     required String userId,
@@ -152,7 +151,7 @@ class WithdrawalAccountsService {
     throw Exception('Create failed: ${resp.statusCode} - ${resp.body}');
   }
 
-  // ✅ UPDATE User's account
+  // Update a user's account (admin)
   static Future<WithdrawalAccount> updateUserWithdrawalAccount({
     required String jwtToken,
     required String userId,
@@ -176,7 +175,7 @@ class WithdrawalAccountsService {
     throw Exception('Update failed: ${resp.statusCode}');
   }
 
-  // ✅ DELETE User's account
+  // Delete a user's account (admin)
   static Future<bool> deleteUserWithdrawalAccount({
     required String jwtToken,
     required String userId,
@@ -199,7 +198,6 @@ class WithdrawalAccountsService {
 
 }
 
-// Models (create models/WithdrawalAccount.dart)
 class PaginatedWithdrawalAccounts {
   final List<WithdrawalAccount> accounts;
   final String? nextCursor;

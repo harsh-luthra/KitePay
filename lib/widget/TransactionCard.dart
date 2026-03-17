@@ -3,12 +3,10 @@ import 'package:admin_qr_manager/utils/CurrencyUtils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/Transaction.dart';
+import '../TransactionService.dart' show TxnStatus;
 import 'package:intl/intl.dart';
 
-// Define a typedef for clarity
 typedef TxnActionAsync = Future<void> Function(Transaction txn);
-
-enum TxnStatus { normal, cyber, refund, chargeback }
 
 class TransactionCard extends StatelessWidget {
   final Transaction txn;

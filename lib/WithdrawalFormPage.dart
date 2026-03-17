@@ -50,24 +50,20 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
   List<QrCode> _qrCodesAssignedToMe = [];
   bool _isLoadingUserQrs = true;
 
-  // 🔹 Global selected QR (can be accessed anywhere)
   QrCode? selectedQrCode;
 
   late AppUser UserMeta;
   double subAdminCommission = 0;
 
-  // ✅ Withdrawal Account state
   List<WithdrawalAccount> _withdrawalAccounts = [];
   WithdrawalAccount? selectedAccount;
   bool _isLoadingAccounts = false;
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     UserMeta = MyMetaApi.current!;
-    subAdminCommission = UserMeta.commission!;
-    // print(subAdminCommission);
+    subAdminCommission = UserMeta.commission ?? 0;
     _fetchOnlyUserQrCodes();
     _loadWithdrawalAccounts();
   }
@@ -84,10 +80,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     super.dispose();
   }
 
-  // ✅ Load accounts after QR selection
   Future<void> _loadWithdrawalAccounts() async {
-    // if (selectedQrCode == null) return;
-
     setState(() => _isLoadingAccounts = true);
     try {
       final jwtToken = await AppWriteService().getJWT();
@@ -97,16 +90,15 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
       setState(() {
         _withdrawalAccounts = paginated.accounts;
         _isLoadingAccounts = false;
-        // print(_withdrawalAccounts);
       });
     } catch (e) {
       setState(() => _isLoadingAccounts = false);
-      // _showSnackBar('Error loading accounts: $e');
-      SnackBar(content: Text('Error loading accounts: $e'));
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text('Error loading accounts: $e')),
+      );
     }
   }
 
-  // ✅ Show Account Selection Dialog (like QR dialog)
   Future<void> _showAccountSelectionDialog() async {
     if (_withdrawalAccounts.isEmpty) {
       await _showNoAccountsDialog();
@@ -124,20 +116,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
           height: MediaQuery.of(context).size.height * 0.6,
           child: Column(
             children: [
-              // Search
-              // TextField(
-              //   decoration: InputDecoration(
-              //     hintText: 'Search accounts...',
-              //     prefixIcon: const Icon(Icons.search),
-              //     border: const OutlineInputBorder(),
-              //   ),
-              //   onChanged: (query) {
-              //     // Filter logic (add if needed)
-              //   },
-              // ),
               const SizedBox(height: 16),
-
-              // Accounts List
               Expanded(
                 child: ListView.builder(
                   itemCount: _withdrawalAccounts.length,
@@ -149,8 +128,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                       onTap: () {
                         setState(() => selectedAccount = acc);
                         Navigator.pop(context);
-                        // _showSnackBar('Selected: ${acc.holderName}');
-                        SnackBar(content: Text('Selected: ${acc.holderName}'));
                       },
                       child: Card(
                         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -176,7 +153,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                               if (acc.mode == 'upi' && acc.upiId != null)
                                 Text(acc.upiId!, style: const TextStyle(fontSize: 12)),
                               if (acc.mode == 'bank' && acc.accountNumber != null)
-                                Text('****${acc.accountNumber!.substring(acc.accountNumber!.length - 4)}',
+                                Text('****${acc.accountNumber!.length >= 4 ? acc.accountNumber!.substring(acc.accountNumber!.length - 4) : acc.accountNumber!}',
                                     style: const TextStyle(fontSize: 12)),
                               if (acc.updatedAt != null)
                                 Text('Updated: ${acc.updatedAt!.substring(0, 10)}',
@@ -207,7 +184,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                 context,
                 MaterialPageRoute(builder: (context) => WithdrawalAccountsPage(userMode: true, userMeta: UserMeta,)),
               ).then((_) {
-                // ✅ Refresh accounts when returning
+                // Refresh accounts when returning
                 if (mounted) {
                   _loadWithdrawalAccounts();
                 }
@@ -228,7 +205,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     );
   }
 
-  // ✅ No accounts dialog
   Future<void> _showNoAccountsDialog() async {
     showDialog(
       context: context,
@@ -248,7 +224,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                 context,
                 MaterialPageRoute(builder: (context) => WithdrawalAccountsPage(userMode: true, userMeta: UserMeta, )),
               ).then((_) {
-                // ✅ Refresh accounts when returning
+                // Refresh accounts when returning
                 if (mounted) {
                   _loadWithdrawalAccounts();
                 }
@@ -279,7 +255,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
       if (_qrCodesAssignedToMe.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            // print("Loaded User Qr codes");
             _showQrSelectionDialog();
           }
         });
@@ -332,8 +307,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                 final aActive = a.isActive ? 0 : 1;
                 final bActive = b.isActive ? 0 : 1;
                 if (aActive != bActive) return aActive - bActive;
-                // final aAvail = (a.amountAvailableForWithdrawal ?? 0);
-                // final bAvail = (b.amountAvailableForWithdrawal ?? 0);
                 final aAvail = (a.canWithdrawToday() ?? 0);
                 final bAvail = (b.canWithdrawToday() ?? 0);
                 return bAvail.compareTo(aAvail);
@@ -405,30 +378,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Search row
-                      // TextField(
-                      //   controller: controller,
-                      //   decoration: InputDecoration(
-                      //     isDense: true,
-                      //     prefixIcon: const Icon(Icons.search),
-                      //     hintText: 'Search by QR ID or Assigned User',
-                      //     suffixIcon: controller.text.isNotEmpty
-                      //         ? IconButton(
-                      //       icon: const Icon(Icons.clear),
-                      //       onPressed: () {
-                      //         controller.clear();
-                      //         setLocal(() {});
-                      //       },
-                      //     )
-                      //         : null,
-                      //     border: const OutlineInputBorder(),
-                      //   ),
-                      //   onChanged: (_) => setLocal(() {}),
-                      //   onSubmitted: (_) => setLocal(() {}),
-                      // ),
-                      // const SizedBox(height: 10),
-
-                      // List
                       Flexible(
                         child: Scrollbar(
                           child: ListView.separated(
@@ -449,7 +398,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                                     SnackBar(content: Text('✅ Selected QR: ${qr.qrId}')),
                                   );
                                 } : null,
-                                // onTap: () => setLocal(() => tempSelection = qr),
                                 onTap: () {
                                   if (!qr.isActive) {
                                     _showInactiveQrDialog(context);
@@ -476,33 +424,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                                     ],
                                   ),
                                   subtitle: selectionSubtitle(qr),
-                                  // subtitle: Padding(
-                                  //   padding: const EdgeInsets.only(top: 6),
-                                  //   child: Wrap(
-                                  //     spacing: 8,
-                                  //     runSpacing: 6,
-                                  //     children: [
-                                  //       metricChip('Txns', count(qr.totalTransactions ?? 0), Colors.teal, Icons.receipt_long),
-                                  //       metricChip('Received', inr(qr.totalPayInAmount ?? 0), Colors.indigo, Icons.account_balance_wallet),
-                                  //       metricChip('Available', inr(qr.amountAvailableForWithdrawal ?? 0), Colors.green, Icons.savings),
-                                  //       Container(
-                                  //         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  //         decoration: BoxDecoration(
-                                  //           color: (qr.isActive ? Colors.green : Colors.red).withOpacity(0.08),
-                                  //           borderRadius: BorderRadius.circular(12),
-                                  //         ),
-                                  //         child: Text(
-                                  //           qr.isActive ? 'ACTIVE' : 'INACTIVE',
-                                  //           style: TextStyle(
-                                  //             fontSize: 11,
-                                  //             fontWeight: FontWeight.w600,
-                                  //             color: statusColor,
-                                  //           ),
-                                  //         ),
-                                  //       ),
-                                  //     ],
-                                  //   ),
-                                  // ),
                                   trailing: selected ? const Icon(Icons.check_circle, color: Colors.green) : null,
                                   selected: selected,
                                   selectedTileColor: Theme.of(context).colorScheme.primary.withOpacity(0.06),
@@ -633,108 +554,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     );
   }
 
-  // void _submitForm() async {
-  //   if (!_formKey.currentState!.validate()) return;
-  //
-  //   final user = await AppWriteService().account.get();
-  //   String userId = user.$id;
-  //   String name = user.name;
-  //
-  //   if (_mode == 'upi') {
-  //     name = _upiHolderNameController.text.trim();
-  //   } else {
-  //     name = _bankHolderNameController.text.trim();
-  //   }
-  //
-  //   final int requestedAmount = int.tryParse(_amountController.text.trim()) ?? 0;
-  //   final double commissionPercent = subAdminCommission ?? 0;
-  //   final double commissionRaw = requestedAmount * commissionPercent / 100;
-  //   final int commissionAmount = commissionRaw.ceil(); // always rounds up
-  //   final int netWithdrawalAmount = requestedAmount + commissionAmount;
-  //
-  //   bool proceed = await showDialog<bool>(
-  //     context: context,
-  //     barrierDismissible: false,
-  //     builder: (context) {
-  //       return AlertDialog(
-  //         title: const Text('Confirm Withdrawal'),
-  //         content: Column(
-  //           mainAxisSize: MainAxisSize.min,
-  //           crossAxisAlignment: CrossAxisAlignment.stretch,
-  //           children: [
-  //             Text("Withdrawal amount: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(requestedAmount as num)}"),
-  //             Text("Commission (${commissionPercent.toStringAsFixed(1)}%): ₹$commissionAmount"),
-  //             Divider(thickness: 1),
-  //             Text("Final credited amount: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(netWithdrawalAmount as num)}"),
-  //           ],
-  //         ),
-  //         actions: [
-  //           TextButton(
-  //             onPressed: () => Navigator.of(context).pop(false),
-  //             child: const Text('Cancel'),
-  //           ),
-  //           ElevatedButton(
-  //             onPressed: () => Navigator.of(context).pop(true),
-  //             child: const Text('Confirm Withdrawal'),
-  //           ),
-  //         ],
-  //       );
-  //     },
-  //   ) ?? false;
-  //
-  //   if (!proceed) return;
-  //
-  //   setState(() => _isSubmitting = true);
-  //
-  //   try {
-  //     // Compose the request as in your code
-  //     final withdrawalRequest = WithdrawalRequest(
-  //       userId: userId,
-  //       qrId: selectedQrCode?.qrId,
-  //       holderName: name,
-  //       amount: netWithdrawalAmount,
-  //       preAmount: requestedAmount,
-  //       commission: commissionAmount,
-  //       mode: _mode,
-  //       upiId: _mode == 'upi' ? _upiIdController.text.trim() : null,
-  //       bankName: _mode == 'bank' ? _bankNameController.text.trim() : null,
-  //       accountNumber: _mode == 'bank' ? _accountNumberController.text.trim() : null,
-  //       ifscCode: _mode == 'bank' ? _ifscCodeController.text.trim().toUpperCase() : null,
-  //     );
-  //
-  //     final jwtToken = await AppWriteService().getJWT();
-  //     await WithdrawService.fetchWithdrawCommissionPreview(jwtToken: jwtToken, userId: UserMeta.id,qrId: selectedQrCode!.qrId,preAmount: requestedAmount.toDouble());
-  //
-  //     final success = await WithdrawService.submitWithdrawRequest(withdrawalRequest);
-  //
-  //     if (success) {
-  //       _formKey.currentState!.reset();
-  //       await showResultDialog(
-  //         context,
-  //         title: "✅ Success",
-  //         message: "Withdrawal request submitted successfully.",
-  //         success: true,
-  //       );
-  //     } else {
-  //       await showResultDialog(
-  //         context,
-  //         title: "❌ Failed",
-  //         message: "Failed to submit withdrawal request.",
-  //         success: false,
-  //       );
-  //     }
-  //   } catch (e) {
-  //     await showResultDialog(
-  //       context,
-  //       title: "❌ Error",
-  //       message: "Error submitting withdrawal: ${e.toString()}",
-  //       success: false,
-  //     );
-  //   } finally {
-  //     setState(() => _isSubmitting = false);
-  //   }
-  // }
-
   void _submitFormNew() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -742,9 +561,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
 
     final user = await AppWriteService().account.get();
     String userId = user.$id;
-
-    // String name = _mode == 'upi' ? _upiHolderNameController.text.trim() : _bankHolderNameController.text.trim();
-
     _mode = selectedAccount!.mode;
 
     final int requestedAmount = int.tryParse(_amountController.text.trim()) ?? 0;
@@ -757,8 +573,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
         qrId: selectedQrCode!.qrId,
         preAmount: requestedAmount.toDouble(),
       );
-
-      // print(preview);
 
       if (preview == null) {
         await showResultDialog(
@@ -779,7 +593,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
           final commissionRate = preview['commissionRate'] ?? 0;
           final commissionPaise = preview['commissionPaise'] ?? 0;
           final overheadPaise = preview['overheadPaise'] ?? 0;
-          // final available = preview['amountAvailableForWithdrawal'] ?? 0;
           final available = preview['amountAvailableForWithdrawal'] ?? 0;
           final required = preview['withdrawalToCheck'] ?? 0;
 
@@ -800,20 +613,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
       final double commissionPercent = preview['commissionRate'];
       final int commissionAmount = preview['commissionRs'];
       final int netWithdrawalAmount = requestedAmount + commissionAmount;
-
-      // Optional: show error details (like excess amounts) if provided
-      if (preview.containsKey('error') && preview['error'].contains('exceeds')) {
-        await showResultDialog(
-          context,
-          title: "❌ Error",
-          message: preview['error'] +
-              "\nRequested: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(requestedAmount)}" +
-              "\nAvailable: ₹${CurrencyUtils.formatIndianCurrencyWithoutSign(preview['amountAvailable'])}",
-          success: false,
-        );
-        setState(() => _isSubmitting = false);
-        return;
-      }
 
       final bool? proceed = await showDialog<bool>(
         context: context,
@@ -845,7 +644,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
         },
       );
 
-      if (!proceed!) {
+      if (proceed != true) {
         setState(() => _isSubmitting = false);
         return;
       }
@@ -897,18 +696,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     }
   }
 
-  // int checkCanWithdraw(QrCode qr){
-  //   final int availableRupeesInt = ((selectedQrCode?.amountAvailableForWithdrawal ?? 0) / 100.0).floor();
-  //   int withdrawAmount = availableRupeesInt - (minWithdrawalAmount + overheadBalanceRequired);
-  //   if(withdrawAmount >= 0){
-  //     return (availableRupeesInt - (withdrawAmount + overheadBalanceRequired));
-  //   }
-  //   return -1;
-  // }
-
   int maxWithdrawableRupees(QrCode qr) {
-    // Assuming amountAvailableForWithdrawal is in paise (int)
-    // final int availablePaise = qr.amountAvailableForWithdrawal ?? 0;
     final int availablePaise = qr.canWithdrawToday() ?? 0;
     // Convert paise -> rupees using integer division (truncate paise)
     final int availableRupees = availablePaise ~/ 100; // integer division [web:142]
@@ -927,7 +715,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     return capped.clamp(minWithdrawalAmount, hardCap);
   }
 
-  @override
   @override
   Widget build(BuildContext context) {
     return ScaffoldMessenger(
@@ -1038,8 +825,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                             isDense: true,
                             prefixIcon: const Icon(Icons.payments_outlined),
                             // helperText: selectedQrCode == null
-                            //     ? 'Select a QR first to see limits'
-                            //     : 'Min: ₹$minWithdrawalAmount • Max: ₹$maxWithdrawalAmount • Overhead: ₹$overheadBalanceRequired',
                             helperText: selectedQrCode == null
                                 ? 'Select QR first'
                                 : selectedAccount == null
@@ -1055,18 +840,11 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                             if (amount == null || amount <= 0) {
                               return 'Enter a valid amount (positive integer rupees)';
                             }
-                            // final int availableRupees = ((selectedQrCode?.amountAvailableForWithdrawal ?? 0) / 100.0).floor();
                             final int availableRupees = ((selectedQrCode?.canWithdrawToday() ?? 0) / 100.0).floor();
 
                             if (availableRupees < 0) return 'Balance is negative: ₹$availableRupees';
                             if (amount < minWithdrawalAmount) return 'Minimum allowed: ₹$minWithdrawalAmount';
                             if (amount > maxWithdrawalAmount) return 'Maximum allowed: ₹$maxWithdrawalAmount';
-
-                            // final int maxWithdrawableWithOverhead = (availableRupees - overheadBalanceRequired).clamp(0, availableRupees);
-                            // if ((amount + overheadBalanceRequired) > availableRupees) {
-                            //   final int extraReq = (amount + overheadBalanceRequired - availableRupees).clamp(1, overheadBalanceRequired);
-                            //   return 'Short by ₹$extraReq. Max withdrawable now: ₹$maxWithdrawableWithOverhead';
-                            // }
                             if (amount > availableRupees) {
                               return 'Requested amount: ₹$amount exceeds available: ₹$availableRupees';
                             }
@@ -1085,159 +863,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                     ),
                   ),
                 ),
-
-                const SizedBox(height: 12),
-
-                // // Method section
-                // Card(
-                //   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                //   child: Padding(
-                //     padding: const EdgeInsets.all(14),
-                //     child: Column(
-                //       crossAxisAlignment: CrossAxisAlignment.start,
-                //       children: [
-                //         Row(children: const [
-                //           Icon(Icons.swap_horiz_rounded, size: 18, color: Colors.blueGrey),
-                //           SizedBox(width: 8),
-                //           Text('Withdrawal Method', style: TextStyle(fontWeight: FontWeight.w600)),
-                //         ]),
-                //         const SizedBox(height: 10),
-                //         Wrap(
-                //           spacing: 12,
-                //           children: [
-                //             ChoiceChip(
-                //               label: const Text('UPI'),
-                //               selected: _mode == 'upi',
-                //               onSelected: (val) => val ? setState(() => _mode = 'upi') : null,
-                //             ),
-                //             ChoiceChip(
-                //               label: const Text('Bank'),
-                //               selected: _mode == 'bank',
-                //               onSelected: (val) => val ? setState(() => _mode = 'bank') : null,
-                //             ),
-                //           ],
-                //         ),
-                //         const SizedBox(height: 8),
-                //         Text(
-                //           _mode == 'upi'
-                //               ? 'UPI is usually faster. Ensure UPI ID and name match the bank records.'
-                //               : 'Bank transfer may take longer. Ensure IFSC and account details are correct.',
-                //           style: const TextStyle(fontSize: 12, color: Colors.grey),
-                //         ),
-                //       ],
-                //     ),
-                //   ),
-                // ),
-
-                // const SizedBox(height: 12),
-                //
-                // // UPI fields
-                // if (_mode == 'upi')
-                //   Card(
-                //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                //     child: Padding(
-                //       padding: const EdgeInsets.all(14),
-                //       child: Column(
-                //         crossAxisAlignment: CrossAxisAlignment.start,
-                //         children: [
-                //           Row(children: const [
-                //             Icon(Icons.account_circle_outlined, size: 18, color: Colors.blueGrey),
-                //             SizedBox(width: 8),
-                //             Text('UPI Details', style: TextStyle(fontWeight: FontWeight.w600)),
-                //           ]),
-                //           const SizedBox(height: 10),
-                //           TextFormField(
-                //             controller: _upiIdController,
-                //             decoration: const InputDecoration(
-                //               labelText: 'UPI ID',
-                //               hintText: 'name@bank',
-                //               border: OutlineInputBorder(),
-                //               isDense: true,
-                //               prefixIcon: Icon(Icons.alternate_email),
-                //               helperText: 'Example: username@okaxis · Avoid spaces',
-                //             ),
-                //             validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter UPI ID' : null,
-                //           ),
-                //           const SizedBox(height: 10),
-                //           TextFormField(
-                //             controller: _upiHolderNameController,
-                //             decoration: const InputDecoration(
-                //               labelText: 'Account Holder Name',
-                //               border: OutlineInputBorder(),
-                //               isDense: true,
-                //               prefixIcon: Icon(Icons.badge_outlined),
-                //             ),
-                //             validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter holder name' : null,
-                //           ),
-                //         ],
-                //       ),
-                //     ),
-                //   ),
-                //
-                // // Bank fields
-                // if (_mode == 'bank')
-                //   Card(
-                //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                //     child: Padding(
-                //       padding: const EdgeInsets.all(14),
-                //       child: Column(
-                //         crossAxisAlignment: CrossAxisAlignment.start,
-                //         children: [
-                //           Row(children: const [
-                //             Icon(Icons.account_balance_outlined, size: 18, color: Colors.blueGrey),
-                //             SizedBox(width: 8),
-                //             Text('Bank Details', style: TextStyle(fontWeight: FontWeight.w600)),
-                //           ]),
-                //           const SizedBox(height: 10),
-                //           TextFormField(
-                //             controller: _accountNumberController,
-                //             decoration: const InputDecoration(
-                //               labelText: 'Bank Account Number',
-                //               border: OutlineInputBorder(),
-                //               isDense: true,
-                //               prefixIcon: Icon(Icons.numbers),
-                //             ),
-                //             validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter account number' : null,
-                //           ),
-                //           const SizedBox(height: 10),
-                //           TextFormField(
-                //             controller: _ifscCodeController,
-                //             textCapitalization: TextCapitalization.characters,
-                //             decoration: const InputDecoration(
-                //               labelText: 'IFSC Code',
-                //               hintText: 'e.g., HDFC0001234',
-                //               border: OutlineInputBorder(),
-                //               isDense: true,
-                //               prefixIcon: Icon(Icons.qr_code_2_outlined),
-                //               helperText: '11 characters · 4 letters + 0 + 6 digits',
-                //             ),
-                //             validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter IFSC code' : null,
-                //           ),
-                //           const SizedBox(height: 10),
-                //           TextFormField(
-                //             controller: _bankHolderNameController,
-                //             decoration: const InputDecoration(
-                //               labelText: 'Account Holder Name',
-                //               border: OutlineInputBorder(),
-                //               isDense: true,
-                //               prefixIcon: Icon(Icons.person_outline),
-                //             ),
-                //             validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter holder name' : null,
-                //           ),
-                //           const SizedBox(height: 10),
-                //           TextFormField(
-                //             controller: _bankNameController,
-                //             decoration: const InputDecoration(
-                //               labelText: 'Bank Name (optional)',
-                //               border: OutlineInputBorder(),
-                //               isDense: true,
-                //               prefixIcon: Icon(Icons.account_balance),
-                //             ),
-                //           ),
-                //         ],
-                //       ),
-                //     ),
-                //   ),
 
                 const SizedBox(height: 20),
 
@@ -1263,7 +888,6 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
   }
 
   Widget selectedAccountUI(WithdrawalAccount selectedAccount){
-    // ✅ Selected Account Card (add after Selected QR Card in build())
       return Card(
         margin: const EdgeInsets.symmetric(vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1334,7 +958,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                       label: selectedAccount.mode == 'upi' ? 'UPI ID' : 'Account',
                       value: selectedAccount.mode == 'upi'
                           ? (selectedAccount.upiId ?? '')
-                          : (selectedAccount.accountNumber ?? ''), // ✅ Full number
+                          : (selectedAccount.accountNumber ?? ''),
                     ),
                   ),
 

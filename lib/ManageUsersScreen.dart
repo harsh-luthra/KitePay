@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'package:flutter/foundation.dart';
 import 'package:admin_qr_manager/AppConstants.dart';
 import 'package:admin_qr_manager/AppWriteService.dart';
 import 'package:admin_qr_manager/MyMetaApi.dart';
@@ -81,12 +81,11 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll); // PAGINATION listener
-    // loadUserMeta();
+    _scrollController.addListener(_onScroll);
     userMeta = MyMetaApi.current!;
 
     if (userMeta.role.toLowerCase() == 'employee') {
-      _roleFilter = RoleFilter.all; // Use "All" but scoped to assigned
+      _roleFilter = RoleFilter.all;
     } else if (userMeta.role.toLowerCase() == 'subadmin') {
       _roleFilter = RoleFilter.users;
     } else {
@@ -95,7 +94,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
     _fetchUsers(firstLoad: true);
 
-    if (userMeta.role == 'admin') {
+    if (userMeta.role.toLowerCase() == 'admin') {
       loadTodayCommissions();
     }
   }
@@ -467,8 +466,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
     final jwtToken = await AppWriteService().getJWT();
 
-    // print("UNsassign call 1");
-    // Show loader
     if (rootNavigatorKey.currentContext != null) {
       showDialog(
         context: rootNavigatorKey.currentContext!,
@@ -479,7 +476,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     }
 
     try {
-      // print("UNsassign call 2");
       await UsersService.assignMerchantToEmployee(
         unAssign: true,
         subAdminId: subAdminId,
@@ -534,8 +530,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     );
     if (confirm != true) return;
 
-    print("UNsassign call 1");
-    // Show loader
     showDialog(
       context: pageContext,
       barrierDismissible: false,
@@ -545,7 +539,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
     try {
       final jwtToken = await AppWriteService().getJWT();
-      print("UNsassign call 2");
       await UsersService.assignUserToSubAdmin(
         unAssign: true,
         subAdminId: subadminId,
@@ -571,16 +564,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     }
   }
 
-  Future<void> loadUserMeta() async {
-    userMeta = MyMetaApi.current!;
-    print(userMeta.toString());
-    // String jwtToken = await AppWriteService().getJWT();
-    // userMeta = (await MyMetaApi.getMyMetaData(
-    //       jwtToken: jwtToken,
-    //       refresh: false, // set true to force re-fetch
-    //     ))!;
-  }
-
   Future<void> _fetchUsers({bool firstLoad = false}) async {
     if (loadingMore && !firstLoad) return;
     if (!hasMore && !firstLoad) return;
@@ -599,20 +582,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         cursor: nextCursor,
         jwtToken: await AppWriteService().getJWT(),
       );
-
-      // final jwt = await AppWriteService().getJWT();
-      // final fetched;
-      // if (userMeta.role.toLowerCase() == 'employee') {
-      //   // New: Fetch only assigned (direct + under merchants)
-      //   fetched = await UsersService.listUsersForEmployee(
-      //     employeeId: userMeta.id,
-      //     cursor: nextCursor,
-      //     jwtToken: jwt,
-      //   );
-      // } else {
-      //   // Existing global fetch
-      //   fetched = await UsersService.listUsers(cursor: nextCursor, jwtToken: jwt);
-      // }
 
       if (firstLoad) {
         _users = fetched.appUsers.toList();
@@ -634,7 +603,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         hasMore = false;
       }
 
-      print("$nextCursor    $hasMore");
+      debugPrint("cursor: $nextCursor, hasMore: $hasMore");
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('❌ Failed to fetch users: $e')),
@@ -955,11 +924,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                                         normalizedLabel,
                                       )) {
                                         tempLabels.add(normalizedLabel);
-                                        // print('✅ Added: $normalizedLabel');
                                       }
                                     } else {
                                       tempLabels.remove(normalizedLabel);
-                                      // print('🗑️ Removed: $normalizedLabel');
                                     }
                                   });
                                 },
@@ -1015,7 +982,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
                     try {
                       final jwt = await AppWriteService().getJWT();
-                      // print('labelsChanged $tempLabels');
                       await UsersService.editUser(
                         user.id,
                         jwt,
@@ -1502,10 +1468,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   List<AppUser> _usersUnder(String subadminId, List<AppUser> xs) =>
       _usersOnly(xs).where((u) => u.parentId == subadminId).toList();
 
-  Widget buildUserTile(AppUser u) => _buildUserItemCard(context, u);
-
-  Widget buildSubadminTile(AppUser sa) => _buildUserItemCard(context, sa);
-
   Widget _makeGroupTile({
     required String id,
     required String title,
@@ -1565,7 +1527,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   radius: 16,
                   backgroundColor: Colors.blue.shade50,
                   child: Text(
-                    (user.name.isNotEmpty ?? false)
+                    user.name.isNotEmpty
                         ? user.name.substring(0, 1).toUpperCase()
                         : 'U',
                     style: const TextStyle(
@@ -1630,7 +1592,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     'Parent',
                     (user.parentId == null || user.parentId!.isEmpty)
                         ? 'Admin'
-                        : 'Sub-Admin',
+                        : getAppUserNameEmail(user.parentId)!,
                   ),
                 _infoToken(Icons.badge_outlined, 'Role', user.role),
                 if (user.role != 'employee' && user.role != 'admin')
@@ -1684,11 +1646,13 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
             if (user.role == 'subadmin' && userMeta.role == 'admin')
             Row(
               children: [
-                  _infoToken(
+                Flexible(
+                  child: _infoToken(
                     Icons.supervised_user_circle,
-                    'Assigned-To: ',
-                    getAppUserNameEmail(user.assigned_to)!,
+                    'Assigned-To',
+                    getAppUserNameEmail(user.assigned_to) ?? 'None',
                   ),
+                ),
                 if (userMeta.role == 'admin')
                   _iconBtn(Icons.replay_circle_filled, "Change Employee Assignment", () {
                     assignMerchantToEmployee(context, user.id);
@@ -1719,7 +1683,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   ],
                   const Spacer(),
                   if (user.role != 'admin')
-                    Wrap(
+                    Flexible(
+                      child: Wrap(
                       spacing: 6,
                       children: [
                         if (user.role == 'user' &&
@@ -1882,6 +1847,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
                       ],
                     ),
+                    ),
                 ],
               ),
           ],
@@ -1975,52 +1941,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       icon: Icon(icon, size: 20, color: color ?? Colors.blue),
       splashRadius: 20,
     );
-  }
-
-  Widget _buildStatusBadge(bool status) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: status ? Colors.green.shade100 : Colors.red.shade100,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        status ? "Active" : "Inactive",
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: status ? Colors.green : Colors.red,
-        ),
-      ),
-    );
-  }
-
-  Widget userRoleIcon({required String role, String? parentId}) {
-    final r = role.toUpperCase();
-    if (r == 'ADMIN') {
-      return const Icon(Icons.shield, color: Colors.red);
-    }
-    if (r == 'SUBADMIN') {
-      return const Icon(Icons.manage_accounts, color: Colors.orange);
-    }
-    // USER (or anything else)
-    final isAssigned = parentId != null && parentId.isNotEmpty;
-    return Icon(
-      isAssigned ? Icons.person_add : Icons.person_outline,
-      color: isAssigned ? Colors.green : Colors.blueGrey,
-    );
-  }
-
-  Widget roleIcon(String role) {
-    switch (role.toUpperCase()) {
-      case 'ADMIN':
-        return const Icon(Icons.shield, color: Colors.red);
-      case 'SUBADMIN':
-        return const Icon(Icons.manage_accounts, color: Colors.orange);
-      case 'USER':
-      default:
-        return const Icon(Icons.person, color: Colors.blue);
-    }
   }
 
   void _confirmAndToggleUserStatus(

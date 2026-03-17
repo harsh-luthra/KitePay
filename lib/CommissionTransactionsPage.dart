@@ -1,6 +1,3 @@
-// ===== UI Page =====
-import 'dart:async';
-
 import 'package:admin_qr_manager/UsersService.dart';
 import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:admin_qr_manager/widget/CommissionCard.dart';
@@ -21,6 +18,8 @@ class CommissionTransactionsPage extends StatefulWidget {
 }
 
 class _CommissionTransactionsPageState extends State<CommissionTransactionsPage> {
+  bool get _isAdmin => widget.userMeta.role.toLowerCase() == 'admin';
+
   // Data
   final List<Commission> _items = [];
   String? _nextCursor;
@@ -30,14 +29,9 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
 
   // Filters
   final TextEditingController _userIdCtrl = TextEditingController();
-  final TextEditingController _sourceIdCtrl = TextEditingController();
-  final TextEditingController _searchCtrl = TextEditingController();
-  final TextEditingController _minAmtCtrl = TextEditingController();
-  final TextEditingController _maxAmtCtrl = TextEditingController();
   DateTime? _fromDate;
   DateTime? _toDate;
-  String? _earningType; // null | 'admin' | 'subadmin'
-  String _searchField = 'userId'; // 'userId' | 'sourceWithdrawalId'
+  String? _earningType;
   final int _limit = 25;
 
   List<AppUser> _subadmins = [];
@@ -52,8 +46,8 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
     if (widget.initialUserId != null) {
       _userIdCtrl.text = widget.initialUserId!;
     }
-    if(widget.userMeta.role == "admin"){
-      _loadSubadmins(); // load dropdown options
+    if (_isAdmin) {
+      _loadSubadmins();
     }
     _fetch(firstLoad: true);
   }
@@ -61,10 +55,6 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
   @override
   void dispose() {
     _userIdCtrl.dispose();
-    _sourceIdCtrl.dispose();
-    _searchCtrl.dispose();
-    _minAmtCtrl.dispose();
-    _maxAmtCtrl.dispose();
     super.dispose();
   }
 
@@ -75,12 +65,11 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
       final list = await UsersService.listSubAdmins(jwt);
       setState(() {
         _subadmins = list;
-        // If existing userId matches one, preselect:
         if (_userIdCtrl.text.isNotEmpty) {
-          _selectedSubadmin = _subadmins.firstWhere(
-                (u) => u.id == _userIdCtrl.text.trim(),
-            orElse: () => _selectedSubadmin ?? (list.isNotEmpty ? list.first : null) as AppUser,
-          );
+          final match = _subadmins.where((u) => u.id == _userIdCtrl.text.trim());
+          _selectedSubadmin = match.isNotEmpty
+              ? match.first
+              : (_selectedSubadmin ?? (list.isNotEmpty ? list.first : null));
         }
       });
     } catch (e) {
@@ -156,14 +145,6 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
     });
   }
 
-  int? _toPaise(String s) {
-    if (s.trim().isEmpty) return null;
-    final n = num.tryParse(s.trim());
-    if (n == null) return null;
-    return (n * 100).round();
-    // If inputs are already paise, remove *100
-  }
-
   Future<void> _fetch({bool firstLoad = false}) async {
     if (_loading || _loadingMore) return;
     if (!firstLoad && (!_hasMore || _nextCursor == null)) return;
@@ -181,15 +162,10 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
       final page = await CommissionService.fetchCommissions(
         userId: _userIdCtrl.text.isEmpty ? null : _userIdCtrl.text.trim(),
         earningType: _earningType,
-        sourceWithdrawalId: _sourceIdCtrl.text.isEmpty ? null : _sourceIdCtrl.text.trim(),
-        minAmount: _toPaise(_minAmtCtrl.text),
-        maxAmount: _toPaise(_maxAmtCtrl.text),
         from: _fromDate,
         to: _toDate,
         cursor: firstLoad ? null : _nextCursor,
         limit: _limit,
-        searchField: _searchCtrl.text.isEmpty ? null : _searchField,
-        searchValue: _searchCtrl.text.isEmpty ? null : _searchCtrl.text.trim(),
         jwtToken: jwt,
       );
 
@@ -255,7 +231,7 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
               spacing: 12,
               runSpacing: 12,
               children: [
-                if(widget.userMeta.role == "admin")
+                if (_isAdmin)
                   SizedBox(
                     width: 230,
                     child: DropdownButtonFormField<String>(
@@ -269,8 +245,8 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
                       decoration: const InputDecoration(border: OutlineInputBorder()),
                     ),
                   ),
-                if(widget.userMeta.role == "admin" && _earningType == 'subAdmin')
-                SizedBox(
+                if (_isAdmin && _earningType == 'subAdmin')
+                  SizedBox(
                   width: 320,
                   child: _loadingSubadmins
                       ? const Center(child: LinearProgressIndicator())
@@ -296,73 +272,6 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
                     ),
                   ),
                 ),
-                // SizedBox(
-                //   width: 280,
-                //   child: TextField(
-                //     controller: _sourceIdCtrl,
-                //     decoration: const InputDecoration(
-                //       labelText: 'Source Withdrawal ID',
-                //       border: OutlineInputBorder(),
-                //     ),
-                //   ),
-                // ),
-                // SizedBox(
-                //   width: 180,
-                //   child: TextField(
-                //     controller: _minAmtCtrl,
-                //     keyboardType: TextInputType.number,
-                //     decoration: const InputDecoration(
-                //       labelText: 'Min Amount (₹)',
-                //       border: OutlineInputBorder(),
-                //     ),
-                //   ),
-                // ),
-                // SizedBox(
-                //   width: 180,
-                //   child: TextField(
-                //     controller: _maxAmtCtrl,
-                //     keyboardType: TextInputType.number,
-                //     decoration: const InputDecoration(
-                //       labelText: 'Max Amount (₹)',
-                //       border: OutlineInputBorder(),
-                //     ),
-                //   ),
-                // ),
-                // SizedBox(
-                //   width: 220,
-                //   child: DropdownButtonFormField<String>(
-                //     value: _searchField,
-                //     items: const [
-                //       DropdownMenuItem(value: 'userId', child: Text('Search field: userId')),
-                //       DropdownMenuItem(value: 'sourceWithdrawalId', child: Text('Search field: sourceWithdrawalId')),
-                //     ],
-                //     onChanged: (v) => setState(() => _searchField = v ?? 'userId'),
-                //     decoration: const InputDecoration(border: OutlineInputBorder()),
-                //   ),
-                // ),
-                // SizedBox(
-                //   width: 260,
-                //   child: TextField(
-                //     controller: _searchCtrl,
-                //     decoration: const InputDecoration(
-                //       labelText: 'Search value',
-                //       border: OutlineInputBorder(),
-                //     ),
-                //   ),
-                // ),
-                // SizedBox(
-                //   width: 180,
-                //   child: DropdownButtonFormField<int>(
-                //     value: _limit,
-                //     items: const [
-                //       DropdownMenuItem(value: 10, child: Text('Limit: 10')),
-                //       DropdownMenuItem(value: 25, child: Text('Limit: 25')),
-                //       DropdownMenuItem(value: 50, child: Text('Limit: 50')),
-                //     ],
-                //     onChanged: (v) => setState(() => _limit = v ?? 25),
-                //     decoration: const InputDecoration(border: OutlineInputBorder()),
-                //   ),
-                // ),
                 Row(
                   children: [
                     SizedBox(
@@ -405,12 +314,7 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
                   onPressed: () {
                     setState(() {
                       _userIdCtrl.clear();
-                      _sourceIdCtrl.clear();
-                      _searchCtrl.clear();
-                      _minAmtCtrl.clear();
-                      _maxAmtCtrl.clear();
                       _earningType = null;
-                      _searchField = 'userId';
                       _fromDate = null;
                       _toDate = null;
                       _nextCursor = null;
@@ -429,11 +333,6 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
         ),
       ),
     );
-  }
-
-  String _fmtRupees(int paise) {
-    final rupees = paise / 100.0;
-    return NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(rupees);
   }
 
   Widget _row(Commission c) {
@@ -498,9 +397,8 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
                 itemBuilder: (context, index) {
                   if (index < _items.length) return _row(_items[index]);
 
-                  // Load-more sentinel
                   if (!_loadingMore) {
-                    scheduleMicrotask(() => _fetch(firstLoad: false));
+                    WidgetsBinding.instance.addPostFrameCallback((_) => _fetch(firstLoad: false));
                   }
                   return const Padding(
                     padding: EdgeInsets.all(16),
