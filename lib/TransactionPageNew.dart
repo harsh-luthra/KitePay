@@ -1338,7 +1338,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                 itemCount: transactions.length + (loadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index < transactions.length) {
-                      return (userMeta.role == 'admin' || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.editTransactions))) ? TransactionCard(
+                      return (userMeta.role == 'admin' || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.editTransactions))) ?
+                      TransactionCard(
                           compactMode: compactMode,
                           txn: transactions[index],
                           onEdit: (txn) => editTransaction(context, txn: txn),
@@ -1353,7 +1354,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                             ? (txn) => onTransactionImageDelete(context, txn: txn)
                             : null,
                           )
-                          : TransactionCard(txn: transactions[index], compactMode: compactMode,);
+                          : TransactionCard(txn: transactions[index], compactMode: compactMode, onViewProof: (txn) => viewTransactionImage(context, txn: txn, headerWidget: TransactionCard( compactMode: compactMode,
+                        txn: transactions[index],)),);
                   }
                   return const TransactionCardShimmer();
                 },

@@ -126,7 +126,7 @@ class TransactionCard extends StatelessWidget {
                       tooltip: 'Re Upload Image',
                       onPressed: () async => await onUploadImage?.call(txn),
                     ),
-                  if(txn.imageUrl != '')
+                  if(txn.imageUrl != '' && onDeleteImage != null)
                     IconButton(
                       icon: Icon(Icons.delete_forever_outlined , color: theme.colorScheme.error),
                       tooltip: 'Delete Image',
