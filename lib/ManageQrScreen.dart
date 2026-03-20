@@ -12,6 +12,7 @@ import 'dart:html' as html; // only works on Flutter web
 import 'package:http/http.dart' as http;
 
 import 'AppWriteService.dart';
+import 'ManualHoldPage.dart';
 import 'MyMetaApi.dart';
 import 'TransactionPageNew.dart';
 import 'UsersService.dart';
@@ -2040,6 +2041,21 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             tip: 'Change QR Code Image',
             onTap: () => _editQrCode(qrCode.qrId),
             color: Colors.blueAccent,
+          ),
+        action(
+            icon: Icons.lock_clock,
+            tip: widget.userMeta.role == "admin" ? 'Manual Hold / Release' : 'View Hold History',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ManualHoldPage(
+                  userMeta: widget.userMeta,
+                  qrCode: qrCode,
+                  assignedUser: qrCode.assignedUserId != null ? getUserById(qrCode.assignedUserId!) : null,
+                ),
+              ),
+            ),
+            color: Colors.orange,
           ),
         if (widget.userMode && qrCode.isActive)
           action(

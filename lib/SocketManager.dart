@@ -56,15 +56,17 @@ class SocketManager {
       return;
     }
 
-    _socket ??= IO.io(
-      url,
-      IO.OptionBuilder()
-          .setTransports(<String>['websocket'])
-          .setAuth({'token': jwt})
-          .enableReconnection()
-          .enableForceNew()
-          .build(),
-    );
+    final opts = IO.OptionBuilder()
+        .setTransports(<String>['websocket'])
+        .setAuth({'token': jwt})
+        .enableReconnection()
+        .enableForceNew()
+        .build();
+    // Fix: socket_io_client expects List<String> but build() produces List<dynamic>
+    if (opts['transports'] is List && opts['transports'] is! List<String>) {
+      opts['transports'] = (opts['transports'] as List).cast<String>();
+    }
+    _socket ??= IO.io(url, opts);
 
     // Remove old listeners if reusing socket object across hot restarts
     if (_initialized) {

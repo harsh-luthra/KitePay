@@ -392,6 +392,84 @@ class QrCodeService {
     }
   }
 
+  /// Manual hold/release on a QR
+  Future<Map<String, dynamic>> manualHoldOnQr({
+    required String qrId,
+    required int amountPaise,
+    required String action, // 'hold' or 'release'
+    String? reason,
+    required String jwtToken,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/admin/manual-hold-on-qr'),
+        headers: {
+          'Authorization': 'Bearer $jwtToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'qrId': qrId,
+          'amountPaise': amountPaise,
+          'action': action,
+          'reason': reason,
+        }),
+      ).timeout(const Duration(seconds: 20));
+
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': body['message'] ?? 'Success', 'record': body['record']};
+      } else {
+        return {'success': false, 'error': body['error'] ?? 'Failed'};
+      }
+    } on TimeoutException {
+      return {'success': false, 'error': 'Request timed out'};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// Fetch manual hold history
+  Future<Map<String, dynamic>> getManualHoldHistory({
+    String? qrId,
+    String? userId,
+    String? cursor,
+    int limit = 25,
+    required String jwtToken,
+  }) async {
+    try {
+      final params = <String, String>{
+        'limit': limit.toString(),
+      };
+      if (qrId != null && qrId.isNotEmpty) params['qrId'] = qrId;
+      if (userId != null && userId.isNotEmpty) params['userId'] = userId;
+      if (cursor != null && cursor.isNotEmpty) params['cursor'] = cursor;
+
+      final uri = Uri.parse('$_baseUrl/admin/manual-hold-on-qr').replace(queryParameters: params);
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $jwtToken',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'records': body['records'] as List<dynamic>? ?? [],
+          'total': body['total'] ?? 0,
+          'nextCursor': body['nextCursor'],
+        };
+      } else {
+        return {'success': false, 'error': body['error'] ?? 'Failed to fetch'};
+      }
+    } on TimeoutException {
+      return {'success': false, 'error': 'Request timed out'};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   Future<bool> createAdminQrCode(String userId, String jwtToken) async {
     if (userId.isEmpty) return false;
 

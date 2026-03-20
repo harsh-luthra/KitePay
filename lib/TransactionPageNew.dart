@@ -1274,7 +1274,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         appBar: AppBar(
           title: Text(widget.userMode ? 'Transactions' : 'All Transactions'),
           actions: [
-            if((effectiveUserId != null || effectiveQrId != null) && cachedUser?.role == 'admin')
+            // if((effectiveUserId != null || effectiveQrId != null) && cachedUser?.role == 'admin')
+              if((effectiveUserId != null || effectiveQrId != null))
             IconButton(onPressed: loading ? null : _showDownloadDialog, icon: const Icon(Icons.download, size: 35,),),
 
             const SizedBox(width: 8),
@@ -1428,7 +1429,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     );
   }
 
-
   // 2. Call your existing API with current filters + maxTxns
   Future<void> _downloadExcel() async {
     // Show loading
@@ -1478,19 +1478,46 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
       if (context.mounted) Navigator.pop(context);  // close loading
 
+      print(response.statusCode);
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         _generateAndDownloadExcel(data['transactions']);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${response.body}')),
-        );
+        String errorMsg = 'Export failed';
+        try {
+          final body = jsonDecode(response.body);
+          errorMsg = body['error'] ?? errorMsg;
+        } catch (_) {}
+        if (context.mounted) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              icon: const Icon(Icons.error_outline, color: Colors.red, size: 40),
+              title: const Text('Export Failed'),
+              content: Text(errorMsg),
+              actions: [
+                FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+              ],
+            ),
+          );
+        }
       }
     } catch (e) {
       if (context.mounted) Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Download failed: $e')),
-      );
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.error_outline, color: Colors.red, size: 40),
+            title: const Text('Download Failed'),
+            content: Text(e.toString()),
+            actions: [
+              FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+            ],
+          ),
+        );
+      }
     }
   }
 

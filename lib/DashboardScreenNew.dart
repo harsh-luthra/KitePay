@@ -27,6 +27,7 @@ import 'DaywisePayinsPage.dart';
 import 'ManageApiMerchantsNew.dart';
 import 'ManageUsersScreen.dart';
 import 'ManageQrScreen.dart';
+import 'ManualHoldPage.dart';
 import 'ManageWithdrawalsNew.dart';
 import 'SocketManager.dart';
 import 'TransactionPageNew.dart';
@@ -266,6 +267,13 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         icon: Icons.developer_board,
         visibleFor: (labels) => checkRole('admin'),
         builder: (user) => ManageApiMerchantsNew(),
+      ),
+      _MenuItem(
+        id: 18,
+        label: 'QR Hold History',
+        icon: Icons.lock_clock,
+        visibleFor: (_) => !checkRole('employee'),
+        builder: (user) => ManualHoldPage(userMeta: widget.userMeta),
       ),
     ];
 
