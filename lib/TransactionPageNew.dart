@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:admin_qr_manager/AppConfig.dart';
 import 'package:admin_qr_manager/AppConstants.dart';
 import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:admin_qr_manager/widget/TransactionCard.dart';
@@ -1275,8 +1276,10 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
           title: Text(widget.userMode ? 'Transactions' : 'All Transactions'),
           actions: [
             // if((effectiveUserId != null || effectiveQrId != null) && cachedUser?.role == 'admin')
-              if((effectiveUserId != null || effectiveQrId != null))
-            IconButton(onPressed: loading ? null : _showDownloadDialog, icon: const Icon(Icons.download, size: 35,),),
+              if((effectiveUserId != null || effectiveQrId != null))...[
+                if(cachedUser?.role == 'admin' || AppConfig().transactionsExportsEnabled)
+                  IconButton(onPressed: loading ? null : _showDownloadDialog, icon: const Icon(Icons.download, size: 35,),),
+              ],
 
             const SizedBox(width: 8),
 
@@ -1477,8 +1480,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       });
 
       if (context.mounted) Navigator.pop(context);  // close loading
-
-      print(response.statusCode);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

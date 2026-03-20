@@ -26,6 +26,8 @@ class AppConfig {
 
   bool manualTxnPageEnabled = false;
 
+  bool transactionsExportsEnabled = false;
+
   void loadFromJson(Map<String, dynamic> json) {
     maxWithdrawalAmount = json['max_withdrawal_amount'] ?? maxWithdrawalAmount;
     minWithdrawalAmount = json['min_withdrawal_amount'] ?? minWithdrawalAmount;
@@ -42,6 +44,8 @@ class AppConfig {
     userCanEditWithdrawalAccounts = json['user_can_edit_withdrawal_accounts'] ?? userCanEditWithdrawalAccounts;
     txnImageSupport = json['txn_image_support'] ?? txnImageSupport;
     manualTxnPageEnabled = json['manual_txn_page_enabled'] ?? manualTxnPageEnabled;
+
+    transactionsExportsEnabled = json['exports_enabled'] ?? transactionsExportsEnabled;
 
     isLoaded = true;
   }
