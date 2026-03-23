@@ -56,10 +56,10 @@ class _ManualHoldPageState extends State<ManualHoldPage> {
   }
 
   Future<void> _fetchInitial() async {
+    await _loadRecords();
     if (!_isFromQrCard) {
       await _fetchUsersAndQrCodes();
     }
-    await _loadRecords();
   }
 
   Future<void> _fetchUsersAndQrCodes() async {

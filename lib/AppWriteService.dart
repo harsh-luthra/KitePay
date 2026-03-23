@@ -36,10 +36,10 @@ class AppWriteService {
   Future<bool> isLoggedIn() async {
     try {
       final user = await account.get();
-      debugPrint("User is logged in: ${user.email}");
+      if (kDebugMode) debugPrint("User is logged in: ${user.email}");
       return true;
     } on AppwriteException catch (e) {
-      debugPrint("User is not logged in: ${e.message}");
+      if (kDebugMode) debugPrint("User is not logged in: ${e.message}");
       return false;
     }
   }

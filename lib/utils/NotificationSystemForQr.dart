@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,6 +34,9 @@ class NotificationStore {
   int get count => _items.length;
   List<NotificationItem> get items => List.unmodifiable(_items);
 
+  Timer? _saveTimer;
+  bool _dirty = false;
+
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     final s = prefs.getString(_key);
@@ -43,21 +47,31 @@ class NotificationStore {
       ..addAll(list.map(NotificationItem.fromJson));
   }
 
-  Future<void> save() async {
+  Future<void> _persist() async {
+    if (!_dirty) return;
+    _dirty = false;
     final prefs = await SharedPreferences.getInstance();
     final s = jsonEncode(_items.map((e) => e.toJson()).toList());
     await prefs.setString(_key, s);
   }
 
+  void _scheduleSave() {
+    _dirty = true;
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(seconds: 2), _persist);
+  }
+
   Future<void> add(NotificationItem it) async {
-    // de-dup by id+timestamp if desired
     _items.insert(0, it);
     if (_items.length > _cap) _items.removeRange(_cap, _items.length);
-    await save();
+    _scheduleSave();
   }
 
   Future<void> clear() async {
     _items.clear();
-    await save();
+    _saveTimer?.cancel();
+    _dirty = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_key, '[]');
   }
 }

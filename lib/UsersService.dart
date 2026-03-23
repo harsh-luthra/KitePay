@@ -142,16 +142,16 @@ class UsersService {
       // Optional: log server error message if present
       try {
         final body = jsonDecode(resp.body);
-        debugPrint('Create user failed: ${body['error'] ?? body}');
+        if (kDebugMode) debugPrint('Create user failed: ${body['error'] ?? body}');
       } catch (_) {
-        debugPrint('Create user failed: ${resp.statusCode} ${resp.body}');
+        if (kDebugMode) debugPrint('Create user failed: ${resp.statusCode} ${resp.body}');
       }
       return false;
     } on TimeoutException {
-      debugPrint('Create user timed out');
+      if (kDebugMode) debugPrint('Create user timed out');
       return false;
     } catch (e) {
-      debugPrint('Create user exception: $e');
+      if (kDebugMode) debugPrint('Create user exception: $e');
       return false;
     }
   }
@@ -183,16 +183,16 @@ class UsersService {
       // Log server message if present
       try {
         final body = jsonDecode(resp.body);
-        debugPrint('Assign user failed: ${body['message'] ?? body['error'] ?? body}');
+        if (kDebugMode) debugPrint('Assign user failed: ${body['message'] ?? body['error'] ?? body}');
       } catch (_) {
-        debugPrint('Assign user failed: ${resp.statusCode} ${resp.body}');
+        if (kDebugMode) debugPrint('Assign user failed: ${resp.statusCode} ${resp.body}');
       }
       return false;
     } on TimeoutException {
-      debugPrint('Assign user timed out');
+      if (kDebugMode) debugPrint('Assign user timed out');
       return false;
     } catch (e) {
-      debugPrint('Assign user exception: $e');
+      if (kDebugMode) debugPrint('Assign user exception: $e');
       return false;
     }
   }
@@ -224,16 +224,16 @@ class UsersService {
       // Log server message if present
       try {
         final body = jsonDecode(resp.body);
-        debugPrint('Assign subadmin failed: ${body['message'] ?? body['error'] ?? body}');
+        if (kDebugMode) debugPrint('Assign subadmin failed: ${body['message'] ?? body['error'] ?? body}');
       } catch (_) {
-        debugPrint('Assign subadmin failed: ${resp.statusCode} ${resp.body}');
+        if (kDebugMode) debugPrint('Assign subadmin failed: ${resp.statusCode} ${resp.body}');
       }
       return false;
     } on TimeoutException {
-      debugPrint('Assign subadmin timed out');
+      if (kDebugMode) debugPrint('Assign subadmin timed out');
       return false;
     } catch (e) {
-      debugPrint('Assign subadmin exception: $e');
+      if (kDebugMode) debugPrint('Assign subadmin exception: $e');
       return false;
     }
   }

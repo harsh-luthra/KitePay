@@ -613,7 +613,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         hasMore = false;
       }
 
-      debugPrint("cursor: $nextCursor, hasMore: $hasMore");
+      if (kDebugMode) debugPrint("cursor: $nextCursor, hasMore: $hasMore");
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('Failed to fetch users: $e')),

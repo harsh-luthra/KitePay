@@ -25,19 +25,21 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _startCheck() async {
-    while (true) {
-      final connectivityResult = await Connectivity().checkConnectivity();
-      if (connectivityResult.contains(ConnectivityResult.none)) {
-        await _showNoInternetDialog();
-      } else {
-        break;
+    final connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult.contains(ConnectivityResult.none)) {
+      if (!mounted) return;
+      final shouldRetry = await _showNoInternetDialog();
+      if (shouldRetry) {
+        _startCheck();
+        return;
       }
     }
     _checkLogin();
   }
 
-  Future<void> _showNoInternetDialog() async {
-    await showDialog(
+  /// Returns true if user tapped Retry, false if they tapped Continue Offline.
+  Future<bool> _showNoInternetDialog() async {
+    final result = await showDialog<bool>(
       barrierDismissible: false,
       context: context,
       builder: (_) => AlertDialog(
@@ -45,19 +47,25 @@ class _SplashScreenState extends State<SplashScreen> {
         content: const Text('Please check your internet connection.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Continue Offline'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Retry'),
-          )
+          ),
         ],
       ),
     );
+    return result ?? false;
   }
 
   Future<void> _checkLogin() async {
     setState(() => _checking = true);
 
     try {
-      final user = await appwrite.account.get();
+      final user = await appwrite.account.get()
+          .timeout(const Duration(seconds: 10));
       if (!mounted) return;
 
       final jwtToken = await AppWriteService().getJWT();
@@ -69,12 +77,13 @@ class _SplashScreenState extends State<SplashScreen> {
 
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => DashboardScreenNew(user: user , userMeta: userMeta,)),
+        MaterialPageRoute(builder: (_) => DashboardScreenNew(user: user, userMeta: userMeta)),
             (route) => false,
       );
 
     } catch (e) {
-      // Not logged in → stay on login
+      if (!mounted) return;
+      // Not logged in or network failed → show login
       setState(() => _checking = false);
     }
   }

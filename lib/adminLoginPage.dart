@@ -1,5 +1,6 @@
 import 'package:admin_qr_manager/models/AppUser.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // ✅ for SystemNavigator
 import 'package:appwrite/appwrite.dart';
@@ -58,7 +59,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       }
     } catch (e) {
       // ✅ Silent auto-login failure is fine — user just stays on login screen
-      debugPrint('Auto-login check failed: $e');
+      if (kDebugMode) debugPrint('Auto-login check failed: $e');
     }
   }
 
@@ -139,7 +140,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         _moveToDashboard(user, userMeta);
       }
     } on AppwriteException catch (e) {
-      debugPrint('AppwriteException: ${e.message}');
+      if (kDebugMode) debugPrint('AppwriteException: ${e.message}');
 
       final msg = e.message ?? 'Login failed. Please try again.';
 
@@ -157,7 +158,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         _showErrorDialog(title: 'Login Failed', message: msg);
       }
     } catch (e) {
-      debugPrint('Unexpected error: $e');
+      if (kDebugMode) debugPrint('Unexpected error: $e');
       if (mounted) {
         _showErrorDialog(
           title: 'Error',

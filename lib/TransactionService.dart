@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:appwrite/appwrite.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'AppConstants.dart';
@@ -154,14 +155,7 @@ class TransactionService {
       ).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-        final List data = responseData['transactions'];
-        final String? nextCursor = responseData['nextCursor'];
-
-        return PaginatedTransactions(
-          transactions: data.map((e) => Transaction.fromJson(e)).toList(),
-          nextCursor: nextCursor,
-        );
+        return _parseTransactionsOffMain(response.body);
       } else {
         throw Exception('Failed to load transactions: ${response.body}');
       }
@@ -214,14 +208,7 @@ class TransactionService {
       ).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-        final List data = responseData['transactions'];
-        final String? nextCursor = responseData['nextCursor'];
-
-        return PaginatedTransactions(
-          transactions: data.map((e) => Transaction.fromJson(e)).toList(),
-          nextCursor: nextCursor,
-        );
+        return _parseTransactionsOffMain(response.body);
       } else {
         throw Exception('Failed to load user transactions: ${response.body}');
       }
@@ -230,6 +217,20 @@ class TransactionService {
     } catch (e) {
       return PaginatedTransactions(transactions: [], nextCursor: null);
     }
+  }
+
+  static Future<PaginatedTransactions> _parseTransactionsOffMain(String responseBody) {
+    return compute(_parseTransactions, responseBody);
+  }
+
+  static PaginatedTransactions _parseTransactions(String responseBody) {
+    final responseData = json.decode(responseBody);
+    final List data = responseData['transactions'];
+    final String? nextCursor = responseData['nextCursor'];
+    return PaginatedTransactions(
+      transactions: data.map((e) => Transaction.fromJson(e)).toList(),
+      nextCursor: nextCursor,
+    );
   }
 
   static Future<bool> uploadManualTransaction({

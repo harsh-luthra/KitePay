@@ -519,7 +519,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         setState(() => socketConnected = connected);
       }
       if(status == SocketStatus.connected || status == SocketStatus.reconnected){
-        debugPrint("Socket Connected");
+        if (kDebugMode) debugPrint("Socket Connected");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Realtime transactions connected')),
@@ -665,7 +665,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     });
 
     _forceRefreshAlertSub = SocketManager.instance.forceRefreshController.listen((event) async {
-      debugPrint("Refreshing Page");
+      if (kDebugMode) debugPrint("Refreshing Page");
 
       if(widget.userMeta.role != "admin"){
         if (kIsWeb) {
@@ -877,7 +877,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         }
       }
     } catch (e) {
-      debugPrint('Exception in Fetching App Config: $e');
+      if (kDebugMode) debugPrint('Exception in Fetching App Config: $e');
     }
   }
 
@@ -906,7 +906,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         );
 
       } catch (e) {
-        debugPrint('Logout failed: $e');
+        if (kDebugMode) debugPrint('Logout failed: $e');
         if (!mounted) return;
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Logout failed: ${e.toString()}')));

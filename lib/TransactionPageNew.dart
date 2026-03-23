@@ -7,6 +7,7 @@ import 'package:admin_qr_manager/widget/TransactionCard.dart';
 import 'package:admin_qr_manager/widget/TransactionCardShimmer.dart';
 import 'package:admin_qr_manager/widget/TransactionImageDialog.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/material.dart' as material;
 import 'package:flutter/services.dart';
@@ -80,6 +81,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   GlobalKey<ScaffoldMessengerState>();
 
   // PAGINATION
+  static const int _maxInMemoryTransactions = 500;
   String? nextCursor;
   bool hasMore = true;
   bool loadingMore = false;
@@ -223,6 +225,12 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     userMeta = meta;
 
     if (widget.userMode) {
+      await fetchUserTransactions();
+    } else {
+      await fetchTransactions(firstLoad: true);
+    }
+
+    if (widget.userMode) {
       if (widget.filterQrCodeId == null) {
         await fetchOnlyUserQrCodes();
       }
@@ -233,12 +241,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     }
 
     socketManagerConnect();
-
-    if (widget.userMode) {
-      await fetchUserTransactions();
-    } else {
-      await fetchTransactions(firstLoad: true);
-    }
 
     if (!mounted) return;
     setState(() => loading = false);
@@ -335,15 +337,12 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       if (firstLoad) {
         transactions = fetched.transactions.toList();
       } else {
-        final existingIds = transactions.map((t) => t.id).toSet();
-        final newOnes = fetched.transactions.where(
-              (t) => !existingIds.contains(t.id),
-        );
-        transactions.addAll(newOnes);
+        transactions = await _deduplicateAndMerge(transactions, fetched.transactions);
       }
 
       nextCursor = fetched.nextCursor;
-      hasMore = fetched.nextCursor != null;
+      hasMore = fetched.nextCursor != null &&
+          transactions.length < _maxInMemoryTransactions;
 
       applyFilters();
     } catch (e) {
@@ -386,15 +385,12 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       if (firstLoad) {
         transactions = fetched.transactions;
       } else {
-        final existingIds = transactions.map((t) => t.id).toSet();
-        final newOnes = fetched.transactions.where(
-              (t) => !existingIds.contains(t.id),
-        );
-        transactions.addAll(newOnes);
+        transactions = await _deduplicateAndMerge(transactions, fetched.transactions);
       }
 
       nextCursor = fetched.nextCursor;
-      hasMore = fetched.nextCursor != null;
+      hasMore = fetched.nextCursor != null &&
+          transactions.length < _maxInMemoryTransactions;
 
       applyFilters();
     } catch (e) {
@@ -519,6 +515,21 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         fetchTransactions();
       }
     }
+  }
+
+  static Future<List<Transaction>> _deduplicateAndMerge(
+    List<Transaction> existing,
+    List<Transaction> incoming,
+  ) {
+    return compute(_deduplicateMerge, [existing, incoming]);
+  }
+
+  static List<Transaction> _deduplicateMerge(List<List<Transaction>> args) {
+    final existing = args[0];
+    final incoming = args[1];
+    final existingIds = existing.map((t) => t.id).toSet();
+    final newOnes = incoming.where((t) => !existingIds.contains(t.id));
+    return [...existing, ...newOnes];
   }
 
   List<QrCode> get filteredQrCodes {
@@ -1342,24 +1353,26 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                 itemCount: transactions.length + (loadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index < transactions.length) {
+                      final txn = transactions[index];
                       return (userMeta.role == 'admin' || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.editTransactions))) ?
                       TransactionCard(
+                          key: ValueKey(txn.id),
                           compactMode: compactMode,
-                          txn: transactions[index],
+                          txn: txn,
                           onEdit: (txn) => editTransaction(context, txn: txn),
                           onDelete: (txn) => deleteTransaction(context, txn: txn),
                           onStatus: (txn) => changeTransactionStatus(context, txn: txn),
-                          onViewProof: (txn) => viewTransactionImage(context, txn: txn, headerWidget: TransactionCard( compactMode: compactMode,
-                            txn: transactions[index],)),
+                          onViewProof: (txn) => viewTransactionImage(context, txn: txn, headerWidget: TransactionCard(compactMode: compactMode,
+                            txn: txn)),
                           onUploadImage: userMeta.role == 'admin'
                             ? (txn) => onTransactionImageUpload(context, txn: txn)
-                            : null,  // Null disables the action in TransactionCard
-                          onDeleteImage: (userMeta.role == 'admin' && transactions[index].imageUrl != '')
+                            : null,
+                          onDeleteImage: (userMeta.role == 'admin' && txn.imageUrl != '')
                             ? (txn) => onTransactionImageDelete(context, txn: txn)
                             : null,
                           )
-                          : TransactionCard(txn: transactions[index], compactMode: compactMode, onViewProof: (txn) => viewTransactionImage(context, txn: txn, headerWidget: TransactionCard( compactMode: compactMode,
-                        txn: transactions[index],)),);
+                          : TransactionCard(key: ValueKey(txn.id), txn: txn, compactMode: compactMode, onViewProof: (txn) => viewTransactionImage(context, txn: txn, headerWidget: TransactionCard(compactMode: compactMode,
+                        txn: txn)),);
                   }
                   return const TransactionCardShimmer();
                 },

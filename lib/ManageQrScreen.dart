@@ -6,6 +6,7 @@ import 'package:admin_qr_manager/utils/CurrencyUtils.dart';
 import 'package:admin_qr_manager/widget/QrCardShimmer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:html' as html; // only works on Flutter web
@@ -1814,10 +1815,10 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
         a.remove();
         html.Url.revokeObjectUrl(obj);
       } else {
-        debugPrint('Download failed (${response.statusCode})');
+        if (kDebugMode) debugPrint('Download failed (${response.statusCode})');
       }
     } catch (e) {
-      debugPrint('Download error: $e');
+      if (kDebugMode) debugPrint('Download error: $e');
     }
   }
 
