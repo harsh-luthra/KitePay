@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Global theme notifier – toggle from anywhere via `themeNotifier.value = ...`
+final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.dark);
+
 void main() {
   runApp(const MyApp());
 }
@@ -76,14 +79,19 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: rootNavigatorKey,
-      debugShowCheckedModeBanner: false,
-      title: 'KitePay',
-      theme: _lightTheme(),
-      darkTheme: _darkTheme(),
-      themeMode: ThemeMode.system,
-      home: SplashScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (context, mode, _) {
+        return MaterialApp(
+          navigatorKey: rootNavigatorKey,
+          debugShowCheckedModeBanner: false,
+          title: 'KitePay',
+          theme: _lightTheme(),
+          darkTheme: _darkTheme(),
+          themeMode: mode,
+          home: SplashScreen(),
+        );
+      },
     );
   }
 }

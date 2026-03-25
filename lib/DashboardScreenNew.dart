@@ -1001,6 +1001,35 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
     );
   }
 
+  bool _themeAnimating = false;
+
+  /// Plays a full-screen sun/moon animation then toggles the theme.
+  void _playThemeToggleAnimation() {
+    if (_themeAnimating) return;
+    _themeAnimating = true;
+
+    final overlay = Overlay.of(context);
+    final isDark = themeNotifier.value == ThemeMode.dark;
+    final icon = isDark ? Icons.wb_sunny_rounded : Icons.nightlight_round;
+    final iconColor = isDark ? const Color(0xFFFFB300) : const Color(0xFFB0BEC5);
+
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (context) => _ThemeTransitionOverlay(
+        icon: icon,
+        iconColor: iconColor,
+        onSwitchTheme: () {
+          themeNotifier.value = isDark ? ThemeMode.light : ThemeMode.dark;
+        },
+        onDone: () {
+          entry.remove();
+          _themeAnimating = false;
+        },
+      ),
+    );
+    overlay.insert(entry);
+  }
+
   Widget _buildSidebar(bool collapsed, bool isDesktop) {
     final cs = Theme.of(context).colorScheme;
     final items = _visibleMenuItems;
@@ -1126,6 +1155,33 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                     ),
                   ),
 
+                // theme toggle
+                if (!collapsed)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0, left: 8, right: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ValueListenableBuilder<ThemeMode>(
+                            valueListenable: themeNotifier,
+                            builder: (context, mode, _) {
+                              final isDark = mode == ThemeMode.dark;
+                              return ElevatedButton.icon(
+                                icon: Icon(isDark ? Icons.wb_sunny_rounded : Icons.nightlight_round, size: 18),
+                                label: Text(isDark ? 'Light Mode' : 'Dark Mode'),
+                                onPressed: _playThemeToggleAnimation,
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 // bottom quick actions
                 if (!collapsed)
                   Padding(
@@ -1158,6 +1214,17 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
                         onPressed: () => setState(() => popUpENABLED = !popUpENABLED)),
                     IconButton(tooltip: 'TTS', icon: Icon(ttsENABLED ? Icons.volume_up : Icons.volume_off),
                         onPressed: () => setState(() => ttsENABLED = !ttsENABLED)),
+                    ValueListenableBuilder<ThemeMode>(
+                      valueListenable: themeNotifier,
+                      builder: (context, mode, _) {
+                        final isDark = mode == ThemeMode.dark;
+                        return IconButton(
+                          tooltip: isDark ? 'Light Mode' : 'Dark Mode',
+                          icon: Icon(isDark ? Icons.wb_sunny_rounded : Icons.nightlight_round),
+                          onPressed: _playThemeToggleAnimation,
+                        );
+                      },
+                    ),
                     IconButton(tooltip: 'Logout', icon: Icon(Icons.logout, color: Colors.redAccent,),
                         onPressed: () => _logout(context)),
                   ],
@@ -1245,6 +1312,18 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
               _bellIcon(context),
               const SizedBox(width: 12),
 
+              ValueListenableBuilder<ThemeMode>(
+                valueListenable: themeNotifier,
+                builder: (context, mode, _) {
+                  final isDark = mode == ThemeMode.dark;
+                  return IconButton(
+                    tooltip: isDark ? 'Light Mode' : 'Dark Mode',
+                    icon: Icon(isDark ? Icons.wb_sunny_rounded : Icons.nightlight_round),
+                    onPressed: _playThemeToggleAnimation,
+                  );
+                },
+              ),
+              const SizedBox(width: 4),
               IconButton(tooltip: 'Logout', onPressed: () => _logout(context), icon: const Icon(Icons.logout)),
             ],
           ),
@@ -1365,6 +1444,113 @@ class DialogSingleton {
     if (nav != null && nav.canPop()) {
       nav.pop();
     }
+  }
+}
+
+/// Full-screen overlay that animates a sun/moon icon from bottom → center (pause) → top,
+/// triggering the theme switch while the icon is in the center.
+class _ThemeTransitionOverlay extends StatefulWidget {
+  final IconData icon;
+  final Color iconColor;
+  final VoidCallback onSwitchTheme;
+  final VoidCallback onDone;
+
+  const _ThemeTransitionOverlay({
+    required this.icon,
+    required this.iconColor,
+    required this.onSwitchTheme,
+    required this.onDone,
+  });
+
+  @override
+  State<_ThemeTransitionOverlay> createState() => _ThemeTransitionOverlayState();
+}
+
+class _ThemeTransitionOverlayState extends State<_ThemeTransitionOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _position; // 0 = bottom, 0.5 = center, 1 = top
+  late final Animation<double> _opacity;
+  bool _themeSwitched = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Total duration: ~2.4s  (0.6s rise + 1.2s hold + 0.6s exit)
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 2400));
+
+    // Position: bottom(1.0) → center(0.5) → top(-0.2)
+    // 0%–25% rise to center, 25%–75% hold, 75%–100% exit to top
+    _position = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.2, end: 0.5).chain(CurveTween(curve: Curves.easeOut)), weight: 25),
+      TweenSequenceItem(tween: ConstantTween(0.5), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 0.5, end: -0.3).chain(CurveTween(curve: Curves.easeIn)), weight: 25),
+    ]).animate(_ctrl);
+
+    // Fade in quickly, stay, fade out at end
+    _opacity = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 15),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 65),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 20),
+    ]).animate(_ctrl);
+
+    _ctrl.addListener(() {
+      // Switch theme when the icon reaches center (~30% through)
+      if (!_themeSwitched && _ctrl.value >= 0.30) {
+        _themeSwitched = true;
+        widget.onSwitchTheme();
+      }
+    });
+
+    _ctrl.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        widget.onDone();
+      }
+    });
+
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        final screenH = MediaQuery.of(context).size.height;
+        final topOffset = _position.value * screenH;
+        return Positioned.fill(
+          child: IgnorePointer(
+            child: Stack(
+              children: [
+                // Semi-transparent scrim
+                Opacity(
+                  opacity: _opacity.value * 0.3,
+                  child: Container(color: Colors.black),
+                ),
+                // The icon
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: topOffset - 40, // center the 80px icon
+                  child: Opacity(
+                    opacity: _opacity.value,
+                    child: Center(
+                      child: Icon(widget.icon, size: 80, color: widget.iconColor),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 
