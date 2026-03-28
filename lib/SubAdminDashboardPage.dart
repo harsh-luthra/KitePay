@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'AppConstants.dart';
 import 'AppWriteService.dart';
 import 'utils/app_spacing.dart';
+import 'widget/ChangePasswordDialog.dart';
 import 'widget/dashboard_widgets.dart';
 
 class SubAdminDashboardPage extends StatefulWidget {
@@ -55,6 +56,11 @@ class _SubAdminDashboardPageState extends State<SubAdminDashboardPage> {
             ? 'Merchant Dashboard - ${widget.userMeta.email}'
             : 'Merchant Dashboard'),
         actions: [
+          IconButton(
+            tooltip: 'Change Password',
+            icon: const Icon(Icons.lock_reset),
+            onPressed: () => ChangePasswordDialog.show(context),
+          ),
           IconButton(
             tooltip: _showFullNumbers ? 'Show compact numbers' : 'Show full numbers',
             icon: Icon(_showFullNumbers ? Icons.filter_9_plus : Icons.filter_list),

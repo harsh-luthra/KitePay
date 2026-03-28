@@ -238,6 +238,29 @@ class UsersService {
     }
   }
 
+  static Future<void> resetPasswordOwn({
+    required String currentPassword,
+    required String newPassword,
+    required String jwtToken,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/admin/reset-password-own'),
+      headers: {
+        'Authorization': 'Bearer $jwtToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      final body = jsonDecode(response.body);
+      throw Exception(body['error'] ?? 'Failed to change password');
+    }
+  }
+
   static Future<void> resetPassword(String userId, String newPassword, String jwt) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/admin/reset-password/$userId'),

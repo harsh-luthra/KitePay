@@ -15,4 +15,5 @@ class AuthService {
   Future<models.User> getCurrentUser() async {
     return await _account.get();
   }
+
 }
