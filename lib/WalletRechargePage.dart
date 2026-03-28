@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:admin_qr_manager/utils/date_utils.dart';
 import 'package:admin_qr_manager/WalletService.dart';
 import 'package:admin_qr_manager/models/Wallet.dart';
 import 'package:admin_qr_manager/models/WalletTransaction.dart';
@@ -632,7 +633,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
                                         .toUpperCase(),
                                   ),
                                   subtitle: Text(
-                                    '${txn.status.toString().split('.').last.toUpperCase()} • ${DateFormat('MMM dd').format(txn.createdAt.toLocal())}',
+                                    '${txn.status.toString().split('.').last.toUpperCase()} • ${DateFormat('MMM dd').format(toIST(txn.createdAt))}',
                                   ),
                                   trailing: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,

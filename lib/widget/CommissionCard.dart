@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:admin_qr_manager/utils/date_utils.dart';
 
 import '/models/Commission.dart';
 
@@ -28,7 +29,7 @@ class CommissionCard extends StatelessWidget {
   @override
   @override
   Widget build(BuildContext context) {
-    final dateStr = DateFormat('dd MMM yyyy, hh:mm a').format(c.createdAt.toLocal());
+    final dateStr = DateFormat('dd MMM yyyy, hh:mm a').format(toIST(c.createdAt));
     final nameLine = (displayName?.isNotEmpty == true || displayEmail?.isNotEmpty == true)
         ? '${displayName ?? ''}${(displayName?.isNotEmpty == true && displayEmail?.isNotEmpty == true) ? ' • ' : ''}${displayEmail ?? ''}'
         : null;

@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/material.dart' as material;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:admin_qr_manager/utils/date_utils.dart';
 import 'AppWriteService.dart';
 import 'MyMetaApi.dart';
 import 'QRService.dart';
@@ -577,7 +578,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       text: (txn.amount / 100).toStringAsFixed(0),
     );
     final isoDateController = TextEditingController(
-      text: DateFormat('dd MMM yyyy, hh:mm a').format(txn.createdAt.toLocal()),
+      text: DateFormat('dd MMM yyyy, hh:mm a').format(toIST(txn.createdAt)),
     );
 
     String isoUtcValue = txn.createdAt.toUtc().toIso8601String();
@@ -599,7 +600,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     }
 
     Future<void> pickDateTime() async {
-      final initialLocal = txn.createdAt.toLocal();
+      final initialLocal = toIST(txn.createdAt);
       final pickedDate = await showDatePicker(
         context: context,
         initialDate: initialLocal,
@@ -621,7 +622,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         pickedTime.hour,
         pickedTime.minute,
       );
-      final utc = local.toUtc();
+      final utc = istToUtc(local);
       isoUtcValue = utc.toIso8601String();
       isoDateController.text = DateFormat('dd MMM yyyy, hh:mm a').format(local);
     }
@@ -1597,7 +1598,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     if (isoString.isEmpty) return '';
     try {
       final date = DateTime.parse(isoString);
-      return DateFormat('MMM dd, yyyy hh:mm a').format(date.toLocal());  // ✅ AM/PM
+      return DateFormat('MMM dd, yyyy hh:mm a').format(toIST(date));  // ✅ AM/PM
     } catch (e) {
       return isoString;
     }
@@ -1921,7 +1922,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     required VoidCallback onPick,
     required VoidCallback onClear,
   }) {
-    final text = date == null ? 'Pick $label' : DateFormat('yyyy-MM-dd').format(date.toLocal());
+    final text = date == null ? 'Pick $label' : DateFormat('yyyy-MM-dd').format(toIST(date));
     return InputChip(
       label: Text('$label: $text'),
       avatar: const Icon(Icons.date_range, size: 18),

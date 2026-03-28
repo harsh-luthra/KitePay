@@ -16,6 +16,7 @@ import 'package:flutter/services.dart';
 import 'package:appwrite/models.dart' show User;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:intl/intl.dart';
+import 'package:admin_qr_manager/utils/date_utils.dart';
 import 'package:number_to_indian_words/number_to_indian_words.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'AdminDashboardPage.dart';
@@ -569,7 +570,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         final updatedAt = (event['updatedAt'] ?? '') as String;
         String formattedDate = updatedAt;
         try {
-          final dt = DateTime.parse(updatedAt).toLocal();
+          final dt = toIST(DateTime.parse(updatedAt));
           formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(dt);
         } catch (_) {}
 

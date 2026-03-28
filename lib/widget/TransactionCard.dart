@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../models/Transaction.dart';
 import '../TransactionService.dart' show TxnStatus;
 import 'package:intl/intl.dart';
+import 'package:admin_qr_manager/utils/date_utils.dart';
 
 typedef TxnActionAsync = Future<void> Function(Transaction txn);
 
@@ -39,7 +40,7 @@ class TransactionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final date =
-    DateFormat('dd MMM yyyy, hh:mm a').format(txn.createdAt.toLocal());
+    DateFormat('dd MMM yyyy, hh:mm a').format(toIST(txn.createdAt));
     final status = txnStatusFromString(txn.status);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;

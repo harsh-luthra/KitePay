@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:admin_qr_manager/utils/date_utils.dart';
 
 import 'models/AppUser.dart';
 import 'models/QrCode.dart';
@@ -170,7 +171,7 @@ class _ManualHoldPageState extends State<ManualHoldPage> {
   String _formatDate(String? dateStr) {
     if (dateStr == null || dateStr.isEmpty) return '-';
     try {
-      final dt = DateTime.parse(dateStr);
+      final dt = toIST(DateTime.parse(dateStr));
       return DateFormat('dd MMM yyyy, hh:mm a').format(dt);
     } catch (_) {
       return dateStr;

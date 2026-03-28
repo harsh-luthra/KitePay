@@ -3,6 +3,7 @@ import 'package:admin_qr_manager/widget/ManualTransactionShimmer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:admin_qr_manager/utils/date_utils.dart';
 
 import 'AppWriteService.dart';
 import 'QRService.dart';
@@ -468,11 +469,11 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
       pickedTime.minute,
     );
 
-    // Convert local time to UTC for proper storage
-    final utcDateTime = localDateTime.toUtc();
+    // Convert IST time to UTC for proper storage
+    final utcDateTime = istToUtc(localDateTime);
 
     timeDateValue = utcDateTime.toIso8601String();
-    isoDateController.text = DateFormat('dd MMM yyyy, hh:mm a').format(localDateTime.toLocal());
+    isoDateController.text = DateFormat('dd MMM yyyy, hh:mm a').format(localDateTime);
   }
 
   List<QrCode> get filteredQrCodes {

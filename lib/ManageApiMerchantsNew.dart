@@ -3,6 +3,7 @@ import 'package:admin_qr_manager/widget/ApiMerchantCardShimmer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:admin_qr_manager/utils/date_utils.dart';
 
 import 'ApiMerchantsService.dart';
 import 'models/ApiMerchant.dart';
@@ -207,7 +208,7 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
                   _buildInfoRow('VPA', apiMerchant.vpa, copyable: true),
                   _buildInfoRow('Daily Limit', '${apiMerchant.dailyLimit} QRs'),
                   _buildInfoRow('Created', apiMerchant.createdAt != null
-                      ? DateFormat('dd MMM yyyy').format(DateTime.parse(apiMerchant.createdAt!))
+                      ? DateFormat('dd MMM yyyy').format(toIST(DateTime.parse(apiMerchant.createdAt!)))
                       : null),
                 ];
 

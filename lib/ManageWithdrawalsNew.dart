@@ -4,6 +4,7 @@ import 'package:admin_qr_manager/widget/WithdrawalCardShimmer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:admin_qr_manager/utils/date_utils.dart';
 
 import 'QRService.dart';
 import 'UsersService.dart';
@@ -328,7 +329,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
   }
 
   String formatToIST(String istDateTimeString) {
-    final dateTime = DateTime.parse(istDateTimeString);
+    final dateTime = toIST(DateTime.parse(istDateTimeString));
     return DateFormat('dd MMM yyyy, hh:mm a').format(dateTime);
   }
 
