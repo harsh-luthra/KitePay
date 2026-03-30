@@ -379,6 +379,15 @@ class _ManageApiMerchantsNewState extends State<ManageApiMerchantsNew> {
               },
             ),
             IconButton(
+              icon: const Icon(Icons.arrow_upward),
+              tooltip: 'Scroll to top',
+              onPressed: () {
+                if (_scrollController.hasClients) {
+                  _scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+                }
+              },
+            ),
+            IconButton(
               icon: const Icon(Icons.refresh),
               tooltip: 'Refresh',
               onPressed: _refresh,

@@ -24,6 +24,7 @@ import 'AppConfig.dart';
 import 'AppConstants.dart';
 import 'AppWriteService.dart';
 import 'CommissionSummaryBoardPage.dart';
+import 'ConfigManagerPage.dart';
 import 'DaywisePayinsPage.dart';
 import 'ManageApiMerchantsNew.dart';
 import 'ManageUsersScreen.dart';
@@ -147,6 +148,13 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
       ),
       _MenuItem(
         id: 1,
+        label: 'Config Manager',
+        icon: Icons.settings_applications,
+        visibleFor: (_) => checkRole('admin'),
+        builder: (_) => const ConfigManagerPage(),
+      ),
+      _MenuItem(
+        id: 2,
         label: 'Merchant Dashboard',
         icon: Icons.dashboard,
         visibleFor: (_) => checkRole('subadmin'),
@@ -224,7 +232,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         label: 'Daywise Pay-Ins',
         icon: Icons.bar_chart,
         visibleFor: (_) => !checkRole('employee'),
-        builder: (user) => DaywisePayinsPage(userMeta: widget.userMeta),
+        builder: (user) => DayWisePayinsPage(userMeta: widget.userMeta),
       ),
       _MenuItem(
         id: 11,

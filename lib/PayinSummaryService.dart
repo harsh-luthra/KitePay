@@ -28,7 +28,9 @@ class PayinSummaryService {
         'Authorization': 'Bearer $jwtToken',
         'Content-Type': 'application/json',
       },
-    ).timeout(const Duration(seconds: 10));
+    ).timeout(const Duration(seconds: 30));
+
+    // print(resp.body);
 
     if (resp.statusCode == 200) {
       final body = json.decode(resp.body) as Map<String, dynamic>;

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -18,6 +20,7 @@ class CommissionSummaryBoardPage extends StatefulWidget {
 
 class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage> {
   bool get _isAdmin => widget.userMeta.role.toLowerCase() == 'admin';
+  final ScrollController _scrollController = ScrollController();
 
   // Filters
   String _roleFilter = 'subadmin';
@@ -41,6 +44,7 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
   bool _showFilters = true;
   bool _expanded = false;
   bool _showZeroDays = false;
+  bool _showChart = true;
 
   // Results
   final Map<String, CommissionSummaryResult> _results = {};
@@ -59,6 +63,12 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
     } else {
       _fetchSummaries();
     }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUsers() async {
@@ -637,6 +647,186 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
     );
   }
 
+  // ── Chart helpers ──
+
+  String _shortRupeeLabel(double value) {
+    if (value >= 10000000) {
+      final cr = value / 10000000;
+      return cr == cr.roundToDouble() ? '${cr.toInt()}Cr' : '${cr.toStringAsFixed(1)}Cr';
+    } else if (value >= 100000) {
+      final l = value / 100000;
+      return l == l.roundToDouble() ? '${l.toInt()}L' : '${l.toStringAsFixed(1)}L';
+    } else if (value >= 1000) {
+      final k = value / 1000;
+      return k == k.roundToDouble() ? '${k.toInt()}K' : '${k.toStringAsFixed(1)}K';
+    }
+    return value.toInt().toString();
+  }
+
+  double _niceInterval(double maxVal) {
+    if (maxVal <= 0) return 1;
+    final raw = maxVal / 5;
+    final mag = math.pow(10, (math.log(raw) / math.ln10).floor()).toDouble();
+    final normalized = raw / mag;
+    double nice;
+    if (normalized <= 1) {
+      nice = 1;
+    } else if (normalized <= 2) {
+      nice = 2;
+    } else if (normalized <= 5) {
+      nice = 5;
+    } else {
+      nice = 10;
+    }
+    return nice * mag;
+  }
+
+  /// Aggregate commission by date from the *ALL* entry or first available result.
+  List<CommissionSummaryDay> _chartDays() {
+    // Prefer *ALL* aggregated entry
+    if (_results.containsKey('*ALL*')) {
+      return _results['*ALL*']!.days;
+    }
+    // Fallback: use the first result's days
+    if (_results.isNotEmpty) {
+      return _results.values.first.days;
+    }
+    return [];
+  }
+
+  Widget _buildChart(List<CommissionSummaryDay> days) {
+    if (days.isEmpty) return const SizedBox.shrink();
+
+    final filteredDays = _showZeroDays
+        ? days
+        : days.where((d) => d.commissionPaise > 0).toList();
+    if (filteredDays.isEmpty) return const SizedBox.shrink();
+
+    final maxPaise = filteredDays.fold<int>(0, (m, d) => math.max(m, d.commissionPaise));
+    final maxRupees = maxPaise / 100.0;
+
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final barColor = Colors.teal;
+    final gridColor = isDark ? Colors.white12 : Colors.black12;
+    final labelColor = theme.colorScheme.onSurfaceVariant;
+
+    const double barSlotWidth = 44;
+    final chartWidth = (filteredDays.length * barSlotWidth).clamp(150.0, double.infinity);
+    final chartHeight = filteredDays.length <= 3 ? 200.0 : filteredDays.length <= 10 ? 220.0 : 250.0;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 16, bottom: 12),
+              child: Text(
+                'Commission Trend (${filteredDays.length} days)',
+                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            SizedBox(
+              height: chartHeight,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.only(left: 8, right: 16),
+                child: SizedBox(
+                  width: chartWidth,
+                  child: BarChart(
+                    duration: Duration.zero,
+                    BarChartData(
+                      alignment: BarChartAlignment.spaceAround,
+                      maxY: maxRupees > 0 ? maxRupees * 1.05 : 1,
+                      barTouchData: BarTouchData(
+                        enabled: true,
+                        touchTooltipData: BarTouchTooltipData(
+                          fitInsideVertically: true,
+                          fitInsideHorizontally: true,
+                          tooltipRoundedRadius: 8,
+                          tooltipMargin: 8,
+                          tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          getTooltipColor: (_) => isDark ? Colors.grey.shade800 : Colors.white,
+                          getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                            final day = filteredDays[group.x];
+                            return BarTooltipItem(
+                              '${day.date}\n${_fmtRupees(day.commissionPaise)}',
+                              TextStyle(
+                                color: isDark ? Colors.white : Colors.black87,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      titlesData: FlTitlesData(
+                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 32,
+                            getTitlesWidget: (value, meta) {
+                              final idx = value.toInt();
+                              if (idx < 0 || idx >= filteredDays.length) return const SizedBox.shrink();
+                              final date = filteredDays[idx].date;
+                              final parts = date.split('-');
+                              final label = parts.length >= 3 ? '${parts[2]}/${parts[1]}' : date;
+                              return SideTitleWidget(
+                                meta: meta,
+                                angle: filteredDays.length > 15 ? -0.5 : 0,
+                                child: Text(label, style: TextStyle(fontSize: 9, color: labelColor)),
+                              );
+                            },
+                          ),
+                        ),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 58,
+                            getTitlesWidget: (value, meta) {
+                              if (value == 0) return const SizedBox.shrink();
+                              return Text(_shortRupeeLabel(value), style: TextStyle(fontSize: 10, color: labelColor));
+                            },
+                          ),
+                        ),
+                      ),
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        horizontalInterval: _niceInterval(maxRupees),
+                        getDrawingHorizontalLine: (_) => FlLine(color: gridColor, strokeWidth: 0.8),
+                      ),
+                      borderData: FlBorderData(show: false),
+                      barGroups: List.generate(filteredDays.length, (i) {
+                        final rupees = filteredDays[i].commissionPaise / 100.0;
+                        return BarChartGroupData(
+                          x: i,
+                          barRods: [
+                            BarChartRodData(
+                              toY: rupees,
+                              color: barColor,
+                              width: filteredDays.length > 20 ? 12 : filteredDays.length > 10 ? 16 : filteredDays.length > 3 ? 20 : 26,
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                            ),
+                          ],
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   List<MapEntry<String, CommissionSummaryResult>> _sortedEntries() {
     final entries = _results.entries.toList();
     final adminId = widget.userMeta.id;
@@ -684,6 +874,12 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
             ],
           ),
           FilterChip(
+            label: const Text('Chart'),
+            selected: _showChart,
+            onSelected: (v) => setState(() => _showChart = v),
+          ),
+          const SizedBox(width: 4),
+          FilterChip(
             label: const Text('0 Days'),
             selected: _showZeroDays,
             onSelected: (v) => setState(() => _showZeroDays = v),
@@ -696,31 +892,47 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
           ),
           const SizedBox(width: 8),
           IconButton(
+            icon: const Icon(Icons.arrow_upward),
+            tooltip: 'Scroll to top',
+            onPressed: () {
+              if (_scrollController.hasClients) {
+                _scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+              }
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _fetchSummaries,
             tooltip: 'Refresh',
           ),
         ],
       ),
-      body: Column(
-        children: [
-          if (_showFilters) _buildFilterBar(),
-          if (!_loading && _results.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            _buildMetrics(),
-            const SizedBox(height: 8),
-          ],
-          Expanded(
-            child: _loading
-                ? const CommissionSummarySkeleton()
-                : _results.isEmpty
-                ? const Center(child: Text('No data'))
-                : ListView(
-              children: sorted.map((e) => _summaryCard(e.key, e.value)).toList(),
+      body: _loading
+          ? const CommissionSummarySkeleton()
+          : CustomScrollView(
+              controller: _scrollController,
+              slivers: [
+                if (_showFilters)
+                  SliverToBoxAdapter(child: _buildFilterBar()),
+                if (_results.isNotEmpty) ...[
+                  const SliverToBoxAdapter(child: SizedBox(height: 4)),
+                  SliverToBoxAdapter(child: _buildMetrics()),
+                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                  if (_showChart)
+                    SliverToBoxAdapter(child: _buildChart(_chartDays())),
+                ],
+                if (_results.isEmpty)
+                  const SliverFillRemaining(
+                    child: Center(child: Text('No data')),
+                  )
+                else
+                  SliverList(
+                    delegate: SliverChildListDelegate(
+                      sorted.map((e) => _summaryCard(e.key, e.value)).toList(),
+                    ),
+                  ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }

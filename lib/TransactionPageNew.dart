@@ -1318,70 +1318,89 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
             ),
 
             IconButton(
+              icon: const Icon(Icons.arrow_upward),
+              tooltip: 'Scroll to top',
+              onPressed: () {
+                if (_scrollController.hasClients) {
+                  _scrollController.animateTo(
+                    0,
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeOut,
+                  );
+                }
+              },
+            ),
+            IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: loadInitialData,
             ),
           ],
         ),
-        body: Column(
-          children: [
-            // Always show search and filters when no fixed filter applied
-            if (widget.filterUserId == null &&
-                widget.filterQrCodeId == null) ...[
-              if(showingFilters)
-              _buildSearchArea(), // <-- Always visible
-              if(showingFilters)
-              _buildFilters(userHasQrCodes),
-            ],
-            if(showingFilters)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: buildStatusFilter(),
-            ),
-            const SizedBox(height: 8),
-
-            // Now show loader or list below
-            Expanded(
-              child: loading
-                  ? ListView.builder(
-                itemCount: 8, // shimmer placeholders
+        body: loading
+            ? ListView.builder(
+                itemCount: 8,
                 itemBuilder: (_, __) => const TransactionCardShimmer(),
               )
-                  : (transactions.isEmpty
-                  ? const Center(child: Text('No transactions found.'))
-                  : ListView.builder(
+            : CustomScrollView(
                 controller: _scrollController,
-                itemCount: transactions.length + (loadingMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index < transactions.length) {
-                      final txn = transactions[index];
-                      return (userMeta.role == 'admin' || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.editTransactions))) ?
-                      TransactionCard(
-                          key: ValueKey(txn.id),
-                          compactMode: compactMode,
-                          txn: txn,
-                          onEdit: (txn) => editTransaction(context, txn: txn),
-                          onDelete: (txn) => deleteTransaction(context, txn: txn),
-                          onStatus: (txn) => changeTransactionStatus(context, txn: txn),
-                          onViewProof: (txn) => viewTransactionImage(context, txn: txn, headerWidget: TransactionCard(compactMode: compactMode,
-                            txn: txn)),
-                          onUploadImage: userMeta.role == 'admin'
-                            ? (txn) => onTransactionImageUpload(context, txn: txn)
-                            : null,
-                          onDeleteImage: (userMeta.role == 'admin' && txn.imageUrl != '')
-                            ? (txn) => onTransactionImageDelete(context, txn: txn)
-                            : null,
-                          )
-                          : TransactionCard(key: ValueKey(txn.id), txn: txn, compactMode: compactMode, onViewProof: (txn) => viewTransactionImage(context, txn: txn, headerWidget: TransactionCard(compactMode: compactMode,
-                        txn: txn)),);
-                  }
-                  return const TransactionCardShimmer();
-                },
-              )
+                slivers: [
+                  // Filters (scrollable with list)
+                  if (showingFilters &&
+                      widget.filterUserId == null &&
+                      widget.filterQrCodeId == null) ...[
+                    SliverToBoxAdapter(child: _buildSearchArea()),
+                    SliverToBoxAdapter(child: _buildFilters(userHasQrCodes)),
+                  ],
+                  if (showingFilters)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: buildStatusFilter(),
+                      ),
+                    ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
+
+                  // Transaction list
+                  if (transactions.isEmpty)
+                    const SliverFillRemaining(
+                      child: Center(child: Text('No transactions found.')),
+                    )
+                  else
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          if (index < transactions.length) {
+                            final txn = transactions[index];
+                            return (userMeta.role == 'admin' || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.editTransactions)))
+                                ? TransactionCard(
+                                    key: ValueKey(txn.id),
+                                    compactMode: compactMode,
+                                    txn: txn,
+                                    onEdit: (txn) => editTransaction(context, txn: txn),
+                                    onDelete: (txn) => deleteTransaction(context, txn: txn),
+                                    onStatus: (txn) => changeTransactionStatus(context, txn: txn),
+                                    onViewProof: (txn) => viewTransactionImage(context, txn: txn, headerWidget: TransactionCard(compactMode: compactMode, txn: txn)),
+                                    onUploadImage: userMeta.role == 'admin'
+                                        ? (txn) => onTransactionImageUpload(context, txn: txn)
+                                        : null,
+                                    onDeleteImage: (userMeta.role == 'admin' && txn.imageUrl != '')
+                                        ? (txn) => onTransactionImageDelete(context, txn: txn)
+                                        : null,
+                                  )
+                                : TransactionCard(
+                                    key: ValueKey(txn.id),
+                                    txn: txn,
+                                    compactMode: compactMode,
+                                    onViewProof: (txn) => viewTransactionImage(context, txn: txn, headerWidget: TransactionCard(compactMode: compactMode, txn: txn)),
+                                  );
+                          }
+                          return const TransactionCardShimmer();
+                        },
+                        childCount: transactions.length + (loadingMore ? 1 : 0),
+                      ),
+                    ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }

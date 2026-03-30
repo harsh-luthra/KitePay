@@ -1101,6 +1101,15 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
                 },
               ),
             IconButton(
+              icon: const Icon(Icons.arrow_upward),
+              tooltip: 'Scroll to top',
+              onPressed: () {
+                if (_scrollController.hasClients) {
+                  _scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+                }
+              },
+            ),
+            IconButton(
               icon: const Icon(Icons.refresh),
               tooltip: 'Refresh',
               onPressed: _refreshAllForced,
@@ -1113,60 +1122,61 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
           itemCount: 8,
           itemBuilder: (_, __) => const WithdrawalCardShimmer(),
         )
-            : Column(
-          children: [
-            const SizedBox(height: 10),
-            if(showingFilters)
-              _buildFilters(userHasQrCodes),
-            // Filter toolbar
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  buildFilterChip('ALL', 'all'),
-                  const SizedBox(width: 8),
-                  buildFilterChip('PENDING', 'pending'),
-                  const SizedBox(width: 8),
-                  buildFilterChip('APPROVED', 'approved'),
-                  const SizedBox(width: 8),
-                  buildFilterChip('REJECTED', 'rejected'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: RefreshIndicator(
+            : RefreshIndicator(
                 onRefresh: _refreshCurrentTab,
-                child: visible.isEmpty
-                    ? ListView(
-                  children: const [
-                    SizedBox(height: 200, child: Center(child: Text('No requests'))),
-                  ],
-                )
-                    : ListView.builder(
+                child: CustomScrollView(
                   controller: _scrollController,
-                  itemCount: visible.length + (current.loadingMore ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index < visible.length) {
-                      return buildRequestCard(visible[index]);
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: const [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 8),
-                          Text('Loading more...')
-                        ],
+                  slivers: [
+                    const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                    if (showingFilters)
+                      SliverToBoxAdapter(child: _buildFilters(userHasQrCodes)),
+                    // Status filter chips
+                    SliverToBoxAdapter(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            buildFilterChip('ALL', 'all'),
+                            const SizedBox(width: 8),
+                            buildFilterChip('PENDING', 'pending'),
+                            const SizedBox(width: 8),
+                            buildFilterChip('APPROVED', 'approved'),
+                            const SizedBox(width: 8),
+                            buildFilterChip('REJECTED', 'rejected'),
+                          ],
+                        ),
                       ),
-                    );
-                  },
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                    if (visible.isEmpty)
+                      const SliverFillRemaining(
+                        child: Center(child: Text('No requests')),
+                      )
+                    else
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            if (index < visible.length) {
+                              return buildRequestCard(visible[index]);
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                children: const [
+                                  CircularProgressIndicator(),
+                                  SizedBox(height: 8),
+                                  Text('Loading more...')
+                                ],
+                              ),
+                            );
+                          },
+                          childCount: visible.length + (current.loadingMore ? 1 : 0),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ),
-          ],
-        ),
       ),
     );
   }

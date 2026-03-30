@@ -44,7 +44,7 @@ class CommissionService {
         'Authorization': 'Bearer $jwtToken',
         'Content-Type': 'application/json',
       },
-    ).timeout(const Duration(seconds: 5));
+    ).timeout(const Duration(seconds: 30));
 
     if (resp.statusCode == 200) {
       final body = json.decode(resp.body) as Map<String, dynamic>;
@@ -101,7 +101,7 @@ class CommissionService {
         'Authorization': 'Bearer $jwtToken',
         'Content-Type': 'application/json',
       },
-    ).timeout(const Duration(seconds: 6));
+    ).timeout(const Duration(seconds: 30));
 
     if (resp.statusCode == 200) {
       final body = json.decode(resp.body) as Map<String, dynamic>;
@@ -149,7 +149,7 @@ class CommissionService {
         'Authorization': 'Bearer $jwtToken',
         'Content-Type': 'application/json',
       },
-    ).timeout(const Duration(seconds: 6));
+    ).timeout(const Duration(seconds: 30));
 
     if (resp.statusCode == 200) {
       final body = json.decode(resp.body) as Map<String, dynamic>;
@@ -175,7 +175,7 @@ class CommissionService {
         'Authorization': 'Bearer $jwtToken',
         'Content-Type': 'application/json',
       },
-    ).timeout(const Duration(seconds: 6));
+    ).timeout(const Duration(seconds: 30));
 
     if (resp.statusCode != 200) {
       throw Exception('Failed: ${resp.statusCode} ${resp.body}');

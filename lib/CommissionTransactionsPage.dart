@@ -20,6 +20,8 @@ class CommissionTransactionsPage extends StatefulWidget {
 class _CommissionTransactionsPageState extends State<CommissionTransactionsPage> {
   bool get _isAdmin => widget.userMeta.role.toLowerCase() == 'admin';
 
+  final ScrollController _scrollController = ScrollController();
+
   // Data
   final List<Commission> _items = [];
   String? _nextCursor;
@@ -54,6 +56,7 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _userIdCtrl.dispose();
     super.dispose();
   }
@@ -350,6 +353,15 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
       appBar: AppBar(
         title: const Text('Commission Transactions'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.arrow_upward),
+            tooltip: 'Scroll to top',
+            onPressed: () {
+              if (_scrollController.hasClients) {
+                _scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+              }
+            },
+          ),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -362,54 +374,49 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
           ),
         ],
       ),
-      body: Column(
-        children: [
-          if (showingFilters) _filters(),
-          Expanded(
-            child: _loading
-                ? ListView.builder(
+      body: _loading
+          ? ListView.builder(
               padding: EdgeInsets.zero,
               itemCount: 8,
               itemBuilder: (_, __) => const TransactionCardShimmer(),
             )
-                : (_items.isEmpty
-                ? RefreshIndicator(
+          : RefreshIndicator(
               onRefresh: () => _fetch(firstLoad: true),
-              child: ListView(
-                padding: const EdgeInsets.only(top: 80),
-                children: const [
-                  Center(
-                    child: Text(
-                      'No commission transactions',
-                      style: TextStyle(color: Colors.black54),
-                      textAlign: TextAlign.center,
+              child: CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                  if (showingFilters)
+                    SliverToBoxAdapter(child: _filters()),
+                  if (_items.isEmpty)
+                    const SliverFillRemaining(
+                      child: Center(
+                        child: Text(
+                          'No commission transactions',
+                          style: TextStyle(color: Colors.black54),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  else
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          if (index < _items.length) return _row(_items[index]);
+
+                          if (!_loadingMore) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) => _fetch(firstLoad: false));
+                          }
+                          return const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                          );
+                        },
+                        childCount: _items.length + (_hasMore ? 1 : 0),
+                      ),
                     ),
-                  ),
                 ],
               ),
-            )
-                : RefreshIndicator(
-              onRefresh: () => _fetch(firstLoad: true),
-              child: ListView.separated(
-                padding: EdgeInsets.zero,
-                itemCount: _items.length + (_hasMore ? 1 : 0),
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  if (index < _items.length) return _row(_items[index]);
-
-                  if (!_loadingMore) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) => _fetch(firstLoad: false));
-                  }
-                  return const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                  );
-                },
-              ),
-            )),
-          ),
-        ],
-      ),
+            ),
     );
   }
 

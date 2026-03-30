@@ -156,7 +156,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                                     style: const TextStyle(fontSize: 12)),
                               if (acc.updatedAt != null)
                                 Text('Updated: ${acc.updatedAt!.substring(0, 10)}',
-                                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                    style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                             ],
                           ),
                           trailing: isSelected
@@ -313,13 +313,14 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
               String inr(num p) => CurrencyUtils.formatIndianCurrency(p / 100);
               String count(num n) => CurrencyUtils.formatIndianCurrencyWithoutSign(n);
 
+              final isDarkMode = Theme.of(context).brightness == Brightness.dark;
               Widget metricChip(String label, String value, Color color, IconData icon) {
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha:0.08),
+                    color: color.withValues(alpha: isDarkMode ? 0.2 : 0.08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: color.withValues(alpha:0.18)),
+                    border: Border.all(color: color.withValues(alpha: isDarkMode ? 0.4 : 0.18)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -733,7 +734,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                       padding: const EdgeInsets.all(14),
                       child: Row(
                         children: [
-                          const Icon(Icons.info_outline, color: Colors.blueGrey),
+                          Icon(Icons.info_outline, color: Theme.of(context).colorScheme.onSurfaceVariant),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -757,7 +758,9 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                 if(selectedAccount == null)
                 // Show "Select Account" prompt
                   Card(
-                    color: Colors.orange.shade50,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.orange.shade900.withValues(alpha: 0.3)
+                        : Colors.orange.shade50,
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Row(
@@ -799,10 +802,10 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(children: const [
-                          Icon(Icons.currency_rupee, size: 18, color: Colors.blueGrey),
-                          SizedBox(width: 8),
-                          Text('Amount', style: TextStyle(fontWeight: FontWeight.w600)),
+                        Row(children: [
+                          Icon(Icons.currency_rupee, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          const SizedBox(width: 8),
+                          const Text('Amount', style: TextStyle(fontWeight: FontWeight.w600)),
                         ]),
                         const SizedBox(height: 10),
                         TextFormField(
@@ -1006,17 +1009,18 @@ class _AccountDetailTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: isDark ? Colors.grey.shade900 : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade200),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Colors.grey.shade600),
+          Icon(icon, size: 18, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1026,7 +1030,7 @@ class _AccountDetailTile extends StatelessWidget {
                   label,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.shade600,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1057,15 +1061,18 @@ class _SelectedQrCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final statusColor = qr.isActive ? Colors.green : Colors.red;
-    final statusBg = qr.isActive ? Colors.green.shade50 : Colors.red.shade50;
+    final statusBg = qr.isActive
+        ? (isDark ? Colors.green.shade900 : Colors.green.shade50)
+        : (isDark ? Colors.red.shade900 : Colors.red.shade50);
 
     Widget metric(String label, String value, IconData icon, Color color) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          border: Border.all(color: Colors.grey.shade200),
+          color: isDark ? Colors.grey.shade900 : Colors.grey.shade50,
+          border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade200),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -1076,7 +1083,7 @@ class _SelectedQrCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  Text(label, style: TextStyle(fontSize: 11, color: isDark ? Colors.grey.shade400 : Colors.grey)),
                   const SizedBox(height: 2),
                   Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                 ],
@@ -1092,8 +1099,8 @@ class _SelectedQrCard extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: c.withValues(alpha:0.06),
-          border: Border.all(color: c.withValues(alpha:0.16)),
+          color: c.withValues(alpha: isDark ? 0.18 : 0.06),
+          border: Border.all(color: c.withValues(alpha: isDark ? 0.35 : 0.16)),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -1154,8 +1161,8 @@ class _SelectedQrCard extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        border: Border.all(color: Colors.grey.shade200),
+                        color: isDark ? Colors.grey.shade900 : Colors.grey.shade50,
+                        border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade200),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
@@ -1168,7 +1175,7 @@ class _SelectedQrCard extends StatelessWidget {
                               children: [
                                 Text(
                                   labelSmall ? label.replaceAll('Available', 'Avail').replaceAll('Received', 'Recv') : label,
-                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  style: TextStyle(fontSize: 11, color: isDark ? Colors.grey.shade400 : Colors.grey),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   softWrap: false,

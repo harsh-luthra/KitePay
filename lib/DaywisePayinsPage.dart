@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -10,17 +12,18 @@ import 'models/QrCode.dart';
 import 'utils/app_spacing.dart';
 import 'widget/dashboard_widgets.dart';
 
-class DaywisePayinsPage extends StatefulWidget {
+class DayWisePayinsPage extends StatefulWidget {
   final AppUser userMeta;
 
-  const DaywisePayinsPage({super.key, required this.userMeta});
+  const DayWisePayinsPage({super.key, required this.userMeta});
 
   @override
-  State<DaywisePayinsPage> createState() => _DaywisePayinsPageState();
+  State<DayWisePayinsPage> createState() => _DayWisePayinsPageState();
 }
 
-class _DaywisePayinsPageState extends State<DaywisePayinsPage> {
+class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
   final QrCodeService _qrCodeService = QrCodeService();
+  final ScrollController _scrollController = ScrollController();
 
   bool get _isAdmin => widget.userMeta.role.toLowerCase() == 'admin';
   bool get _isSubadmin => widget.userMeta.role.toLowerCase() == 'subadmin';
@@ -43,6 +46,7 @@ class _DaywisePayinsPageState extends State<DaywisePayinsPage> {
   bool _showFilters = true;
   bool _expanded = false;
   bool _showZeroDays = false;
+  bool _showChart = true;
 
   // Results
   PayinSummaryResult? _result;
@@ -53,6 +57,12 @@ class _DaywisePayinsPageState extends State<DaywisePayinsPage> {
     _fromDate = DateTime.now();
     _toDate = DateTime.now();
     _loadInitial();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadInitial() async {
@@ -378,6 +388,169 @@ class _DaywisePayinsPageState extends State<DaywisePayinsPage> {
     );
   }
 
+  String _shortRupeeLabel(double value) {
+    if (value >= 10000000) {
+      final cr = value / 10000000;
+      return cr == cr.roundToDouble() ? '${cr.toInt()}Cr' : '${cr.toStringAsFixed(1)}Cr';
+    } else if (value >= 100000) {
+      final l = value / 100000;
+      return l == l.roundToDouble() ? '${l.toInt()}L' : '${l.toStringAsFixed(1)}L';
+    } else if (value >= 1000) {
+      final k = value / 1000;
+      return k == k.roundToDouble() ? '${k.toInt()}K' : '${k.toStringAsFixed(1)}K';
+    }
+    return value.toInt().toString();
+  }
+
+  double _niceInterval(double maxVal) {
+    if (maxVal <= 0) return 1;
+    // Pick a clean round interval that gives ~4-5 gridlines
+    final raw = maxVal / 5;
+    final mag = math.pow(10, (math.log(raw) / math.ln10).floor()).toDouble();
+    final normalized = raw / mag;
+    double nice;
+    if (normalized <= 1) {
+      nice = 1;
+    } else if (normalized <= 2) {
+      nice = 2;
+    } else if (normalized <= 5) {
+      nice = 5;
+    } else {
+      nice = 10;
+    }
+    return nice * mag;
+  }
+
+  Widget _buildChart(List<PayinSummaryDay> days) {
+    if (days.isEmpty) return const SizedBox.shrink();
+
+    final maxPaise = days.fold<int>(0, (m, d) => math.max(m, d.totalPaise));
+    final maxRupees = maxPaise / 100.0;
+
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final barColor = theme.colorScheme.primary;
+    final gridColor = isDark ? Colors.white12 : Colors.black12;
+    final labelColor = theme.colorScheme.onSurfaceVariant;
+
+    // Each bar gets a fixed width slot so all dates are visible
+    const double barSlotWidth = 44;
+    final chartWidth = (days.length * barSlotWidth).toDouble().clamp(150.0, double.infinity);
+
+    final chartHeight = days.length <= 3 ? 200.0 : days.length <= 10 ? 220.0 : 250.0;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 16, bottom: 12),
+              child: Text(
+                'Pay-In Trend (${days.length} days)',
+                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            SizedBox(
+              height: chartHeight,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.only(left: 8, right: 16),
+                child: SizedBox(
+                  width: chartWidth,
+                  child: BarChart(
+                    duration: Duration.zero,
+                    BarChartData(
+                      alignment: BarChartAlignment.spaceAround,
+                      maxY: maxRupees > 0 ? maxRupees * 1.05 : 1,
+                      barTouchData: BarTouchData(
+                        enabled: true,
+                        touchTooltipData: BarTouchTooltipData(
+                          tooltipRoundedRadius: 8,
+                          fitInsideVertically: true,
+                          fitInsideHorizontally: true,
+                          tooltipMargin: 8,
+                          tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          getTooltipColor: (_) => isDark ? Colors.grey.shade800 : Colors.white,
+                          getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                            final day = days[group.x];
+                            return BarTooltipItem(
+                              '${day.date}\n${_fmtRupees(day.totalPaise)}',
+                              TextStyle(
+                                color: isDark ? Colors.white : Colors.black87,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      titlesData: FlTitlesData(
+                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 32,
+                            getTitlesWidget: (value, meta) {
+                              final idx = value.toInt();
+                              if (idx < 0 || idx >= days.length) return const SizedBox.shrink();
+                              final date = days[idx].date;
+                              final parts = date.split('-');
+                              final label = parts.length >= 3 ? '${parts[2]}/${parts[1]}' : date;
+                              return SideTitleWidget(
+                                meta: meta,
+                                angle: days.length > 15 ? -0.5 : 0,
+                                child: Text(label, style: TextStyle(fontSize: 9, color: labelColor)),
+                              );
+                            },
+                          ),
+                        ),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 58,
+                            getTitlesWidget: (value, meta) {
+                              if (value == 0) return const SizedBox.shrink();
+                              return Text(_shortRupeeLabel(value), style: TextStyle(fontSize: 10, color: labelColor));
+                            },
+                          ),
+                        ),
+                      ),
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        horizontalInterval: _niceInterval(maxRupees),
+                        getDrawingHorizontalLine: (_) => FlLine(color: gridColor, strokeWidth: 0.8),
+                      ),
+                      borderData: FlBorderData(show: false),
+                      barGroups: List.generate(days.length, (i) {
+                        final rupees = days[i].totalPaise / 100.0;
+                        return BarChartGroupData(
+                          x: i,
+                          barRods: [
+                            BarChartRodData(
+                              toY: rupees,
+                              color: barColor,
+                              width: days.length > 20 ? 12 : days.length > 10 ? 16 : days.length > 3 ? 20 : 26,
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                            ),
+                          ],
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMetrics() {
     final r = _result;
     if (r == null) return const SizedBox.shrink();
@@ -528,6 +701,12 @@ class _DaywisePayinsPageState extends State<DaywisePayinsPage> {
             ],
           ),
           FilterChip(
+            label: const Text('Chart'),
+            selected: _showChart,
+            onSelected: (v) => setState(() => _showChart = v),
+          ),
+          const SizedBox(width: 4),
+          FilterChip(
             label: const Text('0 Days'),
             selected: _showZeroDays,
             onSelected: (v) => setState(() => _showZeroDays = v),
@@ -540,39 +719,72 @@ class _DaywisePayinsPageState extends State<DaywisePayinsPage> {
           ),
           const SizedBox(width: 8),
           IconButton(
+            icon: const Icon(Icons.arrow_upward),
+            tooltip: 'Scroll to top',
+            onPressed: () {
+              if (_scrollController.hasClients) {
+                _scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+              }
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _fetchSummary,
             tooltip: 'Refresh',
           ),
         ],
       ),
-      body: Column(
-        children: [
-          if (_showFilters) _buildFilterBar(),
-          if (!_loading && _result != null) ...[
-            const SizedBox(height: 4),
-            _buildMetrics(),
-            const SizedBox(height: 8),
-          ],
-          Expanded(
-            child: _loading
-                ? const CommissionSummarySkeleton()
-                : _result == null
-                ? const Center(child: Text('No data'))
-                : () {
+      body: CustomScrollView(
+              controller: _scrollController,
+              slivers: [
+                if (_showFilters)
+                  SliverToBoxAdapter(child: _buildFilterBar()),
+                // Loading indicator
+                if (_loading)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4),
+                      child: LinearProgressIndicator(minHeight: 3),
+                    ),
+                  ),
+                if (_result != null) ...[
+                  const SliverToBoxAdapter(child: SizedBox(height: 4)),
+                  SliverToBoxAdapter(child: _buildMetrics()),
+                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                  // Chart
+                  if (_showChart)
+                    SliverToBoxAdapter(
+                      child: _buildChart(
+                        (_showZeroDays
+                            ? _result!.days
+                            : _result!.days.where((d) => d.totalPaise > 0).toList()),
+                      ),
+                    ),
+                ],
+                if (!_loading && _result == null)
+                  const SliverFillRemaining(
+                    child: Center(child: Text('No data')),
+                  )
+                else if (_result != null)
+                  () {
                     final days = (_showZeroDays
                         ? _result!.days
                         : _result!.days.where((d) => d.totalPaise > 0).toList())
                         .reversed.toList();
-                    if (days.isEmpty) return const Center(child: Text('No data'));
-                    return ListView.builder(
-                      itemCount: days.length,
-                      itemBuilder: (_, i) => _buildDayCard(days[i]),
+                    if (days.isEmpty) {
+                      return const SliverFillRemaining(
+                        child: Center(child: Text('No data')),
+                      );
+                    }
+                    return SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, i) => _buildDayCard(days[i]),
+                        childCount: days.length,
+                      ),
                     );
                   }(),
-          ),
-        ],
-      ),
+              ],
+            ),
     );
   }
 }

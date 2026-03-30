@@ -59,15 +59,26 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
   bool showingFilters = false;
 
+  // Sort state
+  String _sortBy = 'createdAt_desc'; // 'createdAt_desc', 'createdAt_asc', 'todayPayIn_desc', 'todayPayIn_asc'
+
   // Search state
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  // PAGINATION
+  static const int _maxInMemoryQrCodes = 500;
+  String? _nextCursor;
+  bool _hasMore = true;
+  bool _loadingMore = false;
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     userMeta = MyMetaApi.current!;
+    _scrollController.addListener(_onScroll);
 
     if(!widget.userMode){
         _fetchQrCodes();
@@ -84,6 +95,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   void dispose() {
     _qrIdController.dispose();
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -150,6 +162,19 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       users.where((u) => u.role == 'subadmin').toList();
 
 // Apply local filter to qrCodes according to current dropdown state
+  Widget _sortMenuItem(String label, String value) {
+    return Row(
+      children: [
+        if (_sortBy == value)
+          const Icon(Icons.check, size: 18, color: Colors.green)
+        else
+          const SizedBox(width: 18),
+        const SizedBox(width: 8),
+        Text(label),
+      ],
+    );
+  }
+
   List<QrCode> get _visibleQrCodes {
     List<QrCode> scopeFiltered;
     switch (_managerScope) {
@@ -168,9 +193,31 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     }
 
     // Apply search filter
-    if (_searchQuery.trim().isEmpty) return scopeFiltered;
-    final q = _searchQuery.trim().toLowerCase();
-    return scopeFiltered.where((qr) => qr.qrId.toLowerCase().contains(q)).toList();
+    List<QrCode> result;
+    if (_searchQuery.trim().isEmpty) {
+      result = List.of(scopeFiltered);
+    } else {
+      final q = _searchQuery.trim().toLowerCase();
+      result = scopeFiltered.where((qr) => qr.qrId.toLowerCase().contains(q)).toList();
+    }
+
+    // Apply sort
+    switch (_sortBy) {
+      case 'createdAt_desc':
+        result.sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
+        break;
+      case 'createdAt_asc':
+        result.sort((a, b) => (a.createdAt ?? '').compareTo(b.createdAt ?? ''));
+        break;
+      case 'todayPayIn_desc':
+        result.sort((a, b) => (b.todayTotalPayIn ?? 0).compareTo(a.todayTotalPayIn ?? 0));
+        break;
+      case 'todayPayIn_asc':
+        result.sort((a, b) => (a.todayTotalPayIn ?? 0).compareTo(b.todayTotalPayIn ?? 0));
+        break;
+    }
+
+    return result;
   }
 
   Future<void> _assignUser(String? qrId, String? fileId, {QrCode? qr}) async {
@@ -379,59 +426,100 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     setState(() => _isProcessing = false);
   }
 
-  Future<void> _fetchQrCodes() async {
+  Future<void> _fetchQrCodes({bool firstLoad = true}) async {
+    if ((_loadingMore && !firstLoad) || !_hasMore) return;
+
     _jwtToken = await AppWriteService().getJWT();
     if (_jwtToken == null) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    if (firstLoad) {
+      setState(() {
+        _isLoading = true;
+        _qrCodes.clear();
+        _nextCursor = null;
+        _hasMore = true;
+      });
+    } else {
+      setState(() => _loadingMore = true);
+    }
 
     try {
-      final codes = await _qrCodeService.getQrCodes(_jwtToken);
-      setState(() {
-        _qrCodes = codes.reversed.toList();
-      });
+      final fetched = await _qrCodeService.getQrCodesPaginated(
+        cursor: _nextCursor,
+        jwtToken: _jwtToken!,
+      );
+
+      if (firstLoad) {
+        _qrCodes = fetched.qrCodes.reversed.toList();
+      } else {
+        final existingIds = _qrCodes.map((q) => q.qrId).toSet();
+        final newOnes = fetched.qrCodes.where((q) => !existingIds.contains(q.qrId));
+        _qrCodes.addAll(newOnes);
+      }
+
+      _nextCursor = fetched.nextCursor;
+      _hasMore = fetched.nextCursor != null &&
+          _qrCodes.length < _maxInMemoryQrCodes;
     } catch (e) {
-        _scaffoldMessengerKey.currentState?.showSnackBar(
+      _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('Failed to fetch QR codes: $e')),
       );
     }
 
     if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-    });
+    if (firstLoad) {
+      setState(() => _isLoading = false);
+    } else {
+      setState(() => _loadingMore = false);
+    }
 
     checkQrLimitTodayPayin();
-
   }
 
   int activeQrCount(List<QrCode> qrCodes) {
     return qrCodes.where((qr) => qr.isActive == true).length;
   }
 
-  Future<void> _fetchOnlyUserQrCodes() async {
-    if (widget.userModeUserid == null) {
-      // In User Mode no UserId Passed
-      return;
-    }
+  Future<void> _fetchOnlyUserQrCodes({bool firstLoad = true}) async {
+    if (widget.userModeUserid == null) return;
+    if ((_loadingMore && !firstLoad) || !_hasMore) return;
 
     _jwtToken = await AppWriteService().getJWT();
 
-    if(mounted) {
-      setState(() {
-      _isLoading = true;
-    });
+    if (firstLoad) {
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _qrCodes.clear();
+          _nextCursor = null;
+          _hasMore = true;
+        });
+      }
+    } else {
+      setState(() => _loadingMore = true);
     }
-    // createdByUserId
-    try{
-      final codes = await _qrCodeService.getUserQrCodes(widget.userModeUserid!, await AppWriteService().getJWT());
-      setState(() {
-        _qrCodes = codes.reversed.toList();
-        userQrCount = _qrCodes.length;
-        activeUserQrCount = activeQrCount(_qrCodes);
-      });
+
+    try {
+      final fetched = await _qrCodeService.getUserQrCodesPaginated(
+        userId: widget.userModeUserid!,
+        cursor: _nextCursor,
+        jwtToken: _jwtToken!,
+      );
+
+      if (firstLoad) {
+        _qrCodes = fetched.qrCodes.reversed.toList();
+      } else {
+        final existingIds = _qrCodes.map((q) => q.qrId).toSet();
+        final newOnes = fetched.qrCodes.where((q) => !existingIds.contains(q.qrId));
+        _qrCodes.addAll(newOnes);
+      }
+
+      _nextCursor = fetched.nextCursor;
+      _hasMore = fetched.nextCursor != null &&
+          _qrCodes.length < _maxInMemoryQrCodes;
+
+      userQrCount = _qrCodes.length;
+      activeUserQrCount = activeQrCount(_qrCodes);
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('Failed to fetch user QR codes: $e')),
@@ -439,12 +527,25 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     }
 
     if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-    });
+    if (firstLoad) {
+      setState(() => _isLoading = false);
+    } else {
+      setState(() => _loadingMore = false);
+    }
 
     checkQrLimitTodayPayin();
+  }
 
+  // PAGINATION scroll listener
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      if (widget.userMode) {
+        _fetchOnlyUserQrCodes(firstLoad: false);
+      } else {
+        _fetchQrCodes(firstLoad: false);
+      }
+    }
   }
 
   // The main function for the floating action button now shows a dialog
@@ -1464,10 +1565,30 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                     ),
                   ],
                 ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.sort),
+                tooltip: 'Sort by',
+                onSelected: (val) => setState(() => _sortBy = val),
+                itemBuilder: (_) => [
+                  PopupMenuItem(value: 'createdAt_desc', child: _sortMenuItem('Created (Newest)', 'createdAt_desc')),
+                  PopupMenuItem(value: 'createdAt_asc', child: _sortMenuItem('Created (Oldest)', 'createdAt_asc')),
+                  PopupMenuItem(value: 'todayPayIn_desc', child: _sortMenuItem('Today Pay-In (High)', 'todayPayIn_desc')),
+                  PopupMenuItem(value: 'todayPayIn_asc', child: _sortMenuItem('Today Pay-In (Low)', 'todayPayIn_asc')),
+                ],
+              ),
               IconButton(
                 icon: const Icon(Icons.search),
                 tooltip: 'Search QR',
                 onPressed: () => setState(() => _isSearching = true),
+              ),
+              IconButton(
+                icon: const Icon(Icons.arrow_upward),
+                tooltip: 'Scroll to top',
+                onPressed: () {
+                  if (_scrollController.hasClients) {
+                    _scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+                  }
+                },
               ),
               IconButton(
                 icon: const Icon(Icons.refresh),
@@ -1497,11 +1618,17 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
               child: list.isEmpty
                   ? const Center(child: Text('No QR codes found.'))
                   : ListView.builder(
+                controller: _scrollController,
                 padding: EdgeInsets.zero,
-                itemCount: list.length,
+                itemCount: list.length + (_loadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
+                  if (index >= list.length) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
                   final qr = list[index];
-                  // compute formatted date as you already do
                   String formattedDate = 'NA';
                   final createdAt = qr.createdAt;
                   if (createdAt != null) {
@@ -1978,17 +2105,24 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             (widget.userMeta.role == "subadmin") ||
             (widget.userMeta.role == "user") ;
 
-    IconButton action({required IconData icon, required String tip, required VoidCallback? onTap, Color? color}) {
-      return IconButton(
-        icon: Icon(icon, color: color ?? Colors.blueGrey),
-        tooltip: tip,
+    Widget action({required IconData icon, required String tip, required VoidCallback? onTap, Color? color}) {
+      final c = color ?? Colors.blueGrey;
+      return ActionChip(
+        avatar: Icon(icon, size: 16, color: _isProcessing ? Colors.grey : c),
+        label: Text(
+          tip,
+          style: TextStyle(fontSize: 11, color: _isProcessing ? Colors.grey : c),
+        ),
         onPressed: _isProcessing ? null : onTap,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
       );
     }
 
     return Wrap(
       spacing: 6,
-      runSpacing: 4,
+      runSpacing: 6,
       children: [
         if (widget.userMeta.role != "employee" && canUserActions)
           action(

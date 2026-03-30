@@ -212,6 +212,47 @@ class QrCodeService {
     }
   }
 
+  Future<PaginatedQrCodes> getQrCodesPaginated({
+    String? cursor,
+    int limit = 25,
+    required String jwtToken,
+  }) async {
+    try {
+      final params = <String, String>{'limit': limit.toString()};
+      if (cursor != null) params['cursor'] = cursor;
+
+      final uri = Uri.parse('$_baseUrl/qr-codes')
+          .replace(queryParameters: params);
+
+      final response = await http.get(
+        uri,
+        headers: {'Authorization': 'Bearer $jwtToken'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body is List) {
+          // Legacy response: plain array, no pagination
+          return PaginatedQrCodes(
+            qrCodes: body.map((j) => QrCode.fromJson(j)).toList(),
+            nextCursor: null,
+          );
+        }
+        final List data = body['qrCodes'] ?? [];
+        return PaginatedQrCodes(
+          qrCodes: data.map((j) => QrCode.fromJson(j)).toList(),
+          nextCursor: body['nextCursor'],
+        );
+      } else {
+        throw Exception('Failed to load QR codes from the server');
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your connection or try again later.');
+    } catch (e) {
+      return PaginatedQrCodes(qrCodes: [], nextCursor: null);
+    }
+  }
+
   Future<List<QrCode>> getUserQrCodes(String userId, String? jwtToken) async {
     if (userId.isEmpty) return [];
 
@@ -234,6 +275,49 @@ class QrCodeService {
           'Request timed out. Please check your connection or try again later.');
     } catch (e) {
       return [];
+    }
+  }
+
+  Future<PaginatedQrCodes> getUserQrCodesPaginated({
+    required String userId,
+    String? cursor,
+    int limit = 25,
+    required String jwtToken,
+  }) async {
+    if (userId.isEmpty) return PaginatedQrCodes(qrCodes: [], nextCursor: null);
+
+    try {
+      final params = <String, String>{'limit': limit.toString()};
+      if (cursor != null) params['cursor'] = cursor;
+
+      final uri = Uri.parse('$_baseUrl/qr-codes/user/$userId')
+          .replace(queryParameters: params);
+
+      final response = await http.get(
+        uri,
+        headers: {'Authorization': 'Bearer $jwtToken'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body is List) {
+          return PaginatedQrCodes(
+            qrCodes: body.map((j) => QrCode.fromJson(j)).toList(),
+            nextCursor: null,
+          );
+        }
+        final List data = body['qrCodes'] ?? [];
+        return PaginatedQrCodes(
+          qrCodes: data.map((j) => QrCode.fromJson(j)).toList(),
+          nextCursor: body['nextCursor'],
+        );
+      } else {
+        throw Exception('Failed to load user QR codes from the server');
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your connection or try again later.');
+    } catch (e) {
+      return PaginatedQrCodes(qrCodes: [], nextCursor: null);
     }
   }
 
@@ -493,6 +577,10 @@ class QrCodeService {
       return false;
     }
   }
+}
 
-
+class PaginatedQrCodes {
+  final List<QrCode> qrCodes;
+  final String? nextCursor;
+  PaginatedQrCodes({required this.qrCodes, required this.nextCursor});
 }

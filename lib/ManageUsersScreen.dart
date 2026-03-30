@@ -1255,6 +1255,15 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         onPressed: () => _showAddUserDialog(context),
                       ),
                     IconButton(
+                      icon: const Icon(Icons.arrow_upward),
+                      tooltip: 'Scroll to top',
+                      onPressed: () {
+                        if (_scrollController.hasClients) {
+                          _scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+                        }
+                      },
+                    ),
+                    IconButton(
                       icon: const Icon(Icons.refresh),
                       tooltip: "Refresh",
                       onPressed: () => _fetchUsers(firstLoad: true),
@@ -1551,13 +1560,13 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                       Row(
                         children: [
                           Flexible(
-                            child: Text(
+                            child: SelectableText(
                               user.name ?? 'Unnamed',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
                               ),
-                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -1570,13 +1579,13 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                           Icon(Icons.email, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
                           const SizedBox(width: 6),
                           Expanded(
-                            child: Text(
+                            child: SelectableText(
                               user.email ?? '',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
-                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                           ),
                         ],
@@ -1669,10 +1678,10 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
             const SizedBox(height: 10),
             if (userMeta.role == 'admin' ||
                 userMeta.role == 'employee' ||
-                userMeta.role == 'subadmin')
-              Row(
-                children: [
-                  if (user.role != 'admin' && userMeta.role != "employee") ...[
+                userMeta.role == 'subadmin') ...[
+              if (user.role != 'admin' && userMeta.role != "employee")
+                Row(
+                  children: [
                     const Text(
                       'Status:',
                       style: TextStyle(fontWeight: FontWeight.w600),
@@ -1688,175 +1697,173 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                           ),
                     ),
                   ],
-                  const Spacer(),
-                  if (user.role != 'admin')
-                    Flexible(
-                      child: Wrap(
-                      spacing: 6,
-                      children: [
-                        if (user.role == 'user' &&
-                            user.parentId == null &&
-                            userMeta.role != "employee")
-                          _iconBtn(
-                            Icons.no_accounts_outlined,
-                            'Assign to Sub-Admin',
-                            () => assignUserToSubAdmin(context, user.id),
-                          ),
-                        if (user.role == 'user' &&
-                            user.parentId != null &&
-                            userMeta.role != "employee")
-                          _iconBtn(
-                            Icons.account_circle,
-                            'Un-Assign',
-                            () =>
-                                unAssignUser(context, user.id, user.parentId!),
-                          ),
-                        if (userMeta.role != "employee")
-                          _iconBtn(
-                            Icons.edit,
-                            'Edit',
-                            () => _showEditDialog(
-                              user,
-                              user.name,
-                              user.email,
-                              context,
+                ),
+              if (user.role != 'admin')
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    if (user.role == 'user' &&
+                        user.parentId == null &&
+                        userMeta.role != "employee")
+                      _iconBtn(
+                        Icons.no_accounts_outlined,
+                        'Assign to Sub-Admin',
+                        () => assignUserToSubAdmin(context, user.id),
+                      ),
+                    if (user.role == 'user' &&
+                        user.parentId != null &&
+                        userMeta.role != "employee")
+                      _iconBtn(
+                        Icons.account_circle,
+                        'Un-Assign',
+                        () =>
+                            unAssignUser(context, user.id, user.parentId!),
+                      ),
+                    if (userMeta.role != "employee")
+                      _iconBtn(
+                        Icons.edit,
+                        'Edit',
+                        () => _showEditDialog(
+                          user,
+                          user.name,
+                          user.email,
+                          context,
+                        ),
+                      ),
+                    if (userMeta.role != "employee" &&
+                        user.role != "employee")
+                      _iconBtn(
+                        Icons.percent_sharp,
+                        'Commission %',
+                        () => showCommissionEditDialog(
+                          minCommission: AppConfig().minCommission,
+                          maxCommission: AppConfig().maxCommission,
+                          parentContext: context,
+                          user: user,
+                        ),
+                      ),
+                    if (userMeta.role != "employee")
+                      _iconBtn(
+                        Icons.lock_reset,
+                        'Reset Password',
+                        () => _showResetPasswordDialog(context, user.id),
+                        color: Colors.orange,
+                      ),
+                    if (userMeta.role != "employee")
+                      _iconBtn(
+                        Icons.delete,
+                        'Delete',
+                        () => _deleteUser(user.id, user.name, user.email),
+                        color: Colors.red,
+                      ),
+                    if (userMeta.role == 'admin' ||
+                        userMeta.role == 'subadmin' ||
+                        (userMeta.role == 'employee' &&
+                            userMeta.labels.contains(
+                              AppConstants.viewAllTransactions,
+                            )))
+                      _iconBtn(
+                        Icons.receipt_long,
+                        'View Transactions',
+                        () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (_) => TransactionPageNew(
+                                    filterUserId: user.id,
+                                  ),
                             ),
-                          ),
-                        if (userMeta.role != "employee" &&
-                            user.role != "employee")
-                          _iconBtn(
-                            Icons.percent_sharp,
-                            'Commission %',
-                            () => showCommissionEditDialog(
-                              minCommission: AppConfig().minCommission,
-                              maxCommission: AppConfig().maxCommission,
-                              parentContext: context,
-                              user: user,
+                          );
+                        },
+                        color: Colors.teal,
+                      ),
+                    if (user.role == 'subadmin' &&
+                        (userMeta.role == 'admin' ||
+                            (userMeta.role == 'employee' &&
+                                userMeta.labels.contains(
+                                  AppConstants.viewAllTransactions,
+                                ))))
+                      _iconBtn(
+                        Icons.dashboard,
+                        'View Merchant Dashboard',
+                        () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (_) => SubAdminDashboardPage(
+                                    userMeta: user,
+                                    showUserTitle: true,
+                                  ),
                             ),
-                          ),
-                        if (userMeta.role != "employee")
-                          _iconBtn(
-                            Icons.lock_reset,
-                            'Reset Password',
-                            () => _showResetPasswordDialog(context, user.id),
-                            color: Colors.orange,
-                          ),
-                        if (userMeta.role != "employee")
-                          _iconBtn(
-                            Icons.delete,
-                            'Delete',
-                            () => _deleteUser(user.id, user.name, user.email),
-                            color: Colors.red,
-                          ),
-                        if (userMeta.role == 'admin' ||
+                          );
+                        },
+                        color: Colors.teal,
+                      ),
+                    if (user.role == 'user' &&
+                        (userMeta.role == 'admin' ||
                             userMeta.role == 'subadmin' ||
                             (userMeta.role == 'employee' &&
                                 userMeta.labels.contains(
                                   AppConstants.viewAllTransactions,
-                                )))
-                          _iconBtn(
-                            Icons.receipt_long,
-                            'View Transactions',
-                            () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (_) => TransactionPageNew(
-                                        filterUserId: user.id,
-                                      ),
+                                ))))
+                      _iconBtn(Icons.dashboard, 'View User Dashboard', () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => UserDashboardPage(
+                                  userMeta: user,
+                                  showUserTitle: true,
                                 ),
-                              );
-                            },
-                            color: Colors.teal,
                           ),
-                        if (user.role == 'subadmin' &&
-                            (userMeta.role == 'admin' ||
-                                (userMeta.role == 'employee' &&
-                                    userMeta.labels.contains(
-                                      AppConstants.viewAllTransactions,
-                                    ))))
-                          _iconBtn(
-                            Icons.dashboard,
-                            'View Merchant Dashboard',
-                            () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (_) => SubAdminDashboardPage(
-                                        userMeta: user,
-                                        showUserTitle: true,
-                                      ),
-                                ),
-                              );
-                            },
-                            color: Colors.teal,
-                          ),
-                        if (user.role == 'user' &&
-                            (userMeta.role == 'admin' ||
-                                userMeta.role == 'subadmin' ||
-                                (userMeta.role == 'employee' &&
-                                    userMeta.labels.contains(
-                                      AppConstants.viewAllTransactions,
-                                    ))))
-                          _iconBtn(Icons.dashboard, 'View User Dashboard', () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (_) => UserDashboardPage(
-                                      userMeta: user,
-                                      showUserTitle: true,
-                                    ),
-                              ),
-                            );
-                          }, color: Colors.teal),
-                        // View Withdrawal Accounts of SubAdmin (Merchants) and Users
-                        if (user.role == 'user' &&
-                            (userMeta.role == 'admin' ||
-                                userMeta.role == 'subadmin' ||
-                                (userMeta.role == 'employee' &&
-                                    userMeta.labels.contains(
-                                      AppConstants.viewAllTransactions,
-                                    ))))
-                          _iconBtn(Icons.account_balance_outlined, 'View Withdrawal Accounts', () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (_) => WithdrawalAccountsPage(
-                                      userMode: false,
-                                      userMeta: user,
-                                ),
-                              ),
-                            );
-                          }, color: Colors.teal),
-
-                        if (user.role == 'subadmin' &&
-                            (userMeta.role == 'admin' ||
-                                (userMeta.role == 'employee' &&
-                                    userMeta.labels.contains(
-                                      AppConstants.viewAllTransactions,
-                                    ))))
-                          _iconBtn(Icons.account_balance_outlined, 'View Withdrawal Accounts', () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (_) => WithdrawalAccountsPage(
+                        );
+                      }, color: Colors.teal),
+                    // View Withdrawal Accounts of SubAdmin (Merchants) and Users
+                    if (user.role == 'user' &&
+                        (userMeta.role == 'admin' ||
+                            userMeta.role == 'subadmin' ||
+                            (userMeta.role == 'employee' &&
+                                userMeta.labels.contains(
+                                  AppConstants.viewAllTransactions,
+                                ))))
+                      _iconBtn(Icons.account_balance_outlined, 'View Withdrawal Accounts', () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => WithdrawalAccountsPage(
                                   userMode: false,
                                   userMeta: user,
-                                ),
-                              ),
-                            );
-                          }, color: Colors.teal),
+                            ),
+                          ),
+                        );
+                      }, color: Colors.teal),
 
-                      ],
-                    ),
-                    ),
-                ],
-              ),
+                    if (user.role == 'subadmin' &&
+                        (userMeta.role == 'admin' ||
+                            (userMeta.role == 'employee' &&
+                                userMeta.labels.contains(
+                                  AppConstants.viewAllTransactions,
+                                ))))
+                      _iconBtn(Icons.account_balance_outlined, 'View Withdrawal Accounts', () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => WithdrawalAccountsPage(
+                              userMode: false,
+                              userMeta: user,
+                            ),
+                          ),
+                        );
+                      }, color: Colors.teal),
+
+                  ],
+                ),
+            ],
           ],
         ),
       ),
@@ -1943,11 +1950,17 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     VoidCallback onTap, {
     Color? color,
   }) {
-    return IconButton(
-      tooltip: tip,
+    final c = color ?? Colors.blue;
+    return ActionChip(
+      avatar: Icon(icon, size: 16, color: c),
+      label: Text(
+        tip,
+        style: TextStyle(fontSize: 11, color: c),
+      ),
       onPressed: onTap,
-      icon: Icon(icon, size: 20, color: color ?? Colors.blue),
-      splashRadius: 20,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
     );
   }
 

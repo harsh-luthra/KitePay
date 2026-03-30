@@ -25,6 +25,7 @@ class ManualHoldPage extends StatefulWidget {
 
 class _ManualHoldPageState extends State<ManualHoldPage> {
   final QrCodeService _qrService = QrCodeService();
+  final ScrollController _scrollController = ScrollController();
 
   // Records
   List<dynamic> _records = [];
@@ -54,6 +55,12 @@ class _ManualHoldPageState extends State<ManualHoldPage> {
       selectedQrCodeId = widget.initialQrId;
     }
     _fetchInitial();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchInitial() async {
@@ -574,6 +581,15 @@ class _ManualHoldPageState extends State<ManualHoldPage> {
       appBar: AppBar(
         title: Text(_isFromQrCard ? 'Hold on ${widget.qrCode!.qrId}' : 'Manual Hold on QR'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.arrow_upward),
+            tooltip: 'Scroll to top',
+            onPressed: () {
+              if (_scrollController.hasClients) {
+                _scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+              }
+            },
+          ),
           if (_isFromQrCard)
             IconButton(
               onPressed: _showQrDetailsDialog,
@@ -591,43 +607,55 @@ class _ManualHoldPageState extends State<ManualHoldPage> {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          // Filters toggle (only from dashboard / sidebar, not from QR card)
-          if (!_isFromQrCard) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Row(
-                children: [
-                  const Text('Filters: '),
-                  Switch(
-                    value: showingFilters,
-                    onChanged: (val) => setState(() => showingFilters = val),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () {
-                      _nextCursor = null;
-                      _loadRecords();
-                    },
-                    icon: const Icon(Icons.refresh),
-                    tooltip: 'Refresh',
-                  ),
-                ],
-              ),
-            ),
-            if (showingFilters) _buildFilters(),
-          ],
+      body: _isLoading && _records.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: () async {
+                _nextCursor = null;
+                await _loadRecords();
+              },
+              child: CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                  // Filters toggle (only from dashboard / sidebar, not from QR card)
+                  if (!_isFromQrCard) ...[
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        child: Row(
+                          children: [
+                            const Text('Filters: '),
+                            Switch(
+                              value: showingFilters,
+                              onChanged: (val) => setState(() => showingFilters = val),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              onPressed: () {
+                                _nextCursor = null;
+                                _loadRecords();
+                              },
+                              icon: const Icon(Icons.refresh),
+                              tooltip: 'Refresh',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (showingFilters)
+                      SliverToBoxAdapter(child: _buildFilters()),
+                  ],
 
-          // Records list
-          if (_isLoading && _records.isNotEmpty)
-            const LinearProgressIndicator(minHeight: 2),
+                  // Loading indicator
+                  if (_isLoading && _records.isNotEmpty)
+                    const SliverToBoxAdapter(
+                      child: LinearProgressIndicator(minHeight: 2),
+                    ),
 
-          Expanded(
-            child: _isLoading && _records.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : _records.isEmpty && !_isLoading
-                    ? Center(
+                  // Records list
+                  if (_records.isEmpty && !_isLoading)
+                    SliverFillRemaining(
+                      child: Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -636,36 +664,36 @@ class _ManualHoldPageState extends State<ManualHoldPage> {
                             Text('No hold records found', style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                           ],
                         ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () async {
-                          _nextCursor = null;
-                          await _loadRecords();
-                        },
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          itemCount: _records.length + (_hasMore ? 1 : 0),
-                          itemBuilder: (ctx, i) {
-                            if (i == _records.length) {
-                              return Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Center(
-                                  child: _isLoading
-                                      ? const CircularProgressIndicator()
-                                      : TextButton(
-                                          onPressed: () => _loadRecords(loadMore: true),
-                                          child: const Text('Load More'),
-                                        ),
-                                ),
-                              );
-                            }
-                            return _buildRecordCard(_records[i]);
-                          },
-                        ),
                       ),
-          ),
-        ],
-      ),
+                    )
+                  else
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (ctx, i) {
+                          if (i == _records.length) {
+                            return Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Center(
+                                child: _isLoading
+                                    ? const CircularProgressIndicator()
+                                    : TextButton(
+                                        onPressed: () => _loadRecords(loadMore: true),
+                                        child: const Text('Load More'),
+                                      ),
+                              ),
+                            );
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: _buildRecordCard(_records[i]),
+                          );
+                        },
+                        childCount: _records.length + (_hasMore ? 1 : 0),
+                      ),
+                    ),
+                ],
+              ),
+            ),
     );
   }
 
