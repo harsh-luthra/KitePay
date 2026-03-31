@@ -20,6 +20,7 @@ class QrCode {
   final int? amountOnHold;
 
   final int? todayTotalPayIn;
+  final int? yesterdayTotalPayIn;
 
   QrCode({
     required this.qrId,
@@ -38,6 +39,7 @@ class QrCode {
     this.commissionPaid,
     this.amountOnHold,
     this.todayTotalPayIn,
+    this.yesterdayTotalPayIn,
   });
 
   factory QrCode.fromJson(Map<String, dynamic> json) {
@@ -58,6 +60,7 @@ class QrCode {
       commissionPaid: json['commissionPaid'] as int? ?? 0,
       amountOnHold: json['amountOnHold'] as int? ?? 0,
       todayTotalPayIn: json['todayTotalPayIn'] as int? ?? 0,
+      yesterdayTotalPayIn: json['yesterdayTotalPayIn'] as int? ?? 0,
     );
   }
 
@@ -79,12 +82,13 @@ class QrCode {
       'commissionPaid' : commissionPaid,
       'amountOnHold': amountOnHold,
       'todayTotalPayIn': todayTotalPayIn,
+      'yesterdayTotalPayIn': yesterdayTotalPayIn,
     };
   }
 
   @override
   String toString() {
-    return 'QrCode{qrId: $qrId, fileId: $fileId, imageUrl: $imageUrl, assignedUserId: $assignedUserId, managedByUserId: $managedByUserId, isActive: $isActive, createdAt: $createdAt, totalTransactions: $totalTransactions, totalPayInAmount: $totalPayInAmount, withdrawalRequestedAmount: $withdrawalRequestedAmount, withdrawalApprovedAmount: $withdrawalApprovedAmount, amountAvailableForWithdrawal: $amountAvailableForWithdrawal, commissionOnHold: $commissionOnHold, commissionPaid: $commissionPaid, amountOnHold: $amountOnHold, todayTotalPayIn: $todayTotalPayIn}';
+    return 'QrCode{qrId: $qrId, fileId: $fileId, imageUrl: $imageUrl, assignedUserId: $assignedUserId, managedByUserId: $managedByUserId, isActive: $isActive, createdAt: $createdAt, totalTransactions: $totalTransactions, totalPayInAmount: $totalPayInAmount, withdrawalRequestedAmount: $withdrawalRequestedAmount, withdrawalApprovedAmount: $withdrawalApprovedAmount, amountAvailableForWithdrawal: $amountAvailableForWithdrawal, commissionOnHold: $commissionOnHold, commissionPaid: $commissionPaid, amountOnHold: $amountOnHold, todayTotalPayIn: $todayTotalPayIn, yesterdayTotalPayIn: $yesterdayTotalPayIn}';
   }
 
   int canWithdrawToday(){

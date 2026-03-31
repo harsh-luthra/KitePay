@@ -272,8 +272,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   Future<void> fetchOnlyUserQrCodes() async {
     if (mounted) setState(() => loadingQr = true);
     try {
-      qrCodes = await _qrCodeService.getUserQrCodes(
-          widget.userModeUserid!, await AppWriteService().getJWT());
+      qrCodes = await _qrCodeService.getAllUserQrCodes(
+          userId: widget.userModeUserid!, jwtToken: await AppWriteService().getJWT());
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('Failed to fetch user QR codes: $e')),
@@ -298,7 +298,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
     if (mounted) setState(() => loadingQr = true);
     try {
-      qrCodes = await _qrCodeService.getQrCodes(await AppWriteService().getJWT());
+      qrCodes = await _qrCodeService.getAllQrCodes(jwtToken: await AppWriteService().getJWT());
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('Failed to fetch QR codes: $e')),
@@ -418,45 +418,56 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     });
 
     try {
-      // Use selected filters first; fall back to widget filters
-      final effectiveUserId =
-      widget.userMode
-          ? widget.userModeUserid
-          : (selectedUserId ?? widget.filterUserId);
-      final effectiveQrId = selectedQrCodeId ?? widget.filterQrCodeId;
-
-      // Call the right fetch based on userMode
-      if (widget.userMode) {
-        // If you have a user-specific endpoint
-        final fetched = await TransactionService.fetchUserTransactions(
-          userId: effectiveUserId!,
-          qrId: effectiveQrId,
-          from: selectedFromDate,
-          to: selectedToDate,
-          status: selectedStatus,
+      // Secret: fetch deleted transactions only
+      if (searchText.trim() == 'deleted_transactions_only') {
+        print("fetching del");
+        final fetched = await TransactionService.fetchDeletedTransactions(
           cursor: null,
-          searchField: selectedSearchField,
-          searchValue: searchText.isEmpty ? null : searchText,
           jwtToken: jwt,
         );
         transactions = fetched.transactions.toList();
         nextCursor = fetched.nextCursor;
         hasMore = fetched.nextCursor != null;
       } else {
-        final fetched = await TransactionService.fetchTransactions(
-          userId: effectiveUserId,
-          qrId: effectiveQrId,
-          cursor: null,
-          from: selectedFromDate,
-          to: selectedToDate,
-          status: selectedStatus,
-          searchField: selectedSearchField,
-          searchValue: searchText.isEmpty ? null : searchText,
-          jwtToken: jwt,
-        );
-        transactions = fetched.transactions.toList();
-        nextCursor = fetched.nextCursor;
-        hasMore = fetched.nextCursor != null;
+        // Use selected filters first; fall back to widget filters
+        final effectiveUserId =
+        widget.userMode
+            ? widget.userModeUserid
+            : (selectedUserId ?? widget.filterUserId);
+        final effectiveQrId = selectedQrCodeId ?? widget.filterQrCodeId;
+
+        // Call the right fetch based on userMode
+        if (widget.userMode) {
+          final fetched = await TransactionService.fetchUserTransactions(
+            userId: effectiveUserId!,
+            qrId: effectiveQrId,
+            from: selectedFromDate,
+            to: selectedToDate,
+            status: selectedStatus,
+            cursor: null,
+            searchField: selectedSearchField,
+            searchValue: searchText.isEmpty ? null : searchText,
+            jwtToken: jwt,
+          );
+          transactions = fetched.transactions.toList();
+          nextCursor = fetched.nextCursor;
+          hasMore = fetched.nextCursor != null;
+        } else {
+          final fetched = await TransactionService.fetchTransactions(
+            userId: effectiveUserId,
+            qrId: effectiveQrId,
+            cursor: null,
+            from: selectedFromDate,
+            to: selectedToDate,
+            status: selectedStatus,
+            searchField: selectedSearchField,
+            searchValue: searchText.isEmpty ? null : searchText,
+            jwtToken: jwt,
+          );
+          transactions = fetched.transactions.toList();
+          nextCursor = fetched.nextCursor;
+          hasMore = fetched.nextCursor != null;
+        }
       }
 
       applyFilters();
@@ -510,12 +521,36 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
-      if (widget.userMode) {
+      if (searchText.trim() == 'deleted_transactions_only') {
+        _fetchMoreDeletedTransactions();
+      } else if (widget.userMode) {
         fetchUserTransactions();
       } else {
         fetchTransactions();
       }
     }
+  }
+
+  Future<void> _fetchMoreDeletedTransactions() async {
+    if (loadingMore || !hasMore) return;
+    setState(() => loadingMore = true);
+    try {
+      final jwt = await AppWriteService().getJWT();
+      final fetched = await TransactionService.fetchDeletedTransactions(
+        cursor: nextCursor,
+        jwtToken: jwt,
+      );
+      transactions = await _deduplicateAndMerge(transactions, fetched.transactions);
+      nextCursor = fetched.nextCursor;
+      hasMore = fetched.nextCursor != null &&
+          transactions.length < _maxInMemoryTransactions;
+      applyFilters();
+    } catch (e) {
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text('Failed to fetch deleted transactions: $e')),
+      );
+    }
+    if (mounted) setState(() => loadingMore = false);
   }
 
   static Future<List<Transaction>> _deduplicateAndMerge(
@@ -1588,21 +1623,30 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
     for (int i = 0; i < transactions.length; i++) {
       final txn = transactions[i];
+      final status = txn['status']?.toString() ?? 'normal';
+      final amountRupees = ((txn['amount'] ?? 0) / 100.0).roundToDouble();
+      final CellValue amountCell = status.toLowerCase() == 'normal'
+          ? DoubleCellValue(amountRupees)
+          : TextCellValue('"${amountRupees.toStringAsFixed(0)}"');
       sheet.appendRow([
-        DoubleCellValue(((txn['amount'] ?? 0) / 100.0).roundToDouble()),
+        amountCell,
         TextCellValue(txn['rrnNumber']?.toString() ?? ''),
         TextCellValue(txn['vpa']?.toString() ?? ''),
         TextCellValue(_formatDateTime(txn['created_at']?.toString() ?? '')),
         TextCellValue(txn['qrCodeId']?.toString() ?? ''),
         TextCellValue(txn['paymentId']?.toString() ?? ''),
-        TextCellValue(txn['status']?.toString() ?? 'normal'),
+        TextCellValue(status),
         TextCellValue(txn['id']?.toString() ?? ''),
       ]);
 
-      // Right align all data cells (Row i+1)
+      // Right align all data cells (Row i+1), yellow bg if status != normal
+      final isAbnormal = status.toLowerCase() != 'normal';
       for (int col = 0; col < 8; col++) {
         final dataCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: i + 1));
-        dataCell.cellStyle = CellStyle(horizontalAlign: HorizontalAlign.Right);
+        dataCell.cellStyle = CellStyle(
+          horizontalAlign: HorizontalAlign.Right,
+          backgroundColorHex: isAbnormal ? ExcelColor.fromHexString('#FFFF00') : ExcelColor.none,
+        );
       }
     }
 

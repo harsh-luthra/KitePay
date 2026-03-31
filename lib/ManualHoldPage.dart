@@ -82,7 +82,7 @@ class _ManualHoldPageState extends State<ManualHoldPage> {
 
     if (mounted) setState(() => loadingQr = true);
     try {
-      qrCodes = await _qrService.getQrCodes(jwt);
+      qrCodes = await _qrService.getAllQrCodes(jwtToken: jwt);
     } catch (_) {}
     if (mounted) setState(() => loadingQr = false);
   }
@@ -255,6 +255,7 @@ class _ManualHoldPageState extends State<ManualHoldPage> {
                   ),
                   const SizedBox(height: 16),
                   _detailRow('Today Pay-In', inr(qr.todayTotalPayIn ?? 0)),
+                  _detailRow('Yesterday Pay-In', inr(qr.yesterdayTotalPayIn ?? 0)),
                   _detailRow('Total Transactions', CurrencyUtils.formatIndianCurrencyWithoutSign(qr.totalTransactions ?? 0)),
                   _detailRow('Total Amount Received', inr(qr.totalPayInAmount ?? 0)),
                   _detailRow('Avail. for Withdrawal', inr(qr.amountAvailableForWithdrawal ?? 0)),

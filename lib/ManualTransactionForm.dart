@@ -52,7 +52,7 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
       final jwt = await AppWriteService().getJWT();
       final fetched = await UsersService.listUsers(jwtToken: jwt);
       users = fetched.appUsers;
-      qrCodes = await _qrCodeService.getQrCodes(jwt);
+      qrCodes = await _qrCodeService.getAllQrCodes(jwtToken: jwt);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -200,8 +200,12 @@ class QrCodeService {
       ).timeout(Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        List<dynamic> jsonList = jsonDecode(response.body);
-        return jsonList.map((json) => QrCode.fromJson(json)).toList();
+        final body = jsonDecode(response.body);
+        if (body is List) {
+          return body.map((j) => QrCode.fromJson(j)).toList();
+        }
+        final List data = body['qrCodes'] ?? [];
+        return data.map((j) => QrCode.fromJson(j)).toList();
       } else {
         throw Exception('Failed to load QR codes from the server');
       }
@@ -210,6 +214,22 @@ class QrCodeService {
     } catch (e) {
       return [];
     }
+  }
+
+  /// Fetches ALL QR codes by looping through paginated responses.
+  Future<List<QrCode>> getAllQrCodes({required String jwtToken}) async {
+    final List<QrCode> all = [];
+    String? cursor;
+    do {
+      final page = await getQrCodesPaginated(
+        jwtToken: jwtToken,
+        cursor: cursor,
+        limit: 100,
+      );
+      all.addAll(page.qrCodes);
+      cursor = page.nextCursor;
+    } while (cursor != null);
+    return all;
   }
 
   Future<PaginatedQrCodes> getQrCodesPaginated({
@@ -253,6 +273,24 @@ class QrCodeService {
     }
   }
 
+  /// Fetches ALL user QR codes by looping through paginated responses.
+  Future<List<QrCode>> getAllUserQrCodes({required String userId, required String jwtToken}) async {
+    if (userId.isEmpty) return [];
+    final List<QrCode> all = [];
+    String? cursor;
+    do {
+      final page = await getUserQrCodesPaginated(
+        userId: userId,
+        jwtToken: jwtToken,
+        cursor: cursor,
+        limit: 100,
+      );
+      all.addAll(page.qrCodes);
+      cursor = page.nextCursor;
+    } while (cursor != null);
+    return all;
+  }
+
   Future<List<QrCode>> getUserQrCodes(String userId, String? jwtToken) async {
     if (userId.isEmpty) return [];
 
@@ -265,8 +303,12 @@ class QrCodeService {
       ).timeout(Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        List<dynamic> jsonList = jsonDecode(response.body);
-        return jsonList.map((json) => QrCode.fromJson(json)).toList();
+        final body = jsonDecode(response.body);
+        if (body is List) {
+          return body.map((j) => QrCode.fromJson(j)).toList();
+        }
+        final List data = body['qrCodes'] ?? [];
+        return data.map((j) => QrCode.fromJson(j)).toList();
       } else {
         throw Exception('Failed to load user QR codes from the server');
       }
@@ -333,8 +375,12 @@ class QrCodeService {
       ).timeout(Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        List<dynamic> jsonList = jsonDecode(response.body);
-        return jsonList.map((json) => QrCode.fromJson(json)).toList();
+        final body = jsonDecode(response.body);
+        if (body is List) {
+          return body.map((j) => QrCode.fromJson(j)).toList();
+        }
+        final List data = body['qrCodes'] ?? [];
+        return data.map((j) => QrCode.fromJson(j)).toList();
       } else {
         throw Exception('Failed to load user QR codes from the server');
       }

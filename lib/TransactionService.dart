@@ -166,6 +166,40 @@ class TransactionService {
     }
   }
 
+  static Future<PaginatedTransactions> fetchDeletedTransactions({
+    String? cursor,
+    int limit = 25,
+    required String jwtToken,
+  }) async {
+    try {
+      String url = '$_baseUrl/admin/deleted_transactions_only';
+      Map<String, String> queryParams = {
+        'limit': limit.toString(),
+      };
+      if (cursor != null) queryParams['cursor'] = cursor;
+
+      url += '?${Uri(queryParameters: queryParams).query}';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $jwtToken',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return _parseTransactionsOffMain(response.body);
+      } else {
+        throw Exception('Failed to load deleted transactions: ${response.body}');
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your connection.');
+    } catch (e) {
+      return PaginatedTransactions(transactions: [], nextCursor: null);
+    }
+  }
+
   static Future<PaginatedTransactions> fetchUserTransactions({
     String? userId,
     String? qrId,

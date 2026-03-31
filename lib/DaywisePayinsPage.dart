@@ -95,7 +95,7 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
     setState(() => _loadingQr = true);
     try {
       final jwt = await AppWriteService().getJWT();
-      _qrCodes = await _qrCodeService.getQrCodes(jwt);
+      _qrCodes = await _qrCodeService.getAllQrCodes(jwtToken: jwt);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -110,7 +110,7 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
     setState(() => _loadingQr = true);
     try {
       final jwt = await AppWriteService().getJWT();
-      _qrCodes = await _qrCodeService.getUserQrCodes(widget.userMeta.id, jwt);
+      _qrCodes = await _qrCodeService.getAllUserQrCodes(userId: widget.userMeta.id, jwtToken: jwt);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

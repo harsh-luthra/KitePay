@@ -244,11 +244,12 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
     }
 
     try {
-      final codes = await _qrCodeService.getUserAssignedQrCodes(
+      final codes = await _qrCodeService.getUserQrCodes(
           await AppWriteService().getUserId(), await AppWriteService().getJWT());
       setState(() {
         List<QrCode> qrCodesFetched = codes;
-        _qrCodesAssignedToMe = qrCodesFetched.where((q) => (q.assignedUserId ?? '').toLowerCase() == UserMeta.id).toList();
+        _qrCodesAssignedToMe = qrCodesFetched;
+        // _qrCodesAssignedToMe = qrCodesFetched.where((q) => (q.assignedUserId ?? '').toLowerCase() == UserMeta.id).toList();
       });
       if (_qrCodesAssignedToMe.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -347,6 +348,7 @@ class _WithdrawalFormPageState extends State<WithdrawalFormPage> {
                         children: [
                           metricChip('Txns', count(qr.totalTransactions ?? 0), Colors.teal, Icons.receipt_long),
                           metricChip('Today', inr(qr.todayTotalPayIn ?? 0), Colors.indigo, Icons.today),
+                          metricChip('Yesterday', inr(qr.yesterdayTotalPayIn ?? 0), Colors.deepPurple, Icons.history),
                           metricChip('Received', inr(qr.totalPayInAmount ?? 0), Colors.deepPurple, Icons.account_balance_wallet),
                           metricChip('Total Available', inr(qr.amountAvailableForWithdrawal ?? 0), Colors.green, Icons.savings),
                           metricChip('Withdrawable Amount', inr(qr.canWithdrawToday()), Colors.green, Icons.savings),

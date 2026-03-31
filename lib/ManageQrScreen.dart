@@ -215,6 +215,12 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       case 'todayPayIn_asc':
         result.sort((a, b) => (a.todayTotalPayIn ?? 0).compareTo(b.todayTotalPayIn ?? 0));
         break;
+      case 'yesterdayPayIn_desc':
+        result.sort((a, b) => (b.yesterdayTotalPayIn ?? 0).compareTo(a.yesterdayTotalPayIn ?? 0));
+        break;
+      case 'yesterdayPayIn_asc':
+        result.sort((a, b) => (a.yesterdayTotalPayIn ?? 0).compareTo(b.yesterdayTotalPayIn ?? 0));
+        break;
     }
 
     return result;
@@ -1574,6 +1580,8 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                   PopupMenuItem(value: 'createdAt_asc', child: _sortMenuItem('Created (Oldest)', 'createdAt_asc')),
                   PopupMenuItem(value: 'todayPayIn_desc', child: _sortMenuItem('Today Pay-In (High)', 'todayPayIn_desc')),
                   PopupMenuItem(value: 'todayPayIn_asc', child: _sortMenuItem('Today Pay-In (Low)', 'todayPayIn_asc')),
+                  PopupMenuItem(value: 'yesterdayPayIn_desc', child: _sortMenuItem('Yesterday Pay-In (High)', 'yesterdayPayIn_desc')),
+                  PopupMenuItem(value: 'yesterdayPayIn_asc', child: _sortMenuItem('Yesterday Pay-In (Low)', 'yesterdayPayIn_asc')),
                 ],
               ),
               IconButton(
@@ -2022,6 +2030,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
             final tiles = <Widget>[
               metricTile('Today Pay-In', inr(qrCode.todayTotalPayIn ?? 0), icon: Icons.today, color: Colors.indigo),
+              metricTile('Yesterday Pay-In', inr(qrCode.yesterdayTotalPayIn ?? 0), icon: Icons.history, color: Colors.deepPurple),
               metricTile('Transactions',
                   CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions ?? 0),
                   icon: Icons.receipt_long, color: Colors.teal),

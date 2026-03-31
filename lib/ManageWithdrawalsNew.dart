@@ -118,7 +118,7 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
 
     if (mounted) setState(() => loadingQr = true);
     try {
-      qrCodes = await _qrCodeService.getQrCodes(await AppWriteService().getJWT());
+      qrCodes = await _qrCodeService.getAllQrCodes(jwtToken: await AppWriteService().getJWT());
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('Failed to fetch QR codes: $e')),
