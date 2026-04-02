@@ -2,15 +2,10 @@ import 'package:admin_qr_manager/AppConfig.dart';
 import 'package:admin_qr_manager/AppConstants.dart';
 import 'package:admin_qr_manager/QRService.dart';
 import 'package:admin_qr_manager/SocketManager.dart';
-import 'package:admin_qr_manager/utils/CurrencyUtils.dart';
 import 'package:admin_qr_manager/widget/QrCardShimmer.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'dart:html' as html; // only works on Flutter web
-import 'package:http/http.dart' as http;
 
 import 'AppWriteService.dart';
 import 'ManualHoldPage.dart';
@@ -19,6 +14,7 @@ import 'TransactionPageNew.dart';
 import 'UsersService.dart';
 import 'models/AppUser.dart';
 import 'models/QrCode.dart';
+import 'widget/QrCodeCard.dart';
 
 // QrCodesPage.dart
 class ManageQrScreen extends StatefulWidget {
@@ -54,8 +50,10 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   int activeUserQrCount = 0;
   late AppUser userMeta;
 
-  String _managerScope = 'ALL'; // 'ALL' | 'SUBADMIN'
+  String _managerScope = 'ALL'; // 'ALL' | 'ADMIN' | 'SUBADMIN' | 'USER' | 'UNASSIGNED'
+  AppUser? _selectedAdmin;      // chosen admin for filtering (if scope == ADMIN)
   AppUser? _selectedSubadmin;   // chosen subadmin for filtering (if scope == SUBADMIN)
+  AppUser? _selectedUser;       // chosen user for filtering (if scope == USER)
 
   bool showingFilters = false;
 
@@ -99,7 +97,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     super.dispose();
   }
 
-  Future<void> checkQrLimitTodayPayin() async {
+  Future<void> checkQrLimitTodayPayIn() async {
     for (QrCode qr in _qrCodes) {
       final todayPayIn = qr.todayTotalPayIn ?? 0;
       if (todayPayIn >= QR_PayIn_Today_limit) {
@@ -116,6 +114,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     try {
       final fetched = await UsersService.listUsers(jwtToken: await AppWriteService().getJWT());
       users = fetched.appUsers;
+      _rebuildUserMap();
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('Failed to fetch users: $e')),
@@ -125,12 +124,14 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     setState(() => _isProcessing = false);
   }
 
+  Map<String, AppUser> _userMap = {};
+
+  void _rebuildUserMap() {
+    _userMap = {for (final u in users) u.id: u};
+  }
+
   AppUser? getUserById(String id) {
-    try {
-      return users.firstWhere((user) => user.id == id);
-    } catch (e) {
-      return null; // if not found
-    }
+    return _userMap[id];
   }
 
   // Helper: map role to a friendly label
@@ -178,16 +179,22 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
   List<QrCode> get _visibleQrCodes {
     List<QrCode> scopeFiltered;
     switch (_managerScope) {
-      case 'ALL':
-        scopeFiltered = _qrCodes;
-        break;
       case 'UNASSIGNED':
-        scopeFiltered = _qrCodes.where((q) => q.assignedUserId == null || q.managedByUserId == null).toList();
+        scopeFiltered = _qrCodes.where((q) => q.assignedUserId == null && q.managedByUserId == null).toList();
+        break;
+      case 'ADMIN':
+        if (_selectedAdmin == null) return const <QrCode>[];
+        scopeFiltered = _qrCodes.where((q) => q.assignedUserId == _selectedAdmin!.id).toList();
         break;
       case 'SUBADMIN':
         if (_selectedSubadmin == null) return const <QrCode>[];
         scopeFiltered = _qrCodes.where((q) => q.managedByUserId == _selectedSubadmin!.id).toList();
         break;
+      case 'USER':
+        if (_selectedUser == null) return const <QrCode>[];
+        scopeFiltered = _qrCodes.where((q) => q.assignedUserId == _selectedUser!.id).toList();
+        break;
+      case 'ALL':
       default:
         scopeFiltered = _qrCodes;
     }
@@ -198,7 +205,18 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       result = List.of(scopeFiltered);
     } else {
       final q = _searchQuery.trim().toLowerCase();
-      result = scopeFiltered.where((qr) => qr.qrId.toLowerCase().contains(q)).toList();
+      result = scopeFiltered.where((qr) {
+        if (qr.qrId.toLowerCase().contains(q)) return true;
+        final assignedUser = qr.assignedUserId != null ? getUserById(qr.assignedUserId!) : null;
+        if (assignedUser != null &&
+            (assignedUser.name.toLowerCase().contains(q) ||
+             assignedUser.email.toLowerCase().contains(q))) return true;
+        final manager = qr.managedByUserId != null ? getUserById(qr.managedByUserId!) : null;
+        if (manager != null &&
+            (manager.name.toLowerCase().contains(q) ||
+             manager.email.toLowerCase().contains(q))) return true;
+        return false;
+      }).toList();
     }
 
     // Apply sort
@@ -432,40 +450,18 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     setState(() => _isProcessing = false);
   }
 
-  Future<void> _fetchQrCodes({bool firstLoad = true}) async {
-    if ((_loadingMore && !firstLoad) || !_hasMore) return;
-
+  Future<void> _fetchQrCodes() async {
     _jwtToken = await AppWriteService().getJWT();
     if (_jwtToken == null) return;
 
-    if (firstLoad) {
-      setState(() {
-        _isLoading = true;
-        _qrCodes.clear();
-        _nextCursor = null;
-        _hasMore = true;
-      });
-    } else {
-      setState(() => _loadingMore = true);
-    }
+    setState(() {
+      _isLoading = true;
+      _qrCodes.clear();
+    });
 
     try {
-      final fetched = await _qrCodeService.getQrCodesPaginated(
-        cursor: _nextCursor,
-        jwtToken: _jwtToken!,
-      );
-
-      if (firstLoad) {
-        _qrCodes = fetched.qrCodes.reversed.toList();
-      } else {
-        final existingIds = _qrCodes.map((q) => q.qrId).toSet();
-        final newOnes = fetched.qrCodes.where((q) => !existingIds.contains(q.qrId));
-        _qrCodes.addAll(newOnes);
-      }
-
-      _nextCursor = fetched.nextCursor;
-      _hasMore = fetched.nextCursor != null &&
-          _qrCodes.length < _maxInMemoryQrCodes;
+      final codes = await _qrCodeService.getAllQrCodes(jwtToken: _jwtToken!);
+      _qrCodes = codes.reversed.toList();
     } catch (e) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text('Failed to fetch QR codes: $e')),
@@ -473,22 +469,18 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     }
 
     if (!mounted) return;
-    if (firstLoad) {
-      setState(() => _isLoading = false);
-    } else {
-      setState(() => _loadingMore = false);
-    }
-
-    checkQrLimitTodayPayin();
+    setState(() => _isLoading = false);
+    checkQrLimitTodayPayIn();
   }
 
   int activeQrCount(List<QrCode> qrCodes) {
     return qrCodes.where((qr) => qr.isActive == true).length;
   }
 
-  Future<void> _fetchOnlyUserQrCodes({bool firstLoad = true}) async {
-    if (widget.userModeUserid == null) return;
-    if ((_loadingMore && !firstLoad) || !_hasMore) return;
+  Future<void> _fetchOnlyUserQrCodes({bool firstLoad = true, String? userId}) async {
+    final targetUserId = userId ?? widget.userModeUserid;
+    if (targetUserId == null) return;
+    if (!firstLoad && (_loadingMore || !_hasMore)) return;
 
     _jwtToken = await AppWriteService().getJWT();
 
@@ -507,7 +499,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
     try {
       final fetched = await _qrCodeService.getUserQrCodesPaginated(
-        userId: widget.userModeUserid!,
+        userId: targetUserId,
         cursor: _nextCursor,
         jwtToken: _jwtToken!,
       );
@@ -539,17 +531,15 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       setState(() => _loadingMore = false);
     }
 
-    checkQrLimitTodayPayin();
+    checkQrLimitTodayPayIn();
   }
 
-  // PAGINATION scroll listener
+  // PAGINATION scroll listener (only applies to userMode paginated fetch)
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       if (widget.userMode) {
         _fetchOnlyUserQrCodes(firstLoad: false);
-      } else {
-        _fetchQrCodes(firstLoad: false);
       }
     }
   }
@@ -1644,7 +1634,45 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
                       formattedDate = DateFormat.yMd().add_Hms().format(DateTime.parse(createdAt));
                     } catch (_) {}
                   }
-                  return buildQrCodeCard(qr, formattedDate);
+                  return QrCodeCard(
+                    qrCode: qr,
+                    formattedDate: formattedDate,
+                    userMeta: widget.userMeta,
+                    userMode: widget.userMode,
+                    userModeUserid: widget.userModeUserid,
+                    isProcessing: _isProcessing,
+                    qrPayInTodayLimit: QR_PayIn_Today_limit,
+                    displayUserNameText: displayUserNameText,
+                    getUserById: getUserById,
+                    onToggleStatus: () => _toggleStatus(qr),
+                    onAssignUser: () => _assignUser(qr.qrId, qr.fileId, qr: qr),
+                    onAssignUserOptions: () => assignmentOptionForAdminSubAdminUser(qr),
+                    onAssignSubAdmin: () => _assignSubAdmin(qr.qrId, qr.fileId, qr: qr),
+                    onAssignSubAdminOptions: () => assignmentOptionForAdminManager(qr),
+                    onViewTransactions: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => widget.userMode
+                            ? TransactionPageNew(filterQrCodeId: qr.qrId, userMode: true, userModeUserid: widget.userModeUserid)
+                            : TransactionPageNew(filterQrCodeId: qr.qrId),
+                      ),
+                    ),
+                    onDelete: () => _deleteQrCode(qr.qrId),
+                    onEditImage: () => _editQrCode(qr.qrId),
+                    onManualHold: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ManualHoldPage(
+                          userMeta: widget.userMeta,
+                          qrCode: qr,
+                          assignedUser: qr.assignedUserId != null ? getUserById(qr.assignedUserId!) : null,
+                        ),
+                      ),
+                    ),
+                    onNotifyServer: widget.userMode && qr.isActive
+                        ? () => SocketManager.instance.sendQrCodeAlert(qr)
+                        : null,
+                  );
                 },
               ),
             ),
@@ -1662,769 +1690,128 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
 
   Widget _buildManagerFilters() {
     final subs = users.where((u) => u.role == 'subadmin').toList();
+    final adminCount = _qrCodes.where((q) => q.assignedUserId != null && users.any((u) => u.id == q.assignedUserId && u.role == 'admin')).length;
+    final subadminCount = _qrCodes.where((q) => q.managedByUserId != null).length;
+    final userCount = _qrCodes.where((q) => q.assignedUserId != null).length;
+    final unassignedCount = _qrCodes.where((q) => q.assignedUserId == null && q.managedByUserId == null).length;
 
-    return Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SizedBox(
-          width: 200,
-          child: DropdownButtonFormField<String>(
-            value: _managerScope,
-            decoration: const InputDecoration(
-              labelText: 'Manager Scope',
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            ),
-            items: const [
-              DropdownMenuItem(value: 'ALL', child: Text('ALL')),
-              DropdownMenuItem(value: 'SUBADMIN', child: Text('Subadmin')),
-              DropdownMenuItem(value: 'UNASSIGNED', child: Text('UNASSIGNED')),
-            ],
-            onChanged: (val) {
-              if (val == null) return;
-              setState(() {
-                _managerScope = val;
-                if (_managerScope != 'SUBADMIN') {
-                  _selectedSubadmin = null;
-                }
-              });
-            },
-          ),
-        ),
-        if (_managerScope == 'SUBADMIN')
-          SizedBox(
-            width: 330,
-            child: DropdownButtonFormField<AppUser>(
-              value: _selectedSubadmin,
-              decoration: const InputDecoration(
-                labelText: 'Select Subadmin',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              ),
-              items: subs.map((s) {
-                final label = s.name.isNotEmpty ? '${s.name} • ${s.email}' : s.email;
-                return DropdownMenuItem(value: s, child: Text(label, overflow: TextOverflow.ellipsis));
-              }).toList(),
-              onChanged: (val) => setState(() => _selectedSubadmin = val),
-            ),
-          ),
-      ],
-    );
-  }
+    final scopes = <String, String>{
+      'ALL': 'All (${_qrCodes.length})',
+      'ADMIN': 'Admin ($adminCount)',
+      'SUBADMIN': 'Subadmin ($subadminCount)',
+      'USER': 'User ($userCount)',
+      'UNASSIGNED': 'Unassigned ($unassignedCount)',
+    };
 
-  Widget buildQrCodeCard(QrCode qrCode, String formattedDate) {
-    final w = MediaQuery.of(context).size.width;
-    final isMobile = w < 720;
-
-    final String assignedId = qrCode.assignedUserId ?? '';
-    final String managerId = qrCode.managedByUserId ?? '';
-
-    final bool isSelf = assignedId == widget.userMeta.id;
-    final String assignedName = displayUserNameText(assignedId);
-    final String assigneeLine = assignedId == ''
-        ? 'Unassigned'
-        : (isSelf
-        ? 'Self'
-        : [assignedName].where((s) => s.isNotEmpty).join(' • '));
-
-    final String managerName = displayUserNameText(managerId);
-    final bool isSelfManager = managerId == widget.userMeta.id;
-    final String managerLine = managerId == ''
-        ? 'Unassigned'
-        : (isSelfManager
-        ? 'Self'
-        : [managerName].where((s) => s.isNotEmpty).join(' • '));
+    final needsDropdown = {'ADMIN', 'SUBADMIN', 'USER'}.contains(_managerScope);
 
     return Card(
-      elevation: 3,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(14.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Always show full QR ID on top
-            SelectableText(
-              'QR ID: ${qrCode.qrId}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-            if ((qrCode.todayTotalPayIn ?? 0) >= QR_PayIn_Today_limit)
-              Row(
-                children: [
-                  Icon(
-                    Icons.warning_amber_outlined,  // icon name FIRST
-                    color: Colors.redAccent,          // THEN color
-                  ),
-                  Text("Limit Reached For Today"),
-                ],
-              ),
-            const SizedBox(height: 12),
-            // Content row/column
-            isMobile
-                ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildQrLeftSection(qrCode),      // image, status chip, download/zoom
-                const SizedBox(height: 16),
-                _rightMetricsBlock(qrCode, formattedDate),
-              ],
-            )
-                : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildQrLeftSection(qrCode),
-                const SizedBox(width: 16),
-                Expanded(child: _rightMetricsBlock(qrCode, formattedDate)),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-            Center(child: _buildActionButtons(qrCode)),
-            const Divider(height: 20),
-
-            // Always show name & email at the bottom
-            Row(
-              children: [
-                const SizedBox(width: 70, child: Text("User:")),
-                const Icon(Icons.person, size: 18, color: Colors.blueGrey),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    assigneeLine.isEmpty ? 'Unassigned' : assigneeLine,
-                    style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 8),
-
-            if(!widget.userMode)
-            Row(
-              children: [
-                const SizedBox(width: 70, child: Text("Manager:")),
-                const Icon(Icons.admin_panel_settings, size: 18, color: Colors.blueGrey),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    managerLine.isEmpty ? 'Unassigned' : managerLine,
-                    style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-
-          ],
-        ),
-      ),
-    );
-  }
-  /// Left: QR image, status, quick actions
-  Widget _buildQrLeftSection(QrCode qrCode) {
-    final statusColor = qrCode.isActive ? Colors.green : Colors.red;
-    final statusBg = qrCode.isActive
-        ? Colors.green.withValues(alpha: 0.1)
-        : Colors.red.withValues(alpha: 0.1);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // QR thumb with loader/error
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: SizedBox(
-                width: 140,
-                height: 140,
-                child: qrCode.imageUrl.isNotEmpty
-                    ? CachedNetworkImage(
-                  imageUrl: qrCode.imageUrl,
-                  fit: BoxFit.cover,
-                  placeholder: (c, _) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                  errorWidget: (c, _, __) => Icon(Icons.broken_image, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                )
-                    : const Icon(Icons.qr_code_2, size: 72, color: Colors.blueGrey),
-              ),
-            ),
-            // Zoom tap overlay
-            Positioned.fill(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => _openQrPreviewDialog(qrCode.imageUrl),
-                ),
-              ),
-            ),
-            // Download FAB
-            Positioned(
-              right: -8,
-              bottom: -8,
-              child: Tooltip(
-                message: 'Download QR',
-                child: FloatingActionButton.small(
-                  heroTag: 'dl-${qrCode.qrId}',
-                  elevation: 1,
-                  onPressed: () => _downloadQrImage(qrCode.imageUrl),
-                  child: const Icon(Icons.download),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(20)),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(qrCode.isActive ? Icons.check_circle : Icons.cancel, size: 16, color: statusColor),
-              const SizedBox(width: 6),
-              Text(qrCode.isActive ? 'ACTIVE' : 'Suspicious', style: TextStyle(color: statusColor, fontWeight: FontWeight.w600)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _openQrPreviewDialog(String url) {
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: InteractiveViewer(
-                minScale: 0.8,
-                maxScale: 5,
-                child: url.isNotEmpty
-                    ? CachedNetworkImage(
-                  imageUrl: url,
-                  fit: BoxFit.contain,
-                  placeholder: (c, _) => const SizedBox(
-                    width: 240,
-                    height: 240,
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                  errorWidget: (c, _, __) => const Icon(Icons.error, size: 72),
-                )
-                    : const Icon(Icons.qr_code_2, size: 120),
-              ),
-            ),
-            Positioned(
-              right: 8,
-              top: 8,
-              child: IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _downloadQrImage(String url) async {
-    try {
-      if (url.isEmpty) return;
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final bytes = response.bodyBytes;
-        final blob = html.Blob([bytes]);
-        final obj = html.Url.createObjectUrlFromBlob(blob);
-        final a = html.AnchorElement(href: obj)
-          ..download = "qr_${DateTime.now().millisecondsSinceEpoch}.png"
-          ..style.display = 'none';
-        html.document.body!.append(a);
-        a.click();
-        a.remove();
-        html.Url.revokeObjectUrl(obj);
-      } else {
-        if (kDebugMode) debugPrint('Download failed (${response.statusCode})');
-      }
-    } catch (e) {
-      if (kDebugMode) debugPrint('Download error: $e');
-    }
-  }
-
-// Right: metrics + ledger + created line + actions (actions can stay at bottom of card if preferred)
-  Widget _rightMetricsBlock(QrCode qrCode, String formattedDate) {
-    final bool isAdmin = widget.userMeta.role == "admin";
-    final bool isSubAdmin = widget.userMeta.role == "subadmin";
-    final bool isEmployee = widget.userMeta.role == "employee";
-    String inr(num p) => CurrencyUtils.formatIndianCurrency(p / 100);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-
-        LayoutBuilder(
-          builder: (ctx, cts) {
-            final w = cts.maxWidth;
-
-            // Adaptive tile sizing
-            final maxTileW = w >= 1000 ? 260.0 : w >= 760 ? 230.0 : w >= 560 ? 200.0 : 170.0;
-            final minTileW = 150.0;
-            final labelSmall = w < 420;
-            final hideIcons = w < 340;
-
-            final tileTheme = Theme.of(context);
-            Widget metricTile(String label, String value, {IconData? icon, Color? color}) {
-              return ConstrainedBox(
-                constraints: BoxConstraints(minWidth: minTileW, maxWidth: maxTileW),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: tileTheme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                    border: Border.all(color: tileTheme.colorScheme.outlineVariant),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      if (!hideIcons && icon != null) ...[
-                        Icon(icon, size: 16, color: color ?? Colors.blueGrey),
-                        const SizedBox(width: 6),
-                      ],
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              labelSmall
-                                  ? label
-                                  .replaceAll('Avail. Withdrawal', 'Available')
-                                  .replaceAll('Amount Received', 'Received')
-                                  .replaceAll('Today Pay-In', 'Today')
-                                  : label,
-                              style: TextStyle(fontSize: 11, color: tileTheme.colorScheme.onSurfaceVariant),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              softWrap: false,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              value,
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              softWrap: false,
-                            ),
-                          ],
-                        ),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: scopes.entries.map((e) {
+                  final selected = _managerScope == e.key;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(e.value),
+                      selected: selected,
+                      showCheckmark: false,
+                      selectedColor: Theme.of(context).colorScheme.primaryContainer,
+                      labelStyle: TextStyle(
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                        color: selected
+                            ? Theme.of(context).colorScheme.onPrimaryContainer
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            final tiles = <Widget>[
-              metricTile('Today Pay-In', inr(qrCode.todayTotalPayIn ?? 0), icon: Icons.today, color: Colors.indigo),
-              metricTile('Yesterday Pay-In', inr(qrCode.yesterdayTotalPayIn ?? 0), icon: Icons.history, color: Colors.deepPurple),
-              metricTile('Transactions',
-                  CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions ?? 0),
-                  icon: Icons.receipt_long, color: Colors.teal),
-              if (isAdmin || isSubAdmin || isEmployee)
-                metricTile('Total Amount Rec', inr(qrCode.totalPayInAmount ?? 0),
-                    icon: Icons.account_balance_wallet, color: Colors.deepPurple),
-              metricTile('Avail. Withdrawal', inr(qrCode.amountAvailableForWithdrawal ?? 0),
-                  icon: Icons.savings, color: Colors.green),
-              metricTile('Withdrawable Amount', inr(qrCode.canWithdrawToday() ?? 0),
-                  icon: Icons.savings, color: Colors.green),
-            ];
-
-            return Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: tiles,
-            );
-          },
-        ),
-
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _kv('Requested', inr(qrCode.withdrawalRequestedAmount ?? 0)),
-              _kv('Approved', inr(qrCode.withdrawalApprovedAmount ?? 0)),
-              _kv('Comm On-Hold', inr(qrCode.commissionOnHold ?? 0)),
-              _kv('Comm Paid', inr(qrCode.commissionPaid ?? 0)),
-              _kv('Amt On-Hold', inr(qrCode.amountOnHold ?? 0)),
+                      onSelected: (_) {
+                        setState(() {
+                          _managerScope = e.key;
+                          if (_managerScope != 'ADMIN') _selectedAdmin = null;
+                          if (_managerScope != 'SUBADMIN') _selectedSubadmin = null;
+                          if (_managerScope != 'USER') _selectedUser = null;
+                        });
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            if (needsDropdown) ...[
+              const SizedBox(height: 10),
+              _buildUserDropdown(),
             ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Icon(Icons.access_time, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
-            const SizedBox(width: 6),
-            Text('Created: $formattedDate', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ],
         ),
-      ],
+      ),
     );
   }
 
-  Widget _kv(String k, String v) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('$k: ', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11)),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 220),
-            child: Text(v, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+  Widget _buildUserDropdown() {
+    switch (_managerScope) {
+      case 'ADMIN':
+        return DropdownButtonFormField<AppUser>(
+          isExpanded: true,
+          value: _selectedAdmin,
+          decoration: InputDecoration(
+            labelText: 'Select Admin',
+            prefixIcon: const Icon(Icons.admin_panel_settings_outlined, size: 20),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
-        ],
-      ),
-    );
-  }
-
-  /// Actions
-  Widget _buildActionButtons(QrCode qrCode) {
-    final canUserActions = (!widget.userMode || (widget.userMeta.role.contains("subadmin") && widget.userMeta.labels.contains("users")));
-    final canViewTx =
-        (widget.userMeta.role == "admin") ||
-            (widget.userMeta.role == "employee" && widget.userMeta.labels.contains(AppConstants.viewAllTransactions)) ||
-            (widget.userMeta.role == "subadmin") ||
-            (widget.userMeta.role == "user") ;
-
-    Widget action({required IconData icon, required String tip, required VoidCallback? onTap, Color? color}) {
-      final c = color ?? Colors.blueGrey;
-      return ActionChip(
-        avatar: Icon(icon, size: 16, color: _isProcessing ? Colors.grey : c),
-        label: Text(
-          tip,
-          style: TextStyle(fontSize: 11, color: _isProcessing ? Colors.grey : c),
-        ),
-        onPressed: _isProcessing ? null : onTap,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-      );
+          items: users.where((u) => u.role == 'admin').map((a) {
+            final count = _qrCodes.where((q) => q.assignedUserId == a.id).length;
+            final label = a.name.isNotEmpty ? '${a.name} • ${a.email} ($count)' : '${a.email} ($count)';
+            return DropdownMenuItem(value: a, child: Text(label, overflow: TextOverflow.ellipsis));
+          }).toList(),
+          onChanged: (val) => setState(() => _selectedAdmin = val),
+        );
+      case 'SUBADMIN':
+        final subs = users.where((u) => u.role == 'subadmin').toList();
+        return DropdownButtonFormField<AppUser>(
+          isExpanded: true,
+          value: _selectedSubadmin,
+          decoration: InputDecoration(
+            labelText: 'Select Subadmin',
+            prefixIcon: const Icon(Icons.supervisor_account_outlined, size: 20),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+          items: subs.map((s) {
+            final count = _qrCodes.where((q) => q.managedByUserId == s.id).length;
+            final label = s.name.isNotEmpty ? '${s.name} • ${s.email} ($count)' : '${s.email} ($count)';
+            return DropdownMenuItem(value: s, child: Text(label, overflow: TextOverflow.ellipsis));
+          }).toList(),
+          onChanged: (val) => setState(() => _selectedSubadmin = val),
+        );
+      case 'USER':
+        return DropdownButtonFormField<AppUser>(
+          isExpanded: true,
+          value: _selectedUser,
+          decoration: InputDecoration(
+            labelText: 'Select User',
+            prefixIcon: const Icon(Icons.person_outline, size: 20),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+          items: users.where((u) => u.role == 'user').map((u) {
+            final count = _qrCodes.where((q) => q.assignedUserId == u.id).length;
+            final label = u.name.isNotEmpty ? '${u.name} • ${u.email} ($count)' : '${u.email} ($count)';
+            return DropdownMenuItem(value: u, child: Text(label, overflow: TextOverflow.ellipsis));
+          }).toList(),
+          onChanged: (val) => setState(() => _selectedUser = val),
+        );
+      default:
+        return const SizedBox.shrink();
     }
-
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        if (widget.userMeta.role != "employee" && canUserActions)
-          action(
-            icon: qrCode.isActive ? Icons.toggle_on : Icons.toggle_off,
-            tip: 'Toggle Status',
-            onTap: () => _toggleStatus(qrCode),
-            color: qrCode.isActive ? Colors.green : Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        if (widget.userMeta.role != "employee" && canUserActions)
-          action(
-            icon: qrCode.assignedUserId == null ? Icons.person_add_alt_1 : Icons.person_outline,
-            tip: qrCode.assignedUserId == null ? 'Assign User' : 'Change User Assignment',
-            onTap: () => qrCode.assignedUserId == null
-                ? _assignUser(qrCode.qrId, qrCode.fileId, qr: qrCode)
-                : assignmentOptionForAdminSubAdminUser(qrCode),
-            color: Colors.blueAccent,
-          ),
-        if (widget.userMeta.role != "employee" && canUserActions && widget.userMeta.role == 'admin')
-          action(
-            icon: qrCode.managedByUserId == null ? Icons.admin_panel_settings_outlined : Icons.admin_panel_settings,
-            tip: qrCode.managedByUserId == null ? 'Assign to Merchant' : 'Change Merchant Assignment',
-            onTap: () => qrCode.managedByUserId == null
-                ? _assignSubAdmin(qrCode.qrId, qrCode.fileId, qr: qrCode)
-                : assignmentOptionForAdminManager(qrCode),
-            color: Colors.blueAccent,
-          ),
-        if (canViewTx)
-          action(
-            icon: Icons.article_outlined,
-            tip: 'View Transactions',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => widget.userMode
-                    ? TransactionPageNew(filterQrCodeId: qrCode.qrId, userMode: true, userModeUserid: widget.userModeUserid)
-                    : TransactionPageNew(filterQrCodeId: qrCode.qrId),
-              ),
-            ),
-            color: Colors.deepPurple,
-          ),
-        if (!widget.userMode && widget.userMeta.role == "admin")
-          action(
-            icon: Icons.delete_outline,
-            tip: 'Delete QR Code',
-            onTap: () => _deleteQrCode(qrCode.qrId),
-            color: Colors.redAccent,
-          ),
-        if (!widget.userMode && widget.userMeta.role == "admin")
-          action(
-            icon: Icons.photo_camera,
-            tip: 'Change QR Code Image',
-            onTap: () => _editQrCode(qrCode.qrId),
-            color: Colors.blueAccent,
-          ),
-        action(
-            icon: Icons.lock_clock,
-            tip: widget.userMeta.role == "admin" ? 'Manual Hold / Release' : 'View Hold History',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ManualHoldPage(
-                  userMeta: widget.userMeta,
-                  qrCode: qrCode,
-                  assignedUser: qrCode.assignedUserId != null ? getUserById(qrCode.assignedUserId!) : null,
-                ),
-              ),
-            ),
-            color: Colors.orange,
-          ),
-        if (widget.userMode && qrCode.isActive)
-          action(
-            icon: Icons.add_alert,
-            tip: 'Notify Server',
-            onTap: () => SocketManager.instance.sendQrCodeAlert(qrCode),
-            color: Colors.orange,
-          ),
-      ],
-    );
   }
-
-
-  // Widget buildQrCodeCardOld(QrCode qrCode, String formattedDate) {
-  //   return Card(
-  //     elevation: 4,
-  //     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-  //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-  //     child: Padding(
-  //       padding: const EdgeInsets.all(12.0),
-  //       child: Row(
-  //         crossAxisAlignment: CrossAxisAlignment.start,
-  //         children: [
-  //           // Left: QR Image or Icon
-  //           ClipRRect(
-  //             borderRadius: BorderRadius.circular(12),
-  //             child: Column(
-  //               children: [
-  //                 GestureDetector(
-  //                   onTap: () {
-  //                     showDialog(
-  //                       context: context,
-  //                         builder: (_) => Dialog(
-  //                           child: Stack(
-  //                             children: [
-  //                               // 🔍 Zoomable QR Image
-  //                               InteractiveViewer(
-  //                                 child: qrCode.imageUrl.isNotEmpty
-  //                                     ? CachedNetworkImage(
-  //                                   imageUrl: qrCode.imageUrl,
-  //                                   fit: BoxFit.contain,
-  //                                   placeholder: (context, url) => const Padding(
-  //                                     padding: EdgeInsets.all(20),
-  //                                     child: Center(child: CircularProgressIndicator()),
-  //                                   ),
-  //                                   errorWidget: (context, url, error) =>
-  //                                   const Icon(Icons.error, size: 100),
-  //                                 )
-  //                                     : const Icon(Icons.qr_code, size: 100),
-  //                               ),
-  //
-  //                               // ⬇️ Download Button
-  //                               Positioned(
-  //                                 top: 8,
-  //                                 right: 8,
-  //                                 child: IconButton(
-  //                                   icon: const Icon(Icons.download, size: 28, color: Colors.blue),
-  //                                   onPressed: () {
-  //                                     final anchor = html.AnchorElement(href: qrCode.imageUrl)
-  //                                       ..download = "qr_${DateTime.now().millisecondsSinceEpoch}.png"
-  //                                       ..target = 'blank';
-  //                                     anchor.click();
-  //                                   },
-  //                                 ),
-  //                               ),
-  //                             ],
-  //                           ),
-  //                         ),
-  //                     );
-  //                   },
-  //                   child: SizedBox(
-  //                     width: 100,
-  //                     height: 100,
-  //                     child: qrCode.imageUrl.isNotEmpty
-  //                         ? CachedNetworkImage(
-  //                       imageUrl: qrCode.imageUrl,
-  //                       fit: BoxFit.cover,
-  //                       placeholder: (context, url) => const Center(
-  //                         child: CircularProgressIndicator(),
-  //                       ),
-  //                       errorWidget: (context, url, error) => const Center(
-  //                         child: Icon(Icons.error),
-  //                       ),
-  //                     )
-  //                         : const Icon(Icons.qr_code, size: 80),
-  //                   ),
-  //                 ),
-  //
-  //                 const SizedBox(height: 15),
-  //                 Container(
-  //                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-  //                   decoration: BoxDecoration(
-  //                     color: qrCode.isActive ? Colors.green.shade100 : Colors.red.shade100,
-  //                     borderRadius: BorderRadius.circular(12),
-  //                   ),
-  //                   child: Text(
-  //                     qrCode.isActive ? 'ACTIVE' : 'INACTIVE',
-  //                     style: TextStyle(
-  //                       color: qrCode.isActive ? Colors.green.shade800 : Colors.red.shade800,
-  //                       fontWeight: FontWeight.bold,
-  //                       fontSize: 12,
-  //                     ),
-  //                   ),
-  //                 ),
-  //
-  //                 const SizedBox(height: 20),
-  //                 // Action buttons
-  //                 Wrap(
-  //                   spacing: 8,
-  //                   runSpacing: 8,
-  //                   children: [
-  //                     if(!widget.userMode)
-  //                       IconButton(
-  //                         icon: Icon(
-  //                           qrCode.isActive ? Icons.toggle_on : Icons.toggle_off,
-  //                           color: qrCode.isActive ? Colors.green : Colors.grey,
-  //                         ),
-  //                         tooltip: 'Toggle Status',
-  //                         onPressed: _isProcessing ? null : () => _toggleStatus(qrCode),
-  //                       ),
-  //                     if(!widget.userMode)
-  //                       IconButton(
-  //                         icon: Icon(
-  //                           qrCode.assignedUserId == null
-  //                               ? Icons.person_add_alt_1
-  //                               : Icons.person_outline,
-  //                           color: Colors.blueAccent,
-  //                         ),
-  //                         tooltip: qrCode.assignedUserId == null ? 'Assign User' : 'Change Assignment',
-  //                         onPressed: _isProcessing
-  //                             ? null
-  //                             : () => qrCode.assignedUserId == null
-  //                             ? _assignUser(qrCode.qrId, qrCode.fileId)
-  //                             : _showAssignOptions(qrCode),
-  //                       ),
-  //                     IconButton(
-  //                       icon: const Icon(Icons.article_outlined, color: Colors.deepPurple),
-  //                       tooltip: 'View Transactions',
-  //                       onPressed: _isProcessing
-  //                           ? null
-  //                           : () => Navigator.push(
-  //                         context,
-  //                         MaterialPageRoute(
-  //                           builder: (_) {
-  //                             if (widget.userMode) {
-  //                               return TransactionPageNew(
-  //                                 filterQrCodeId: qrCode.qrId,
-  //                                 userMode: true,
-  //                                 userModeUserid: widget.userModeUserid,
-  //                               );
-  //                             } else {
-  //                               return TransactionPageNew(
-  //                                 filterQrCodeId: qrCode.qrId,
-  //                               );
-  //                             }
-  //                           },
-  //                         ),
-  //                       ),
-  //                     ),
-  //                     if(!widget.userMode && widget.userMeta.role == "admin")
-  //                       IconButton(
-  //                         icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-  //                         tooltip: 'Delete QR Code',
-  //                         onPressed:
-  //                         _isProcessing ? null : () => _deleteQrCode(qrCode.qrId),
-  //                       ),
-  //                   ],
-  //                 )
-  //
-  //               ],
-  //             ),
-  //           ),
-  //           const SizedBox(width: 16),
-  //
-  //           // Right: Info + Actions
-  //           Expanded(
-  //             child: SizedBox(
-  //               height: 200,
-  //               child: Column(
-  //                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-  //                 crossAxisAlignment: CrossAxisAlignment.start,
-  //                 children: [
-  //                   // QR ID
-  //                   Text(
-  //                     'ID: ${qrCode.qrId}',
-  //                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-  //                   ),
-  //
-  //                   const SizedBox(height: 6),
-  //
-  //                   // QR ID
-  //                   Text(
-  //                     'Transactions: ${CurrencyUtils.formatIndianCurrencyWithoutSign(qrCode.totalTransactions!)}',
-  //                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-  //                   ),
-  //
-  //                   // QR ID
-  //                   Text(
-  //                     'Amount Received: ${CurrencyUtils.formatIndianCurrency(qrCode.totalPayInAmount! / 100)}',
-  //                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-  //                   ),
-  //
-  //                   const SizedBox(height: 6),
-  //
-  //                   if(!widget.userMode)
-  //                   Text(
-  //                     'Assigned to: ${displayUserNameText(qrCode.assignedUserId) ?? 'Unassigned'}',
-  //                     style: const TextStyle(fontSize: 14),
-  //                   ),
-  //                   Text(
-  //                     'Created: $formattedDate',
-  //                     style: const TextStyle(fontSize: 13, color: Colors.grey),
-  //                   ),
-  //
-  //                   const SizedBox(height: 10),
-  //
-  //                 ],
-  //               ),
-  //             ),
-  //           ),
-  //
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
 
 }

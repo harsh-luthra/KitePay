@@ -217,20 +217,20 @@ class QrCodeService {
   }
 
   /// Fetches ALL QR codes by looping through paginated responses.
-  Future<List<QrCode>> getAllQrCodes({required String jwtToken}) async {
-    final List<QrCode> all = [];
-    String? cursor;
-    do {
-      final page = await getQrCodesPaginated(
-        jwtToken: jwtToken,
-        cursor: cursor,
-        limit: 100,
-      );
-      all.addAll(page.qrCodes);
-      cursor = page.nextCursor;
-    } while (cursor != null);
-    return all;
-  }
+  // Future<List<QrCode>> getAllQrCodes({required String jwtToken}) async {
+  //   final List<QrCode> all = [];
+  //   String? cursor;
+  //   do {
+  //     final page = await getQrCodesPaginated(
+  //       jwtToken: jwtToken,
+  //       cursor: cursor,
+  //       limit: 100,
+  //     );
+  //     all.addAll(page.qrCodes);
+  //     cursor = page.nextCursor;
+  //   } while (cursor != null);
+  //   return all;
+  // }
 
   Future<PaginatedQrCodes> getQrCodesPaginated({
     String? cursor,
@@ -271,6 +271,22 @@ class QrCodeService {
     } catch (e) {
       return PaginatedQrCodes(qrCodes: [], nextCursor: null);
     }
+  }
+
+  /// Fetches ALL QR codes by looping through paginated responses.
+  Future<List<QrCode>> getAllQrCodes({required String jwtToken}) async {
+    final List<QrCode> all = [];
+    String? cursor;
+    do {
+      final page = await getQrCodesPaginated(
+        jwtToken: jwtToken,
+        cursor: cursor,
+        limit: 100,
+      );
+      all.addAll(page.qrCodes);
+      cursor = page.nextCursor;
+    } while (cursor != null);
+    return all;
   }
 
   /// Fetches ALL user QR codes by looping through paginated responses.

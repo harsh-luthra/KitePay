@@ -51,6 +51,13 @@ class AppUser {
    };
 
    @override
+  bool operator ==(Object other) =>
+      identical(this, other) || other is AppUser && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+   @override
   String toString() {
     return 'AppUser{id: $id, email: $email, name: $name, status: $status, role: $role, parentId: $parentId, labels: $labels, commission: $commission}';
   }
