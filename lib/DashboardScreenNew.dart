@@ -171,14 +171,14 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         id: 4,
         label: 'Manage Users',
         icon: Icons.person,
-        visibleFor: (labels) => checkRole('admin') || checkRole("employee") || (checkRole("subadmin") && checkLabel("users") || (checkRole("employee") && checkLabel(AppConstants.viewAllUsers))  ),
+        visibleFor: (labels) => checkRole('admin') || (checkRole("subadmin") && checkLabel("users") || (checkRole("employee") && checkLabel(AppConstants.viewUsers))  ),
         builder: (_) => ManageUsersScreen(),
       ),
       _MenuItem(
         id: 5,
         label: 'Manage All QR Codes',
         icon: Icons.qr_code,
-        visibleFor: (labels) => checkRole('admin') || (checkRole("employee") && checkLabel(AppConstants.viewAllQrCodes)),
+        visibleFor: (labels) => checkRole('admin') || (checkRole("employee") && checkLabel(AppConstants.viewAQrCodes)),
         builder: (_) => ManageQrScreen(userMeta: widget.userMeta,),
       ),
       _MenuItem(
@@ -199,7 +199,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         id: 8,
         label: 'All TXNs',
         icon: Icons.receipt_long,
-        visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.viewAllTransactions) ),
+        visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.viewTransactions) ),
         builder: (_) => const TransactionPageNew(),
       ),
       _MenuItem(
@@ -238,7 +238,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         id: 13,
         label: 'All Withdrawals',
         icon: Icons.account_balance_wallet_outlined,
-        visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.viewAllWithdrawals) ),
+        visibleFor: (labels) => checkRole('admin') || (checkRole('employee') && checkLabel(AppConstants.checkWithdrawals) ),
         builder: (_) => ManageWithdrawalsNew(),
       ),
       _MenuItem(

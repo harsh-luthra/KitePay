@@ -64,6 +64,8 @@ class TransactionCard extends StatelessWidget {
               _infoRow(context, Icons.confirmation_number, 'Transaction ID', txn.id),
               if(!(txn.status == '' || txn.status == 'normal'))
                 _statusBadge(context, status),
+              if (txn.deleted)
+                _deletedBadge(context),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -108,6 +110,8 @@ class TransactionCard extends StatelessWidget {
               _infoRow(context, Icons.calendar_today, 'Created At', date),
               if(!(txn.status == '' || txn.status == 'normal'))
                 _statusBadge(context, status),
+              if (txn.deleted)
+                _deletedBadge(context),
               Row(
                 children: [
                   if((txn.status == 'chargeback' && AppConfig().txnImageSupport))...[
@@ -194,6 +198,30 @@ class TransactionCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
         ),
         child: Text(label, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: fg)),
+      ),
+    );
+  }
+
+  Widget _deletedBadge(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.red.shade100,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 4,
+          runSpacing: 4,
+          children: [
+            Icon(Icons.delete_outline, size: 14, color: Colors.red.shade800),
+            Text('Deleted', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Colors.red.shade800)),
+            if (txn.editedBy != null && txn.editedBy!.isNotEmpty)
+              Text('by ${txn.editedBy}', style: TextStyle(fontSize: 12, color: Colors.red.shade700)),
+          ],
+        ),
       ),
     );
   }

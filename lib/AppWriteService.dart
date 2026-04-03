@@ -1,7 +1,11 @@
 import 'package:appwrite/appwrite.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'main.dart' show rootNavigatorKey;
+import 'SplashScreen.dart';
 
 class AppWriteService {
   static final AppWriteService _instance = AppWriteService._internal();
@@ -132,6 +136,17 @@ class AppWriteService {
       _cachedExpiryMillis = expiry;
 
       return newJwt;
+    } on AppwriteException catch (e) {
+      // Session expired (401) — clear cache and redirect to login
+      _cachedJwt = null;
+      _cachedExpiryMillis = null;
+      await prefs.remove(_jwtKey);
+      await prefs.remove(_jwtExpiryKey);
+
+      if (e.code == 401) {
+        _redirectToLogin();
+      }
+      throw Exception('JWT creation failed: $e');
     } catch (e) {
       // Clean up stale cache so the next call tries again fresh
       _cachedJwt = null;
@@ -139,6 +154,16 @@ class AppWriteService {
       await prefs.remove(_jwtKey);
       await prefs.remove(_jwtExpiryKey);
       throw Exception('JWT creation failed: $e');
+    }
+  }
+
+  void _redirectToLogin() {
+    final nav = rootNavigatorKey.currentState;
+    if (nav != null) {
+      nav.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const SplashScreen()),
+        (_) => false,
+      );
     }
   }
 

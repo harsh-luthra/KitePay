@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'AppWriteService.dart';
-import 'PayinSummaryService.dart';
+import 'DeletedSummaryService.dart';
 import 'QRService.dart';
 import 'UsersService.dart';
 import 'models/AppUser.dart';
@@ -12,22 +12,18 @@ import 'models/QrCode.dart';
 import 'utils/app_spacing.dart';
 import 'widget/dashboard_widgets.dart';
 
-class DayWisePayinsPage extends StatefulWidget {
+class DayWiseDeletedPage extends StatefulWidget {
   final AppUser userMeta;
 
-  const DayWisePayinsPage({super.key, required this.userMeta});
+  const DayWiseDeletedPage({super.key, required this.userMeta});
 
   @override
-  State<DayWisePayinsPage> createState() => _DayWisePayinsPageState();
+  State<DayWiseDeletedPage> createState() => _DayWiseDeletedPageState();
 }
 
-class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
+class _DayWiseDeletedPageState extends State<DayWiseDeletedPage> {
   final QrCodeService _qrCodeService = QrCodeService();
   final ScrollController _scrollController = ScrollController();
-
-  bool get _isAdmin => widget.userMeta.role.toLowerCase() == 'admin';
-  bool get _isSubadmin => widget.userMeta.role.toLowerCase() == 'subadmin';
-  bool get _isEmployee => widget.userMeta.role.toLowerCase() == 'employee';
 
   // Filters
   List<AppUser> _users = [];
@@ -49,7 +45,7 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
   bool _showChart = true;
 
   // Results
-  PayinSummaryResult? _result;
+  DeletedSummaryResult? _result;
 
   @override
   void initState() {
@@ -66,14 +62,7 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
   }
 
   Future<void> _loadInitial() async {
-    if (_isAdmin || _isEmployee) {
-      await _fetchUsersAndQrCodes();
-    } else if (_isSubadmin) {
-      await _fetchUsersAndQrCodes();
-    } else {
-      // Regular user — fetch their own QR codes
-      await _fetchUserQrCodes();
-    }
+    await _fetchUsersAndQrCodes();
     await _fetchSummary();
   }
 
@@ -106,26 +95,11 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
     if (mounted) setState(() => _loadingQr = false);
   }
 
-  Future<void> _fetchUserQrCodes() async {
-    setState(() => _loadingQr = true);
-    try {
-      final jwt = await AppWriteService().getJWT();
-      _qrCodes = await _qrCodeService.getAllUserQrCodes(userId: widget.userMeta.id, jwtToken: jwt);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load QR codes: $e')),
-        );
-      }
-    }
-    if (mounted) setState(() => _loadingQr = false);
-  }
-
   Future<void> _fetchSummary() async {
     setState(() => _loading = true);
     try {
       final jwt = await AppWriteService().getJWT();
-      final result = await PayinSummaryService.fetchPayinSummary(
+      final result = await DeletedSummaryService.fetchDeletedSummary(
         from: _fromDate,
         to: _toDate,
         userId: _selectedUserId,
@@ -136,7 +110,7 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to fetch payin summary: $e')),
+          SnackBar(content: Text('Failed to fetch deleted summary: $e')),
         );
       }
     }
@@ -150,7 +124,7 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
 
   String _fmtRupees(int paise) {
     final rupees = paise / 100.0;
-    return NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(rupees);
+    return NumberFormat.currency(locale: 'en_IN', symbol: '\u20B9').format(rupees);
   }
 
   bool _isDateToday() {
@@ -190,8 +164,6 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
   }
 
   Widget _buildFilterBar() {
-    final isAdminOrEmployee = _isAdmin || _isEmployee;
-    final canFilterUsers = isAdminOrEmployee || _isSubadmin;
     final hasActiveFilters = _selectedUserId != null || _selectedQrId != null;
 
     return Card(
@@ -209,39 +181,38 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                if (canFilterUsers)
-                  SizedBox(
-                    width: 280,
-                    child: _loadingUsers
-                        ? const LinearProgressIndicator(minHeight: 2)
-                        : DropdownButtonFormField<String>(
-                      isExpanded: true,
-                      value: _selectedUserId,
-                      decoration: const InputDecoration(
-                        labelText: 'User',
-                        prefixIcon: Icon(Icons.person_outline, size: 18),
-                        isDense: true,
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      ),
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('All Users')),
-                        ..._users.map((u) {
-                          final qrCount = _qrCodes.where((qr) => qr.assignedUserId == u.id).length;
-                          final label = u.name.isNotEmpty
-                              ? '${u.name} • ${u.email} ($qrCount)'
-                              : '${u.email} ($qrCount)';
-                          return DropdownMenuItem(value: u.id, child: Text(label, overflow: TextOverflow.ellipsis));
-                        }),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedUserId = value;
-                          _selectedQrId = null;
-                        });
-                      },
+                SizedBox(
+                  width: 280,
+                  child: _loadingUsers
+                      ? const LinearProgressIndicator(minHeight: 2)
+                      : DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    value: _selectedUserId,
+                    decoration: const InputDecoration(
+                      labelText: 'User',
+                      prefixIcon: Icon(Icons.person_outline, size: 18),
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     ),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('All Users')),
+                      ..._users.map((u) {
+                        final qrCount = _qrCodes.where((qr) => qr.assignedUserId == u.id).length;
+                        final label = u.name.isNotEmpty
+                            ? '${u.name} • ${u.email} ($qrCount)'
+                            : '${u.email} ($qrCount)';
+                        return DropdownMenuItem(value: u.id, child: Text(label, overflow: TextOverflow.ellipsis));
+                      }),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedUserId = value;
+                        _selectedQrId = null;
+                      });
+                    },
                   ),
+                ),
                 SizedBox(
                   width: 280,
                   child: _loadingQr
@@ -448,7 +419,6 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
 
   double _niceInterval(double maxVal) {
     if (maxVal <= 0) return 1;
-    // Pick a clean round interval that gives ~4-5 gridlines
     final raw = maxVal / 5;
     final mag = math.pow(10, (math.log(raw) / math.ln10).floor()).toDouble();
     final normalized = raw / mag;
@@ -465,7 +435,7 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
     return nice * mag;
   }
 
-  Widget _buildChart(List<PayinSummaryDay> days) {
+  Widget _buildChart(List<DeletedSummaryDay> days) {
     if (days.isEmpty) return const SizedBox.shrink();
 
     final maxPaise = days.fold<int>(0, (m, d) => math.max(m, d.totalPaise));
@@ -473,11 +443,10 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final barColor = theme.colorScheme.primary;
+    final barColor = Colors.redAccent;
     final gridColor = isDark ? Colors.white12 : Colors.black12;
     final labelColor = theme.colorScheme.onSurfaceVariant;
 
-    // Each bar gets a fixed width slot so all dates are visible
     const double barSlotWidth = 44;
     final chartWidth = (days.length * barSlotWidth).toDouble().clamp(150.0, double.infinity);
 
@@ -493,7 +462,7 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
             Padding(
               padding: const EdgeInsets.only(left: 16, bottom: 12),
               child: Text(
-                'Pay-In Trend (${days.length} days)',
+                'Deleted Trend (${days.length} days)',
                 style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
@@ -606,14 +575,14 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
           title: 'Grand Total',
           paise: r.grandTotalPaise,
           icon: Icons.account_balance,
-          color: Colors.indigo,
+          color: Colors.red,
           showFull: true,
         ),
         DashboardMetricCard.money(
           title: 'Today',
           paise: r.todayPaise,
           icon: Icons.today,
-          color: Colors.green,
+          color: Colors.redAccent,
           showFull: true,
         ),
         DashboardMetricCard.money(
@@ -634,7 +603,7 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
     );
   }
 
-  Widget _buildDayCard(PayinSummaryDay day) {
+  Widget _buildDayCard(DeletedSummaryDay day) {
     final theme = Theme.of(context);
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
@@ -643,7 +612,6 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row: date + total
             Row(
               children: [
                 Container(
@@ -671,18 +639,17 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.08),
+                    color: Colors.red.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     _fmtRupees(day.totalPaise),
-                    style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.green, fontSize: 15),
+                    style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.red, fontSize: 15),
                   ),
                 ),
               ],
             ),
 
-            // QR breakdown
             if (day.qrs.isNotEmpty && (_expanded || day.qrs.length <= 3)) ...[
               const SizedBox(height: 10),
               Wrap(
@@ -732,7 +699,7 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Daywise Pay-Ins'),
+        title: const Text('Daywise Deleted'),
         actions: [
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -783,7 +750,6 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
               slivers: [
                 if (_showFilters)
                   SliverToBoxAdapter(child: _buildFilterBar()),
-                // Loading indicator
                 if (_loading)
                   const SliverToBoxAdapter(
                     child: Padding(
@@ -795,7 +761,6 @@ class _DayWisePayinsPageState extends State<DayWisePayinsPage> {
                   const SliverToBoxAdapter(child: SizedBox(height: 4)),
                   SliverToBoxAdapter(child: _buildMetrics()),
                   const SliverToBoxAdapter(child: SizedBox(height: 8)),
-                  // Chart
                   if (_showChart)
                     SliverToBoxAdapter(
                       child: _buildChart(

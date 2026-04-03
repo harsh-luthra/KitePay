@@ -17,6 +17,7 @@ import 'AppWriteService.dart';
 import 'MyMetaApi.dart';
 import 'QRService.dart';
 import 'SocketManager.dart';
+import 'DaywiseDeletedPage.dart';
 import 'TransactionService.dart';
 import 'UsersService.dart';
 import 'models/QrCode.dart';
@@ -31,6 +32,7 @@ import 'package:number_to_indian_words/number_to_indian_words.dart';
 import 'package:excel/excel.dart';
 // for date formatting
 import 'package:http/http.dart' as http;
+import 'package:web/web.dart' as web;
 import 'dart:convert';
 
 class TransactionPageNew extends StatefulWidget {
@@ -106,6 +108,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
 
   bool showingFilters = false;
   bool compactMode = true;
+  bool _showDeletedButton = false;
 
   @override
   void initState() {
@@ -418,8 +421,8 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     });
 
     try {
-      // Secret: fetch deleted transactions only
-      if (searchText.trim() == 'deleted_transactions_only') {
+      // Secret: fetch deleted transactions only (admin only)
+      if (searchText.trim() == 'deleted_transactions_only' && userMeta.role.toLowerCase() == 'admin') {
         print("fetching del");
         final fetched = await TransactionService.fetchDeletedTransactions(
           cursor: null,
@@ -428,7 +431,9 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         transactions = fetched.transactions.toList();
         nextCursor = fetched.nextCursor;
         hasMore = fetched.nextCursor != null;
+        _showDeletedButton = true;
       } else {
+        _showDeletedButton = false;
         // Use selected filters first; fall back to widget filters
         final effectiveUserId =
         widget.userMode
@@ -521,7 +526,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
-      if (searchText.trim() == 'deleted_transactions_only') {
+      if (searchText.trim() == 'deleted_transactions_only' && userMeta.role.toLowerCase() == 'admin') {
         _fetchMoreDeletedTransactions();
       } else if (widget.userMode) {
         fetchUserTransactions();
@@ -756,14 +761,19 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                         items: [
                           const DropdownMenuItem<String>(
                             value: null,
-                            child: Text('--------'),
+                            child: Text('All Users'),
                           ),
                           ...users.map(
-                                (u) =>
-                                DropdownMenuItem<String>(
-                                  value: u.id,
-                                  child: Text('${u.name} (${u.email})'),
-                                ),
+                                (u) {
+                                  final qrCount = qrCodes.where((qr) => qr.assignedUserId == u.id).length;
+                                  final label = u.name.isNotEmpty
+                                      ? '${u.name} • ${u.email} ($qrCount)'
+                                      : '${u.email} ($qrCount)';
+                                  return DropdownMenuItem<String>(
+                                    value: u.id,
+                                    child: Text(label),
+                                  );
+                                },
                           ),
                         ],
                         onChanged: (v) {
@@ -784,12 +794,12 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                       DropdownButtonFormField<String>(
                         isExpanded: true,
                         value: effectiveSelectedQr,
-                        // may be null -> shows '--------' [1]
+                        // may be null -> shows 'All QR Codes'
                         hint: const Text('Select QR Code'),
                         items: [
                           const DropdownMenuItem<String>(
                             value: null,
-                            child: Text('--------'),
+                            child: Text('All QR Codes'),
                           ),
                           ...ids.map(
                                 (id) =>
@@ -954,9 +964,23 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
     ); // loading dialog
 
     try {
+      // Fetch client IP and device info for audit logging
+      String? ipAddress;
+      try {
+        final ipResp = await http.get(Uri.parse('https://api.ipify.org?format=json'))
+            .timeout(const Duration(seconds: 3));
+        if (ipResp.statusCode == 200) {
+          ipAddress = jsonDecode(ipResp.body)['ip'] as String?;
+        }
+      } catch (_) {} // non-critical, proceed without IP
+
+      final deviceInfo = web.window.navigator.userAgent;
+
       final ok = await TransactionService.deleteTransaction(
         id: txn.id,
         jwtToken: await AppWriteService().getJWT(),
+        ipAddress: ipAddress,
+        deviceInfo: deviceInfo,
       ); // call DELETE API [3]
 
       // Close loading dialog
@@ -1322,6 +1346,18 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
         appBar: AppBar(
           title: Text(widget.userMode ? 'Transactions' : 'All Transactions'),
           actions: [
+            if (_showDeletedButton)
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                tooltip: 'Daywise Deleted',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => DayWiseDeletedPage(userMeta: userMeta),
+                    ),
+                  );
+                },
+              ),
             // if((effectiveUserId != null || effectiveQrId != null) && cachedUser?.role == 'admin')
               if((effectiveUserId != null || effectiveQrId != null))...[
                 if(cachedUser?.role == 'admin' || AppConfig().transactionsExportsEnabled)
@@ -1380,20 +1416,9 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                 controller: _scrollController,
                 slivers: [
                   // Filters (scrollable with list)
-                  if (showingFilters &&
-                      widget.filterUserId == null &&
-                      widget.filterQrCodeId == null) ...[
-                    SliverToBoxAdapter(child: _buildSearchArea()),
-                    SliverToBoxAdapter(child: _buildFilters(userHasQrCodes)),
-                  ],
                   if (showingFilters)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: buildStatusFilter(),
-                      ),
-                    ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                    SliverToBoxAdapter(child: _buildFilters(userHasQrCodes)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 4)),
 
                   // Transaction list
                   if (transactions.isEmpty)
@@ -1406,7 +1431,7 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                         (context, index) {
                           if (index < transactions.length) {
                             final txn = transactions[index];
-                            return (userMeta.role == 'admin' || (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.editTransactions)))
+                            return (userMeta.role == 'admin')
                                 ? TransactionCard(
                                     key: ValueKey(txn.id),
                                     compactMode: compactMode,
@@ -1426,7 +1451,14 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
                                     key: ValueKey(txn.id),
                                     txn: txn,
                                     compactMode: compactMode,
+                                    onStatus: (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.changeTransactionStatus)) ? (txn) => changeTransactionStatus(context, txn: txn) : null,
                                     onViewProof: (txn) => viewTransactionImage(context, txn: txn, headerWidget: TransactionCard(compactMode: compactMode, txn: txn)),
+                                    onUploadImage: (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.changeTransactionStatus))
+                                        ? (txn) => onTransactionImageUpload(context, txn: txn)
+                                        : null,
+                                    onDeleteImage: (userMeta.role == 'employee' && userMeta.labels.contains(AppConstants.changeTransactionStatus))
+                                        ? (txn) => onTransactionImageDelete(context, txn: txn)
+                                        : null,
                                   );
                           }
                           return const TransactionCardShimmer();
@@ -1668,314 +1700,348 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
   }
 
 
-  Widget _buildSearchArea() {
+  Widget _buildFilters(bool userHasQrCodes) {
     const searchFields = ['qrCodeId', 'paymentId', 'rrnNumber', 'vpa', 'amount'];
+    final statuses = ['normal', 'cyber', 'refund', 'chargeback', 'failed'];
+    final hasActiveFilters = selectedUserId != null ||
+        selectedQrCodeId != null ||
+        selectedFromDate != null ||
+        selectedToDate != null ||
+        selectedStatus != null ||
+        (selectedSearchField != null && searchText.isNotEmpty);
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: const [
-              Icon(Icons.search, size: 18, color: Colors.blueGrey),
-              SizedBox(width: 8),
-              Text('Search', style: TextStyle(fontWeight: FontWeight.w600)),
-            ]),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                SizedBox(
-                  width: 220,
-                  child: DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Field',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    value: selectedSearchField,
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('Select field')),
-                      ...searchFields.map((f) => DropdownMenuItem(value: f, child: Text(f))),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        selectedSearchField = value;
-                        if ((value == 'amount' || value == 'rrnNumber') && searchText.isNotEmpty) {
-                          searchText = '';
-                          _searchController.clear();
-                        }
-                      });
-                    },
-                  ),
-                ),
-                SizedBox(
-                  width: 320,
-                  child: TextField(
-                    controller: _searchController,
-                    keyboardType: (selectedSearchField == 'amount' || selectedSearchField == 'rrnNumber')
-                        ? const TextInputType.numberWithOptions(decimal: false)
-                        : TextInputType.text,
-                    inputFormatters: (selectedSearchField == 'amount' || selectedSearchField == 'rrnNumber')
-                        ? [FilteringTextInputFormatter.digitsOnly]
-                        : null,
-                    decoration: InputDecoration(
-                      labelText: 'Search text',
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                      suffixIcon: searchText.isNotEmpty
-                          ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          setState(() {
+            // --- Search row ---
+            if (widget.filterUserId == null && widget.filterQrCodeId == null) ...[
+              Row(
+                children: [
+                  SizedBox(
+                    width: 140,
+                    child: DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Search by',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      ),
+                      value: selectedSearchField,
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('Field')),
+                        ...searchFields.map((f) => DropdownMenuItem(value: f, child: Text(f, style: const TextStyle(fontSize: 13)))),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          selectedSearchField = value;
+                          if ((value == 'amount' || value == 'rrnNumber') && searchText.isNotEmpty) {
                             searchText = '';
                             _searchController.clear();
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      keyboardType: (selectedSearchField == 'amount' || selectedSearchField == 'rrnNumber')
+                          ? const TextInputType.numberWithOptions(decimal: false)
+                          : TextInputType.text,
+                      inputFormatters: (selectedSearchField == 'amount' || selectedSearchField == 'rrnNumber')
+                          ? [FilteringTextInputFormatter.digitsOnly]
+                          : null,
+                      decoration: InputDecoration(
+                        hintText: 'Search...',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                        suffixIcon: searchText.isNotEmpty
+                            ? IconButton(
+                          icon: const Icon(Icons.clear, size: 16),
+                          constraints: const BoxConstraints(),
+                          padding: EdgeInsets.zero,
+                          onPressed: () {
+                            setState(() {
+                              searchText = '';
+                              _searchController.clear();
+                            });
+                            _refetchWithCurrentFilters();
+                          },
+                        )
+                            : null,
+                      ),
+                      onChanged: (value) => searchText = value,
+                      onSubmitted: (_) => _refetchWithCurrentFilters(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 38,
+                    child: IconButton.filled(
+                      icon: const Icon(Icons.search, size: 20),
+                      onPressed: () {
+                        FocusScope.of(context).unfocus();
+                        _refetchWithCurrentFilters();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
+
+            // --- User + QR dropdowns ---
+            if (widget.filterUserId == null && widget.filterQrCodeId == null)
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (!widget.userMode)
+                    SizedBox(
+                      width: 280,
+                      child: loadingUsers
+                          ? const LinearProgressIndicator(minHeight: 2)
+                          : DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        value: selectedUserId,
+                        decoration: const InputDecoration(
+                          labelText: 'User',
+                          prefixIcon: Icon(Icons.person_outline, size: 18),
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        ),
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('All Users')),
+                          ...users.map((u) {
+                            final qrCount = qrCodes.where((qr) => qr.assignedUserId == u.id).length;
+                            final label = u.name.isNotEmpty
+                                ? '${u.name} • ${u.email} ($qrCount)'
+                                : '${u.email} ($qrCount)';
+                            return DropdownMenuItem(value: u.id, child: Text(label, overflow: TextOverflow.ellipsis));
+                          }),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            selectedUserId = value;
+                            selectedQrCodeId = null;
                           });
                           _refetchWithCurrentFilters();
                         },
-                      )
-                          : null,
+                      ),
                     ),
-                    onChanged: (value) => searchText = value,
-                    onSubmitted: (_) => _refetchWithCurrentFilters(),
+                  SizedBox(
+                    width: 280,
+                    child: loadingQr
+                        ? const LinearProgressIndicator(minHeight: 2)
+                        : DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      value: selectedQrCodeId,
+                      decoration: const InputDecoration(
+                        labelText: 'QR Code',
+                        prefixIcon: Icon(Icons.qr_code, size: 18),
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('All QR Codes')),
+                        ...filteredQrCodes.map(
+                              (qr) => DropdownMenuItem(
+                            value: qr.qrId,
+                            child: Text('${qr.qrId} (${qr.totalTransactions})', overflow: TextOverflow.ellipsis),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() => selectedQrCodeId = value);
+                        _refetchWithCurrentFilters();
+                      },
+                    ),
                   ),
+                ],
+              ),
+
+            if (widget.filterUserId == null && widget.filterQrCodeId == null)
+              const SizedBox(height: 10),
+
+            // --- Status chips ---
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Text('Status:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                ChoiceChip(
+                  label: const Text('ALL', style: TextStyle(fontSize: 12)),
+                  selected: selectedStatus == null,
+                  showCheckmark: false,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (_) {
+                    setState(() => selectedStatus = null);
+                    _refetchWithCurrentFilters();
+                  },
                 ),
-                SizedBox(
-                  height: 40,
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.search, size: 18),
-                    label: const Text('Search'),
+                ...statuses.map((s) => ChoiceChip(
+                  label: Text(s, style: const TextStyle(fontSize: 12)),
+                  selected: selectedStatus == s,
+                  showCheckmark: false,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (_) {
+                    setState(() => selectedStatus = s);
+                    _refetchWithCurrentFilters();
+                  },
+                )),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            // --- Date row: quick picks + from/to ---
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _quickDateChip(label: 'Today', isSelected: _isDateRangeToday(), onTap: () {
+                  final now = DateTime.now();
+                  final today = DateTime(now.year, now.month, now.day);
+                  setState(() { selectedFromDate = today; selectedToDate = today; });
+                  _refetchWithCurrentFilters();
+                }),
+                _quickDateChip(label: 'Yesterday', isSelected: _isDateRangeYesterday(), onTap: () {
+                  final now = DateTime.now();
+                  final yesterday = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
+                  setState(() { selectedFromDate = yesterday; selectedToDate = yesterday; });
+                  _refetchWithCurrentFilters();
+                }),
+                _datePickerChip(
+                  label: 'From',
+                  date: selectedFromDate,
+                  onPick: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedFromDate ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() => selectedFromDate = picked);
+                      _refetchWithCurrentFilters();
+                    }
+                  },
+                  onClear: () {
+                    setState(() => selectedFromDate = null);
+                    _refetchWithCurrentFilters();
+                  },
+                ),
+                _datePickerChip(
+                  label: 'To',
+                  date: selectedToDate,
+                  onPick: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedToDate ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() => selectedToDate = picked);
+                      _refetchWithCurrentFilters();
+                    }
+                  },
+                  onClear: () {
+                    setState(() => selectedToDate = null);
+                    _refetchWithCurrentFilters();
+                  },
+                ),
+                if (selectedFromDate != null || selectedToDate != null)
+                  ActionChip(
+                    avatar: const Icon(Icons.clear, size: 16),
+                    label: const Text('Clear Dates', style: TextStyle(fontSize: 12)),
+                    visualDensity: VisualDensity.compact,
                     onPressed: () {
-                      FocusScope.of(context).unfocus();
+                      setState(() { selectedFromDate = null; selectedToDate = null; });
+                      _refetchWithCurrentFilters();
+                    },
+                  ),
+              ],
+            ),
+
+            if (selectedUserId != null && !userHasQrCodes)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('No QR codes assigned to this user.', style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
+              ),
+
+            // --- Footer: Reset ---
+            if (hasActiveFilters)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.clear_all, size: 18),
+                    label: const Text('Reset All'),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        selectedUserId = null;
+                        selectedQrCodeId = null;
+                        selectedFromDate = null;
+                        selectedToDate = null;
+                        selectedStatus = null;
+                        selectedSearchField = null;
+                        searchText = '';
+                        _searchController.clear();
+                      });
                       _refetchWithCurrentFilters();
                     },
                   ),
                 ),
-              ],
-            ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFilters(bool userHasQrCodes) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: const [
-              Icon(Icons.filter_alt_outlined, size: 18, color: Colors.blueGrey),
-              SizedBox(width: 8),
-              Text('Filters', style: TextStyle(fontWeight: FontWeight.w600)),
-            ]),
-            const SizedBox(height: 12),
+  bool _isDateRangeToday() {
+    if (selectedFromDate == null || selectedToDate == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return selectedFromDate == today && selectedToDate == today;
+  }
 
-            // Top row: User + QR
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                if (!widget.userMode)
-                  SizedBox(
-                    width: 320,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 6),
-                          child: Text('Filter User', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                        loadingUsers
-                            ? const LinearProgressIndicator(minHeight: 2)
-                            : DropdownButtonFormField<String>(
-                          isExpanded: true,
-                          value: selectedUserId,
-                          hint: const Text('Select User'),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                          ),
-                          items: [
-                            const DropdownMenuItem(value: null, child: Text('--------')),
-                            ...users.map(
-                                  (u) => DropdownMenuItem(
-                                value: u.id,
-                                child: Text('${u.name} (${u.email})', overflow: TextOverflow.ellipsis),
-                              ),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              selectedUserId = value;
-                              selectedQrCodeId = null;
-                            });
-                            _refetchWithCurrentFilters();
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                SizedBox(
-                  width: 320,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 6),
-                        child: Text('Filter QR Code', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      loadingQr
-                          ? const LinearProgressIndicator(minHeight: 2)
-                          : DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        value: selectedQrCodeId,
-                        hint: const Text('Select QR Code'),
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          const DropdownMenuItem(value: null, child: Text('--------')),
-                          ...filteredQrCodes.map(
-                                (qr) => DropdownMenuItem(
-                              value: qr.qrId,
-                              child: Text('${qr.qrId} (${qr.totalTransactions})', overflow: TextOverflow.ellipsis),
-                            ),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          setState(() => selectedQrCodeId = value);
-                          _refetchWithCurrentFilters();
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+  bool _isDateRangeYesterday() {
+    if (selectedFromDate == null || selectedToDate == null) return false;
+    final now = DateTime.now();
+    final yesterday = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
+    return selectedFromDate == yesterday && selectedToDate == yesterday;
+  }
 
-            const SizedBox(height: 16),
-
-            // Date range row
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  _datePickerChip(
-                    label: 'From',
-                    date: selectedFromDate,
-                    onPick: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: selectedFromDate ?? DateTime.now(),
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime.now(),
-                      );
-                      if (picked != null) {
-                        setState(() => selectedFromDate = picked);
-                        _refetchWithCurrentFilters();
-                      }
-                    },
-                    onClear: () {
-                      setState(() => selectedFromDate = null);
-                      _refetchWithCurrentFilters();
-                    },
-                  ),
-                  _datePickerChip(
-                    label: 'To',
-                    date: selectedToDate,
-                    onPick: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: selectedToDate ?? DateTime.now(),
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime.now(),
-                      );
-                      if (picked != null) {
-                        setState(() => selectedToDate = picked);
-                        _refetchWithCurrentFilters();
-                      }
-                    },
-                    onClear: () {
-                      setState(() => selectedToDate = null);
-                      _refetchWithCurrentFilters();
-                    },
-                  ),
-                  TextButton.icon(
-                    icon: const Icon(Icons.delete_sweep, size: 18),
-                    label: const Text('Clear Dates'),
-                    onPressed: () {
-                      setState(() {
-                        selectedFromDate = null;
-                        selectedToDate = null;
-                      });
-                      _refetchWithCurrentFilters();
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            if (selectedUserId != null && !userHasQrCodes)
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('No QR codes assigned to this user.', style: TextStyle(color: Colors.red)),
-                ),
-              ),
-
-            const SizedBox(height: 10),
-            // Footer actions
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Reset'),
-                  onPressed: () {
-                    setState(() {
-                      selectedUserId = null;
-                      selectedQrCodeId = null;
-                      selectedFromDate = null;
-                      selectedToDate = null;
-                      selectedStatus = null;
-                      selectedSearchField = null;
-                      searchText = '';
-                      _searchController.clear();
-                    });
-                    _refetchWithCurrentFilters();
-                  },
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.filter_alt),
-                  label: const Text('Apply'),
-                  onPressed: () {
-                    FocusScope.of(context).unfocus();
-                    _refetchWithCurrentFilters();
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+  Widget _quickDateChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      showCheckmark: false,
+      onSelected: (_) => onTap(),
     );
   }
 
@@ -1991,36 +2057,6 @@ class _TransactionPageNewState extends State<TransactionPageNew> {
       avatar: const Icon(Icons.date_range, size: 18),
       onPressed: onPick,
       onDeleted: date != null ? onClear : null,
-    );
-  }
-
-  Widget buildStatusFilter() {
-    final statuses = ['normal', 'cyber', 'refund', 'chargeback', 'failed'];
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(right: 8),
-          child: Text('Filter Status', style: TextStyle(fontWeight: FontWeight.bold)),
-        ),
-        ChoiceChip(
-          label: const Text('ALL'),
-          selected: selectedStatus == null,
-          onSelected: (_) => setState(() {
-            selectedStatus = null;
-            _refetchWithCurrentFilters();
-          }),
-        ),
-        ...statuses.map((s) => ChoiceChip(
-          label: Text(s),
-          selected: selectedStatus == s,
-          onSelected: (_) => setState(() {
-            selectedStatus = s;
-            _refetchWithCurrentFilters();
-          }),
-        )),
-      ],
     );
   }
 

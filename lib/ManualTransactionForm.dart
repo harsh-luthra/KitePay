@@ -322,83 +322,62 @@ class _ManualTransactionFormState extends State<ManualTransactionForm> {
 // ==== Sub-widgets ====
 
   Widget _userDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(bottom: 6),
-          child: Text('Filter User', style: TextStyle(fontWeight: FontWeight.bold)),
-        ),
-        DropdownButtonFormField<String>(
-          isExpanded: true,
-          value: selectedUserId,
-          hint: const Text('Select User'),
-          decoration: const InputDecoration(
-            isDense: true,
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.person_outline),
-          ),
-          items: [
-            const DropdownMenuItem(value: null, child: Text('--------')),
-            ...users.map((u) => DropdownMenuItem(
-              value: u.id,
-              child: Text('${u.name} (${u.email})', overflow: TextOverflow.ellipsis),
-            )),
-          ],
-          onChanged: (value) {
-            setState(() {
-              selectedUserId = value;
-              selectedQrCodeId = null;
-              qrCodeController.clear();
-            });
-          },
-        ),
-        if (selectedUserId != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              'QRs: ${filteredQrCodes.length}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ),
+    return DropdownButtonFormField<String>(
+      isExpanded: true,
+      value: selectedUserId,
+      decoration: const InputDecoration(
+        labelText: 'User',
+        prefixIcon: Icon(Icons.person_outline, size: 18),
+        isDense: true,
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      ),
+      items: [
+        const DropdownMenuItem(value: null, child: Text('All Users')),
+        ...users.map((u) {
+          final qrCount = filteredQrCodes.where((qr) => qr.assignedUserId == u.id).length;
+          final label = u.name.isNotEmpty
+              ? '${u.name} • ${u.email} ($qrCount)'
+              : '${u.email} ($qrCount)';
+          return DropdownMenuItem(value: u.id, child: Text(label, overflow: TextOverflow.ellipsis));
+        }),
       ],
+      onChanged: (value) {
+        setState(() {
+          selectedUserId = value;
+          selectedQrCodeId = null;
+          qrCodeController.clear();
+        });
+      },
     );
   }
 
   Widget _qrDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(bottom: 6),
-          child: Text('Filter QR Code', style: TextStyle(fontWeight: FontWeight.bold)),
-        ),
-        DropdownButtonFormField<String>(
-          isExpanded: true,
-          value: selectedQrCodeId,
-          hint: const Text('Select QR Code'),
-          decoration: const InputDecoration(
-            isDense: true,
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.qr_code_2),
+    return DropdownButtonFormField<String>(
+      isExpanded: true,
+      value: selectedQrCodeId,
+      decoration: const InputDecoration(
+        labelText: 'QR Code',
+        prefixIcon: Icon(Icons.qr_code, size: 18),
+        isDense: true,
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      ),
+      items: [
+        const DropdownMenuItem(value: null, child: Text('All QR Codes')),
+        ...filteredQrCodes.map(
+              (qr) => DropdownMenuItem(
+            value: qr.qrId,
+            child: Text(qr.qrId ?? qr.assignedUserId ?? '', overflow: TextOverflow.ellipsis),
           ),
-          items: [
-            const DropdownMenuItem(value: null, child: Text('--------')),
-            ...filteredQrCodes.map(
-                  (qr) => DropdownMenuItem(
-                value: qr.qrId,
-                child: Text(qr.qrId ?? qr.assignedUserId ?? '', overflow: TextOverflow.ellipsis),
-              ),
-            ),
-          ],
-          onChanged: (value) {
-            setState(() {
-              selectedQrCodeId = value;
-              qrCodeController.text = selectedQrCodeId ?? '';
-            });
-          },
         ),
       ],
+      onChanged: (value) {
+        setState(() {
+          selectedQrCodeId = value;
+          qrCodeController.text = selectedQrCodeId ?? '';
+        });
+      },
     );
   }
 

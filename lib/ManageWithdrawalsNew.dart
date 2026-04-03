@@ -68,6 +68,8 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
 
   String? selectedUserId;
   String? selectedQrCodeId;
+  DateTime? selectedFromDate;
+  DateTime? selectedToDate;
 
   bool showingFilters = false;
 
@@ -162,10 +164,11 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
       final resp = widget.userMode
           ? await WithdrawService.fetchUserWithdrawalsPaginated(
         jwtToken: await AppWriteService().getJWT(),
-        userId: widget.userModeUserid!, // required in user mode
-        status: isAll ? null : status, // null => All
-        cursor: page.nextCursor, // null on firstLoad
-        // limit: 20,                               // optional override
+        userId: widget.userModeUserid!,
+        status: isAll ? null : status,
+        cursor: page.nextCursor,
+        from: selectedFromDate,
+        to: selectedToDate,
       )
           : await WithdrawService.fetchWithdrawalsPaginated(
         jwtToken: await AppWriteService().getJWT(),
@@ -173,7 +176,8 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
         cursor: page.nextCursor,
         userId: selectedUserId,
         qrId: selectedQrCodeId,
-        // limit: 20,
+        from: selectedFromDate,
+        to: selectedToDate,
       );
 
       final newOnes = resp.requests;
@@ -306,12 +310,17 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
   }
 
   Map<String, int> get counts {
-    final all = pages['all']!.items;
     return {
-      'all': all.length,
-      'pending': all.where((r) => r.status == 'pending').length,
-      'approved': all.where((r) => r.status == 'approved').length,
-      'rejected': all.where((r) => r.status == 'rejected').length,
+      'all': pages['all']!.items.length,
+      'pending': pages['pending']!.items.isNotEmpty
+          ? pages['pending']!.items.length
+          : pages['all']!.items.where((r) => r.status == 'pending').length,
+      'approved': pages['approved']!.items.isNotEmpty
+          ? pages['approved']!.items.length
+          : pages['all']!.items.where((r) => r.status == 'approved').length,
+      'rejected': pages['rejected']!.items.isNotEmpty
+          ? pages['rejected']!.items.length
+          : pages['all']!.items.where((r) => r.status == 'rejected').length,
     };
   }
 
@@ -1181,145 +1190,235 @@ class _ManageWithdrawalsNewState extends State<ManageWithdrawalsNew> {
     );
   }
 
+  bool _isDateRangeToday() {
+    if (selectedFromDate == null || selectedToDate == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return selectedFromDate == today && selectedToDate == today;
+  }
+
+  bool _isDateRangeYesterday() {
+    if (selectedFromDate == null || selectedToDate == null) return false;
+    final now = DateTime.now();
+    final yesterday = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
+    return selectedFromDate == yesterday && selectedToDate == yesterday;
+  }
+
+  Widget _datePickerChip({
+    required String label,
+    required DateTime? date,
+    required VoidCallback onPick,
+    required VoidCallback onClear,
+  }) {
+    final text = date == null ? label : '$label: ${DateFormat('yyyy-MM-dd').format(date)}';
+    return InputChip(
+      label: Text(text, style: const TextStyle(fontSize: 12)),
+      avatar: const Icon(Icons.date_range, size: 16),
+      onPressed: onPick,
+      onDeleted: date != null ? onClear : null,
+    );
+  }
+
   Widget _buildFilters(bool userHasQrCodes) {
+    final hasActiveFilters = selectedUserId != null || selectedQrCodeId != null || selectedFromDate != null || selectedToDate != null;
+
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: const [
-              Icon(Icons.filter_alt_outlined, size: 18, color: Colors.blueGrey),
-              SizedBox(width: 8),
-              Text('Filters', style: TextStyle(fontWeight: FontWeight.w600)),
-            ]),
-            const SizedBox(height: 12),
-
-            // Top row: User + QR
             Wrap(
-              spacing: 12,
-              runSpacing: 12,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 if (!widget.userMode)
                   SizedBox(
-                    width: 320,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 6),
-                          child: Text('Filter User', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                        loadingUsers
-                            ? const LinearProgressIndicator(minHeight: 2)
-                            : DropdownButtonFormField<String>(
-                          isExpanded: true,
-                          value: selectedUserId,
-                          hint: const Text('Select User'),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                          ),
-                          items: [
-                            const DropdownMenuItem(value: null, child: Text('--------')),
-                            ...users.map(
-                                  (u) => DropdownMenuItem(
-                                value: u.id,
-                                child: Text('${u.name} (${u.email})', overflow: TextOverflow.ellipsis),
-                              ),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              selectedUserId = value;
-                              selectedQrCodeId = null;
-                            });
-                            reFetchWithCurrentFilters();
-                          },
-                        ),
+                    width: 280,
+                    child: loadingUsers
+                        ? const LinearProgressIndicator(minHeight: 2)
+                        : DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      value: selectedUserId,
+                      decoration: const InputDecoration(
+                        labelText: 'User',
+                        prefixIcon: Icon(Icons.person_outline, size: 18),
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('All Users')),
+                        ...users.map((u) {
+                          final qrCount = qrCodes.where((qr) => qr.assignedUserId == u.id).length;
+                          final label = u.name.isNotEmpty
+                              ? '${u.name} • ${u.email} ($qrCount)'
+                              : '${u.email} ($qrCount)';
+                          return DropdownMenuItem(value: u.id, child: Text(label, overflow: TextOverflow.ellipsis));
+                        }),
                       ],
+                      onChanged: (value) {
+                        setState(() {
+                          selectedUserId = value;
+                          selectedQrCodeId = null;
+                        });
+                        reFetchWithCurrentFilters();
+                      },
                     ),
                   ),
                 SizedBox(
-                  width: 320,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 6),
-                        child: Text('Filter QR Code', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      loadingQr
-                          ? const LinearProgressIndicator(minHeight: 2)
-                          : DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        value: selectedQrCodeId,
-                        hint: const Text('Select QR Code'),
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          border: OutlineInputBorder(),
+                  width: 280,
+                  child: loadingQr
+                      ? const LinearProgressIndicator(minHeight: 2)
+                      : DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    value: selectedQrCodeId,
+                    decoration: const InputDecoration(
+                      labelText: 'QR Code',
+                      prefixIcon: Icon(Icons.qr_code, size: 18),
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('All QR Codes')),
+                      ...filteredQrCodes.map(
+                            (qr) => DropdownMenuItem(
+                          value: qr.qrId,
+                          child: Text('${qr.qrId} (${qr.totalTransactions})', overflow: TextOverflow.ellipsis),
                         ),
-                        items: [
-                          const DropdownMenuItem(value: null, child: Text('--------')),
-                          ...filteredQrCodes.map(
-                                (qr) => DropdownMenuItem(
-                              value: qr.qrId,
-                              child: Text('${qr.qrId} (${qr.totalTransactions})', overflow: TextOverflow.ellipsis),
-                            ),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          setState(() => selectedQrCodeId = value);
-                          reFetchWithCurrentFilters();
-                        },
                       ),
                     ],
+                    onChanged: (value) {
+                      setState(() => selectedQrCodeId = value);
+                      reFetchWithCurrentFilters();
+                    },
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
-            if (selectedUserId != null && !userHasQrCodes)
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('No QR codes assigned to this user.', style: TextStyle(color: Colors.red)),
-                ),
-              ),
-
-            const SizedBox(height: 10),
-            // Footer actions
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            // Date: quick picks + from/to
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Reset'),
-                  onPressed: () {
-                    setState(() {
-                      selectedUserId = null;
-                      selectedQrCodeId = null;
-                    });
+                ChoiceChip(
+                  label: const Text('Today', style: TextStyle(fontSize: 12)),
+                  selected: _isDateRangeToday(),
+                  showCheckmark: false,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (_) {
+                    final now = DateTime.now();
+                    final today = DateTime(now.year, now.month, now.day);
+                    setState(() { selectedFromDate = today; selectedToDate = today; });
                     reFetchWithCurrentFilters();
                   },
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.filter_alt),
-                  label: const Text('Apply'),
-                  onPressed: () {
-                    FocusScope.of(context).unfocus();
+                ChoiceChip(
+                  label: const Text('Yesterday', style: TextStyle(fontSize: 12)),
+                  selected: _isDateRangeYesterday(),
+                  showCheckmark: false,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (_) {
+                    final now = DateTime.now();
+                    final yesterday = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
+                    setState(() { selectedFromDate = yesterday; selectedToDate = yesterday; });
                     reFetchWithCurrentFilters();
                   },
                 ),
+                _datePickerChip(
+                  label: 'From',
+                  date: selectedFromDate,
+                  onPick: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedFromDate ?? DateTime.now(),
+                      firstDate: DateTime(2024),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        selectedFromDate = picked;
+                        if (selectedToDate != null && selectedToDate!.isBefore(picked)) {
+                          selectedToDate = picked;
+                        }
+                      });
+                      reFetchWithCurrentFilters();
+                    }
+                  },
+                  onClear: () {
+                    setState(() => selectedFromDate = null);
+                    reFetchWithCurrentFilters();
+                  },
+                ),
+                _datePickerChip(
+                  label: 'To',
+                  date: selectedToDate,
+                  onPick: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedToDate ?? DateTime.now(),
+                      firstDate: selectedFromDate ?? DateTime(2024),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() => selectedToDate = picked);
+                      reFetchWithCurrentFilters();
+                    }
+                  },
+                  onClear: () {
+                    setState(() => selectedToDate = null);
+                    reFetchWithCurrentFilters();
+                  },
+                ),
+                if (selectedFromDate != null || selectedToDate != null)
+                  ActionChip(
+                    avatar: const Icon(Icons.clear, size: 16),
+                    label: const Text('Clear Dates', style: TextStyle(fontSize: 12)),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () {
+                      setState(() { selectedFromDate = null; selectedToDate = null; });
+                      reFetchWithCurrentFilters();
+                    },
+                  ),
               ],
             ),
+
+            if (selectedUserId != null && !userHasQrCodes)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('No QR codes assigned to this user.', style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
+              ),
+
+            if (hasActiveFilters)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.clear_all, size: 18),
+                    label: const Text('Reset All'),
+                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                    onPressed: () {
+                      setState(() {
+                        selectedUserId = null;
+                        selectedQrCodeId = null;
+                        selectedFromDate = null;
+                        selectedToDate = null;
+                      });
+                      reFetchWithCurrentFilters();
+                    },
+                  ),
+                ),
+              ),
           ],
         ),
       ),

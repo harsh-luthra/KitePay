@@ -435,138 +435,112 @@ class _ManualHoldPageState extends State<ManualHoldPage> {
   // ─── Filters panel (same pattern as ManageWithdrawalsNew) ───
   Widget _buildFilters() {
     final userHasQrCodes = selectedUserId == null || filteredQrCodes.isNotEmpty;
+    final hasActiveFilters = selectedUserId != null || selectedQrCodeId != null;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: const [
-              Icon(Icons.filter_alt_outlined, size: 18, color: Colors.blueGrey),
-              SizedBox(width: 8),
-              Text('Filters', style: TextStyle(fontWeight: FontWeight.w600)),
-            ]),
-            const SizedBox(height: 12),
-
             Wrap(
-              spacing: 12,
-              runSpacing: 12,
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                // User filter
                 SizedBox(
-                  width: 320,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 6),
-                        child: Text('Filter User', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      loadingUsers
-                          ? const LinearProgressIndicator(minHeight: 2)
-                          : DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              value: selectedUserId,
-                              hint: const Text('Select User'),
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                              ),
-                              items: [
-                                const DropdownMenuItem(value: null, child: Text('--------')),
-                                ...users.map(
-                                  (u) => DropdownMenuItem(
-                                    value: u.id,
-                                    child: Text('${u.name} (${u.email})', overflow: TextOverflow.ellipsis),
-                                  ),
-                                ),
-                              ],
-                              onChanged: (value) {
-                                setState(() {
-                                  selectedUserId = value;
-                                  selectedQrCodeId = null;
-                                });
-                                _reFetchWithCurrentFilters();
-                              },
-                            ),
+                  width: 280,
+                  child: loadingUsers
+                      ? const LinearProgressIndicator(minHeight: 2)
+                      : DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    value: selectedUserId,
+                    decoration: const InputDecoration(
+                      labelText: 'User',
+                      prefixIcon: Icon(Icons.person_outline, size: 18),
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('All Users')),
+                      ...users.map((u) {
+                        final qrCount = qrCodes.where((qr) => qr.assignedUserId == u.id).length;
+                        final label = u.name.isNotEmpty
+                            ? '${u.name} • ${u.email} ($qrCount)'
+                            : '${u.email} ($qrCount)';
+                        return DropdownMenuItem(value: u.id, child: Text(label, overflow: TextOverflow.ellipsis));
+                      }),
                     ],
+                    onChanged: (value) {
+                      setState(() {
+                        selectedUserId = value;
+                        selectedQrCodeId = null;
+                      });
+                      _reFetchWithCurrentFilters();
+                    },
                   ),
                 ),
-
-                // QR filter
                 SizedBox(
-                  width: 320,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 6),
-                        child: Text('Filter QR Code', style: TextStyle(fontWeight: FontWeight.bold)),
+                  width: 280,
+                  child: loadingQr
+                      ? const LinearProgressIndicator(minHeight: 2)
+                      : DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    value: selectedQrCodeId,
+                    decoration: const InputDecoration(
+                      labelText: 'QR Code',
+                      prefixIcon: Icon(Icons.qr_code, size: 18),
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('All QR Codes')),
+                      ...filteredQrCodes.map(
+                            (qr) => DropdownMenuItem(
+                          value: qr.qrId,
+                          child: Text('${qr.qrId} (${qr.totalTransactions})', overflow: TextOverflow.ellipsis),
+                        ),
                       ),
-                      loadingQr
-                          ? const LinearProgressIndicator(minHeight: 2)
-                          : DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              value: selectedQrCodeId,
-                              hint: const Text('Select QR Code'),
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                              ),
-                              items: [
-                                const DropdownMenuItem(value: null, child: Text('--------')),
-                                ...filteredQrCodes.map(
-                                  (qr) => DropdownMenuItem(
-                                    value: qr.qrId,
-                                    child: Text('${qr.qrId} (${qr.totalTransactions})', overflow: TextOverflow.ellipsis),
-                                  ),
-                                ),
-                              ],
-                              onChanged: (value) {
-                                setState(() => selectedQrCodeId = value);
-                                _reFetchWithCurrentFilters();
-                              },
-                            ),
                     ],
+                    onChanged: (value) {
+                      setState(() => selectedQrCodeId = value);
+                      _reFetchWithCurrentFilters();
+                    },
                   ),
                 ),
               ],
             ),
 
             if (selectedUserId != null && !userHasQrCodes)
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text('No QR codes assigned to this user.', style: TextStyle(color: Colors.red)),
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('No QR codes assigned to this user.', style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
               ),
 
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Reset'),
-                  onPressed: () {
-                    setState(() {
-                      selectedUserId = null;
-                      selectedQrCodeId = null;
-                    });
-                    _reFetchWithCurrentFilters();
-                  },
+            if (hasActiveFilters)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.clear_all, size: 18),
+                    label: const Text('Reset All'),
+                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                    onPressed: () {
+                      setState(() {
+                        selectedUserId = null;
+                        selectedQrCodeId = null;
+                      });
+                      _reFetchWithCurrentFilters();
+                    },
+                  ),
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.filter_alt),
-                  label: const Text('Apply'),
-                  onPressed: () {
-                    FocusScope.of(context).unfocus();
-                    _reFetchWithCurrentFilters();
-                  },
-                ),
-              ],
-            ),
+              ),
           ],
         ),
       ),

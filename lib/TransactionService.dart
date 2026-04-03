@@ -406,6 +406,8 @@ class TransactionService {
   static Future<bool> deleteTransaction({
     required String id,        // Appwrite $id of the transaction
     required String jwtToken,  // admin JWT
+    String? ipAddress,         // client IP address
+    String? deviceInfo,        // browser user-agent string
   }) async {
     try {
       final url = Uri.parse('$_baseUrl/admin/transactions/$id');
@@ -417,6 +419,10 @@ class TransactionService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $jwtToken',
         },
+        body: jsonEncode({
+          if (ipAddress != null) 'ipAddress': ipAddress,
+          if (deviceInfo != null) 'deviceInfo': deviceInfo,
+        }),
       ).timeout(const Duration(seconds: 10));
 
       if (resp.statusCode == 200) {

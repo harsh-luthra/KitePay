@@ -25,16 +25,33 @@ class AppConstants {
   static const String getTransactions = "$baseApiUrl/transactions";
 
   // FEATURE LABELS
-  static const String viewAllUsers = "all_users";
+  static const String viewUsers = "view_users";
+  static const String createSubadmin = "create_subadmin";
 
-  static const String viewAllQrCodes = "all_qr";
+  static const String viewTransactions = "view_transactions";
+  static const String changeTransactionStatus = "change_transaction_status";
+  static const String transactionImageUpload = "transaction_image_upload";
 
-  static const String viewAllTransactions = "all_transactions";
-  static const String editTransactions = "edit_transactions";
-  static const String manualTransactions = "manual_transactions";
+  static const String editWithdrawalAccounts = "edit_withdrawal_accounts";
 
-  static const String viewAllWithdrawals = "all_withdrawals";
-  static const String manageAllWithdrawals = "edit_withdrawals";
+  static const String viewAQrCodes = "view_qr_codes";
+  static const String assignQrCodes = "assign_qr_codes";
+  static const String toggleQrStatus = "toggle_qr_status";
+
+  static const String checkWithdrawals = "check_withdrawals";
+
+  static const String viewDashboards = "view_dashboards";
+
+  // 'view_users',
+  // 'create_subadmin',
+  // 'view_transactions',
+  // 'change_transaction_status',
+  // 'transaction_image_upload',
+  // 'edit_withdrawal_accounts'
+  // 'view_qr_codes'
+  // 'assign_qr_codes'
+  // 'toggle_qr_status'
+  // 'check_withdrawals'
 
   // Appwrite
   static const String appwriteEndpoint = 'https://fra.cloud.appwrite.io/v1';

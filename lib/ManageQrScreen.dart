@@ -958,11 +958,18 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       setState(() {
         _isProcessing = true;
       });
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
       _jwtToken = await AppWriteService().getJWT();
       bool success = await _qrCodeService.toggleQrCodeStatus(qrCode.qrId, newStatus, _jwtToken!);
+      if (context.mounted) Navigator.of(context).pop();
       if (success) {
+        final String activeText = newStatus ? 'Active' : 'Inactive';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('QR Code status changed to $newStatus')),
+          SnackBar(content: Text('QR Code status changed to $activeText')),
         );
         if(widget.userMeta.role == "subadmin"){
           _fetchOnlyUserQrCodes();
@@ -1550,7 +1557,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
               : Text(widget.userMode ? 'My QR Codes' : 'Manage All QR Codes'),
           actions: [
             if (!_isSearching) ...[
-              if (widget.userMeta.role == 'admin')
+              if (widget.userMeta.role == 'admin' || widget.userMeta.role == 'employee' || widget.userMeta.role == 'subadmin')
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1606,7 +1613,7 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
             : Column(
           children: [
             // Filters row
-            if (showingFilters && (widget.userMeta.role == 'admin'))
+            if (showingFilters && (widget.userMeta.role == 'admin' || widget.userMeta.role == 'employee' || widget.userMeta.role == 'subadmin'))
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
               child: _buildManagerFilters(),
@@ -1695,13 +1702,22 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
     final userCount = _qrCodes.where((q) => q.assignedUserId != null).length;
     final unassignedCount = _qrCodes.where((q) => q.assignedUserId == null && q.managedByUserId == null).length;
 
-    final scopes = <String, String>{
+    final allScopes = <String, String>{
       'ALL': 'All (${_qrCodes.length})',
       'ADMIN': 'Admin ($adminCount)',
       'SUBADMIN': 'Subadmin ($subadminCount)',
       'USER': 'User ($userCount)',
       'UNASSIGNED': 'Unassigned ($unassignedCount)',
     };
+
+    final Map<String, String> scopes;
+    if (widget.userMeta.role == 'employee') {
+      scopes = Map.fromEntries(allScopes.entries.where((e) => {'ALL', 'SUBADMIN', 'UNASSIGNED'}.contains(e.key)));
+    } else if (widget.userMeta.role == 'subadmin') {
+      scopes = Map.fromEntries(allScopes.entries.where((e) => {'ALL', 'USER', 'UNASSIGNED'}.contains(e.key)));
+    } else {
+      scopes = allScopes;
+    }
 
     final needsDropdown = {'ADMIN', 'SUBADMIN', 'USER'}.contains(_managerScope);
 
@@ -1712,38 +1728,35 @@ class _ManageQrScreenState extends State<ManageQrScreen> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: scopes.entries.map((e) {
-                  final selected = _managerScope == e.key;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(e.value),
-                      selected: selected,
-                      showCheckmark: false,
-                      selectedColor: Theme.of(context).colorScheme.primaryContainer,
-                      labelStyle: TextStyle(
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                        color: selected
-                            ? Theme.of(context).colorScheme.onPrimaryContainer
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      onSelected: (_) {
-                        setState(() {
-                          _managerScope = e.key;
-                          if (_managerScope != 'ADMIN') _selectedAdmin = null;
-                          if (_managerScope != 'SUBADMIN') _selectedSubadmin = null;
-                          if (_managerScope != 'USER') _selectedUser = null;
-                        });
-                      },
-                    ),
-                  );
-                }).toList(),
-              ),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: scopes.entries.map((e) {
+                final selected = _managerScope == e.key;
+                return ChoiceChip(
+                  label: Text(e.value),
+                  selected: selected,
+                  showCheckmark: false,
+                  selectedColor: Theme.of(context).colorScheme.primaryContainer,
+                  labelStyle: TextStyle(
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                    color: selected
+                        ? Theme.of(context).colorScheme.onPrimaryContainer
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  onSelected: (_) {
+                    setState(() {
+                      _managerScope = e.key;
+                      if (_managerScope != 'ADMIN') _selectedAdmin = null;
+                      if (_managerScope != 'SUBADMIN') _selectedSubadmin = null;
+                      if (_managerScope != 'USER') _selectedUser = null;
+                    });
+                  },
+                );
+              }).toList(),
             ),
             if (needsDropdown) ...[
               const SizedBox(height: 10),

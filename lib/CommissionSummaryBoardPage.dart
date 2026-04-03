@@ -217,134 +217,184 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
     return NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(rupees);
   }
 
+  bool _isDateToday() {
+    if (_fromDate == null || _toDate == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final from = DateTime(_fromDate!.year, _fromDate!.month, _fromDate!.day);
+    final to = DateTime(_toDate!.year, _toDate!.month, _toDate!.day);
+    return from == today && to == today;
+  }
+
+  bool _isDateYesterday() {
+    if (_fromDate == null || _toDate == null) return false;
+    final now = DateTime.now();
+    final yesterday = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
+    final from = DateTime(_fromDate!.year, _fromDate!.month, _fromDate!.day);
+    final to = DateTime(_toDate!.year, _toDate!.month, _toDate!.day);
+    return from == yesterday && to == yesterday;
+  }
+
+  bool _isDateLast7() {
+    if (_fromDate == null || _toDate == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final from = DateTime(_fromDate!.year, _fromDate!.month, _fromDate!.day);
+    final to = DateTime(_toDate!.year, _toDate!.month, _toDate!.day);
+    return from == today.subtract(const Duration(days: 6)) && to == today;
+  }
+
+  bool _isDateLast30() {
+    if (_fromDate == null || _toDate == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final from = DateTime(_fromDate!.year, _fromDate!.month, _fromDate!.day);
+    final to = DateTime(_toDate!.year, _toDate!.month, _toDate!.day);
+    return from == today.subtract(const Duration(days: 29)) && to == today;
+  }
+
   Widget _buildFilterBar() {
     final isAdmin = _isAdmin;
 
     return Card(
-      margin: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: AppSpacing.allMd,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: const [
-              Icon(Icons.filter_alt_outlined, size: 18, color: Colors.blueGrey),
-              SizedBox(width: 8),
-              Text('Filters', style: TextStyle(fontWeight: FontWeight.w600)),
-            ]),
-            const SizedBox(height: 12),
-
             // Role & subadmin filters
             Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 if (isAdmin)
                   SizedBox(
-                    width: 220,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 6),
-                          child: Text('Filter Role', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                        DropdownButtonFormField<String>(
-                          value: _roleFilter,
-                          items: const [
-                            DropdownMenuItem(value: 'subadmin', child: Text('Sub-admin')),
-                            DropdownMenuItem(value: 'admin', child: Text('Admin')),
-                            DropdownMenuItem(value: 'all', child: Text('ALL')),
-                          ],
-                          onChanged: (v) => setState(() {
-                            _roleFilter = v ?? 'subadmin';
-                            if (_roleFilter == 'admin') {
-                              _selectedSubadmin = null;
-                            } else if (_roleFilter == 'subadmin') {
-                              if (_allSubadmins.isNotEmpty) _selectedSubadmin = _allSubadmins.first;
-                            }
-                          }),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
+                    width: 200,
+                    child: DropdownButtonFormField<String>(
+                      value: _roleFilter,
+                      decoration: const InputDecoration(
+                        labelText: 'Role',
+                        prefixIcon: Icon(Icons.group_outlined, size: 18),
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'subadmin', child: Text('Sub-admin')),
+                        DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                        DropdownMenuItem(value: 'all', child: Text('All')),
                       ],
+                      onChanged: (v) => setState(() {
+                        _roleFilter = v ?? 'subadmin';
+                        if (_roleFilter == 'admin') {
+                          _selectedSubadmin = null;
+                        } else if (_roleFilter == 'subadmin') {
+                          if (_allSubadmins.isNotEmpty) _selectedSubadmin = _allSubadmins.first;
+                        }
+                      }),
                     ),
                   ),
 
                 if (isAdmin && _roleFilter == 'subadmin')
                   SizedBox(
-                    width: 380,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 6),
-                          child: Text('Select Subadmin', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                        _loadingUsers
-                            ? const LinearProgressIndicator(minHeight: 2)
-                            : DropdownButtonFormField<AppUser>(
-                          value: _selectedSubadmin,
-                          isExpanded: true,
-                          items: _allSubadmins.map((u) {
-                            final label = '${u.name.isEmpty ? '(No name)' : u.name} (${u.email})';
-                            return DropdownMenuItem<AppUser>(
-                              value: u,
-                              child: Text(label, overflow: TextOverflow.ellipsis),
-                            );
-                          }).toList(),
-                          onChanged: (u) => setState(() => _selectedSubadmin = u),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ],
+                    width: 300,
+                    child: _loadingUsers
+                        ? const LinearProgressIndicator(minHeight: 2)
+                        : DropdownButtonFormField<AppUser>(
+                      value: _selectedSubadmin,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'SubAdmin',
+                        prefixIcon: Icon(Icons.supervisor_account_outlined, size: 18),
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      ),
+                      items: _allSubadmins.map((u) {
+                        final label = '${u.name.isEmpty ? '(No name)' : u.name} • ${u.email}';
+                        return DropdownMenuItem<AppUser>(
+                          value: u,
+                          child: Text(label, overflow: TextOverflow.ellipsis),
+                        );
+                      }).toList(),
+                      onChanged: (u) => setState(() => _selectedSubadmin = u),
                     ),
                   ),
 
                 if (!isAdmin)
                   SizedBox(
-                    width: 320,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 6),
-                          child: Text('Subadmin', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                        InputDecorator(
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.person, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                              const SizedBox(width: 8),
-                              Text('${widget.userMeta.name} (${widget.userMeta.email})',
-                                  overflow: TextOverflow.ellipsis),
-                            ],
-                          ),
-                        ),
-                      ],
+                    width: 280,
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'SubAdmin',
+                        prefixIcon: Icon(Icons.person, size: 18),
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      ),
+                      child: Text('${widget.userMeta.name} (${widget.userMeta.email})',
+                          overflow: TextOverflow.ellipsis),
                     ),
                   ),
               ],
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
-            // Date range
+            // Date: quick picks + from/to
             Wrap(
-              spacing: 12,
-              runSpacing: 8,
+              spacing: 6,
+              runSpacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
+                ChoiceChip(
+                  label: const Text('Today', style: TextStyle(fontSize: 12)),
+                  selected: _isDateToday(),
+                  showCheckmark: false,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (_) {
+                    final now = DateTime.now();
+                    setState(() { _fromDate = now; _toDate = now; });
+                    _fetchSummaries();
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('Yesterday', style: TextStyle(fontSize: 12)),
+                  selected: _isDateYesterday(),
+                  showCheckmark: false,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (_) {
+                    final y = DateTime.now().subtract(const Duration(days: 1));
+                    setState(() { _fromDate = y; _toDate = y; });
+                    _fetchSummaries();
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('7 Days', style: TextStyle(fontSize: 12)),
+                  selected: _isDateLast7(),
+                  showCheckmark: false,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (_) {
+                    final now = DateTime.now();
+                    setState(() { _fromDate = now.subtract(const Duration(days: 6)); _toDate = now; });
+                    _fetchSummaries();
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('30 Days', style: TextStyle(fontSize: 12)),
+                  selected: _isDateLast30(),
+                  showCheckmark: false,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (_) {
+                    final now = DateTime.now();
+                    setState(() { _fromDate = now.subtract(const Duration(days: 29)); _toDate = now; });
+                    _fetchSummaries();
+                  },
+                ),
                 _datePickerChip(
                   label: 'From',
                   date: _fromDate,
@@ -382,60 +432,29 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
                   },
                   onClear: () => setState(() => _toDate = null),
                 ),
+                if (_fromDate != null || _toDate != null)
+                  ActionChip(
+                    avatar: const Icon(Icons.clear, size: 16),
+                    label: const Text('Clear Dates', style: TextStyle(fontSize: 12)),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () {
+                      setState(() { _fromDate = null; _toDate = null; });
+                      _fetchSummaries();
+                    },
+                  ),
               ],
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
 
-            // Quick date presets + actions
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            // Footer
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                ActionChip(
-                  label: const Text('Today'),
-                  onPressed: () {
-                    final now = DateTime.now();
-                    setState(() { _fromDate = now; _toDate = now; });
-                    _fetchSummaries();
-                  },
-                ),
-                ActionChip(
-                  label: const Text('Yesterday'),
-                  onPressed: () {
-                    final y = DateTime.now().subtract(const Duration(days: 1));
-                    setState(() { _fromDate = y; _toDate = y; });
-                    _fetchSummaries();
-                  },
-                ),
-                ActionChip(
-                  label: const Text('Last 7 Days'),
-                  onPressed: () {
-                    final now = DateTime.now();
-                    setState(() { _fromDate = now.subtract(const Duration(days: 6)); _toDate = now; });
-                    _fetchSummaries();
-                  },
-                ),
-                ActionChip(
-                  label: const Text('Last 30 Days'),
-                  onPressed: () {
-                    final now = DateTime.now();
-                    setState(() { _fromDate = now.subtract(const Duration(days: 29)); _toDate = now; });
-                    _fetchSummaries();
-                  },
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.search),
-                  label: const Text('Fetch'),
-                  onPressed: () {
-                    if (_roleFilter == 'subadmin' && _selectedSubadmin == null) return;
-                    _fetchSummaries();
-                  },
-                ),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.refresh),
+                TextButton.icon(
+                  icon: const Icon(Icons.clear_all, size: 18),
                   label: const Text('Reset'),
+                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
                   onPressed: () {
                     setState(() {
                       _fromDate = null;
@@ -445,6 +464,19 @@ class _CommissionSummaryBoardPageState extends State<CommissionSummaryBoardPage>
                     });
                     _fetchSummaries();
                   },
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 34,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.search, size: 18),
+                    label: const Text('Fetch'),
+                    style: ElevatedButton.styleFrom(visualDensity: VisualDensity.compact),
+                    onPressed: () {
+                      if (_roleFilter == 'subadmin' && _selectedSubadmin == null) return;
+                      _fetchSummaries();
+                    },
+                  ),
                 ),
               ],
             ),

@@ -9,6 +9,8 @@ class Transaction {
   final int amount;
   final String? status;
   final String? imageUrl;
+  final bool deleted;
+  final String? editedBy;
 
   Transaction({
     required this.id,
@@ -21,6 +23,8 @@ class Transaction {
     required this.amount,
     this.status,
     this.imageUrl,
+    this.deleted = false,
+    this.editedBy,
   });
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
@@ -35,12 +39,14 @@ class Transaction {
       amount: (json['amount'] as num?)?.toInt() ?? 0,
       status: json['status'] as String? ?? '',
       imageUrl: json['imageUrl'] as String? ?? '',
+      deleted: json['deleted'] as bool? ?? false,
+      editedBy: json['edited_by'] as String?,
     );
   }
 
   @override
   String toString() {
-    return 'Transaction{id: $id, qrCodeId: $qrCodeId, paymentId: $paymentId, rrnNumber: $rrnNumber, vpa: $vpa, createdAt: $createdAt, amount: $amount, status: $status, imageUrl: $imageUrl }';
+    return 'Transaction{id: $id, qrCodeId: $qrCodeId, paymentId: $paymentId, rrnNumber: $rrnNumber, vpa: $vpa, createdAt: $createdAt, amount: $amount, status: $status, imageUrl: $imageUrl, deleted: $deleted, editedBy: $editedBy}';
   }
 
   String get amountInRupees => '₹ ${(amount / 100).toStringAsFixed(2)}';

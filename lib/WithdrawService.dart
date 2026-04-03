@@ -125,6 +125,12 @@ class WithdrawService {
   }
 
   // Paginated fetch with optional status filter
+  static String _formatDate(DateTime date) {
+    return "${date.year.toString().padLeft(4, '0')}-"
+        "${date.month.toString().padLeft(2, '0')}-"
+        "${date.day.toString().padLeft(2, '0')}";
+  }
+
   static Future<WithdrawalPage> fetchWithdrawalsPaginated({
     required String jwtToken,
     String? status,           // 'pending' | 'approved' | 'rejected' or null for all
@@ -132,6 +138,8 @@ class WithdrawService {
     int limit = 15,           // page size
     String? userId,           // optional: scope to a single user if needed
     String? qrId,
+    DateTime? from,
+    DateTime? to,
   }) async {
     try {
       final qp = <String, String>{
@@ -140,6 +148,8 @@ class WithdrawService {
         if (status != null) 'status': status,
         if (userId != null) 'userId': userId,
         if (qrId != null) 'qrId': qrId,
+        if (from != null) 'from': _formatDate(from),
+        if (to != null) 'to': _formatDate(to),
       };
 
       final uri = Uri.parse('$_baseUrl/user/withdrawals_paginated').replace(queryParameters: qp);
@@ -173,6 +183,8 @@ class WithdrawService {
     String? status,     // 'pending' | 'approved' | 'rejected' or null
     String? cursor,     // server-provided token from previous page
     int limit = 15,     // page size
+    DateTime? from,
+    DateTime? to,
   }) async {
     try {
       final qp = <String, String>{
@@ -180,6 +192,8 @@ class WithdrawService {
         'limit': '$limit',
         if (status != null) 'status': status,
         if (cursor != null) 'cursor': cursor,
+        if (from != null) 'from': _formatDate(from),
+        if (to != null) 'to': _formatDate(to),
       };
 
       final uri = Uri.parse('$_baseUrl/user/user_withdrawals_paginated').replace(queryParameters: qp);

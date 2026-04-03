@@ -445,7 +445,7 @@ class QrCodeCard extends StatelessWidget {
     final canUserActions = (!userMode || (userMeta.role.contains("subadmin") && userMeta.labels.contains("users")));
     final canViewTx =
         (userMeta.role == "admin") ||
-            (userMeta.role == "employee" && userMeta.labels.contains(AppConstants.viewAllTransactions)) ||
+            (userMeta.role == "employee" && userMeta.labels.contains(AppConstants.viewTransactions)) ||
             (userMeta.role == "subadmin") ||
             (userMeta.role == "user");
 
@@ -468,7 +468,7 @@ class QrCodeCard extends StatelessWidget {
       spacing: 6,
       runSpacing: 6,
       children: [
-        if (userMeta.role != "employee" && canUserActions)
+        if (userMeta.role == "admin" || (userMeta.role == "employee" && userMeta.labels.contains(AppConstants.toggleQrStatus)))
           action(
             icon: qrCode.isActive ? Icons.toggle_on : Icons.toggle_off,
             tip: 'Toggle Status',
@@ -482,11 +482,11 @@ class QrCodeCard extends StatelessWidget {
             onTap: qrCode.assignedUserId == null ? onAssignUser : onAssignUserOptions,
             color: Colors.blueAccent,
           ),
-        if (userMeta.role != "employee" && canUserActions && userMeta.role == 'admin')
+        if (userMeta.role == 'admin' || (userMeta.role == "employee" && userMeta.labels.contains(AppConstants.assignQrCodes)))
           action(
             icon: qrCode.managedByUserId == null ? Icons.admin_panel_settings_outlined : Icons.admin_panel_settings,
             tip: qrCode.managedByUserId == null ? 'Assign to Merchant' : 'Change Merchant Assignment',
-            onTap: qrCode.managedByUserId == null ? onAssignSubAdmin : onAssignSubAdminOptions,
+            onTap: qrCode.managedByUserId == null ? onAssignSubAdmin : (userMeta.role == 'admin' ? onAssignSubAdminOptions : null),
             color: Colors.blueAccent,
           ),
         if (canViewTx)

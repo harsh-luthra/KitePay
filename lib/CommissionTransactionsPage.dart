@@ -222,113 +222,148 @@ class _CommissionTransactionsPageState extends State<CommissionTransactionsPage>
 
   Widget _filters() {
     final df = DateFormat('yyyy-MM-dd');
+    final hasActiveFilters = _earningType != null || _fromDate != null || _toDate != null;
+
     return Card(
-      margin: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Wrap(
-              spacing: 12,
-              runSpacing: 12,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 if (_isAdmin)
                   SizedBox(
                     width: 230,
                     child: DropdownButtonFormField<String>(
                       value: _earningType,
+                      decoration: const InputDecoration(
+                        labelText: 'Earning of',
+                        prefixIcon: Icon(Icons.monetization_on_outlined, size: 18),
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      ),
                       items: const [
-                        DropdownMenuItem(value: null, child: Text('Earning of: All')),
-                        DropdownMenuItem(value: 'admin', child: Text('Earning of: admin')),
-                        DropdownMenuItem(value: 'subAdmin', child: Text('Earning of: subAdmin')),
+                        DropdownMenuItem(value: null, child: Text('All')),
+                        DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                        DropdownMenuItem(value: 'subAdmin', child: Text('SubAdmin')),
                       ],
                       onChanged: (v) => setState(() => _earningType = v),
-                      decoration: const InputDecoration(border: OutlineInputBorder()),
                     ),
                   ),
                 if (_isAdmin && _earningType == 'subAdmin')
                   SizedBox(
-                  width: 320,
-                  child: _loadingSubadmins
-                      ? const Center(child: LinearProgressIndicator())
-                      : DropdownButtonFormField<AppUser>(
-                    value: _selectedSubadmin,
-                    isExpanded: true,
-                    items: _subadmins.map((u) {
-                      final label = '${u.name.isEmpty ? '(No name)' : u.name} • ${u.email}';
-                      return DropdownMenuItem<AppUser>(
-                        value: u,
-                        child: Text(label, overflow: TextOverflow.ellipsis),
-                      );
-                    }).toList(),
-                    onChanged: (u) {
-                      setState(() {
-                        _selectedSubadmin = u;
-                        _userIdCtrl.text = u?.id ?? '';
-                      });
-                    },
-                    decoration: const InputDecoration(
-                      labelText: 'Select SubAdmin',
-                      border: OutlineInputBorder(),
+                    width: 280,
+                    child: _loadingSubadmins
+                        ? const LinearProgressIndicator(minHeight: 2)
+                        : DropdownButtonFormField<AppUser>(
+                      value: _selectedSubadmin,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'SubAdmin',
+                        prefixIcon: Icon(Icons.supervisor_account_outlined, size: 18),
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      ),
+                      items: _subadmins.map((u) {
+                        final label = '${u.name.isEmpty ? '(No name)' : u.name} • ${u.email}';
+                        return DropdownMenuItem<AppUser>(
+                          value: u,
+                          child: Text(label, overflow: TextOverflow.ellipsis),
+                        );
+                      }).toList(),
+                      onChanged: (u) {
+                        setState(() {
+                          _selectedSubadmin = u;
+                          _userIdCtrl.text = u?.id ?? '';
+                        });
+                      },
                     ),
                   ),
-                ),
-                Row(
-                  children: [
-                    SizedBox(
-                      width: 200,
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.date_range),
-                        label: Text(_fromDate == null ? 'From date' : 'From: ${df.format(_fromDate!)}'),
-                        onPressed: () => _pickDate(isFrom: true),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 200,
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.date_range_outlined),
-                        label: Text(_toDate == null ? 'To date' : 'To: ${df.format(_toDate!)}'),
-                        onPressed: () => _pickDate(isFrom: false),
-                      ),
-                    ),
-                  ],
-                ),
-                if (_fromDate != null && _toDate != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Range: ${_toDate!.difference(DateTime(_fromDate!.year,_fromDate!.month,_fromDate!.day)).inDays + 1} days',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ]
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
+
+            const SizedBox(height: 8),
+
+            // Date row
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.filter_alt),
-                  label: const Text('Apply'),
-                  onPressed: _applyFilters,
+                InputChip(
+                  label: Text(_fromDate == null ? 'From' : 'From: ${df.format(_fromDate!)}', style: const TextStyle(fontSize: 12)),
+                  avatar: const Icon(Icons.date_range, size: 16),
+                  onPressed: () => _pickDate(isFrom: true),
+                  onDeleted: _fromDate != null ? () => setState(() => _fromDate = null) : null,
                 ),
-                const SizedBox(width: 12),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _userIdCtrl.clear();
-                      _earningType = null;
-                      _fromDate = null;
-                      _toDate = null;
-                      _nextCursor = null;
-                      _hasMore = true;
-                    });
-                    if (widget.initialUserId != null) {
-                      _userIdCtrl.text = widget.initialUserId!;
-                    }
-                    _fetch(firstLoad: true);
-                  },
-                  child: const Text('Reset'),
+                InputChip(
+                  label: Text(_toDate == null ? 'To' : 'To: ${df.format(_toDate!)}', style: const TextStyle(fontSize: 12)),
+                  avatar: const Icon(Icons.date_range, size: 16),
+                  onPressed: () => _pickDate(isFrom: false),
+                  onDeleted: _toDate != null ? () => setState(() => _toDate = null) : null,
+                ),
+                if (_fromDate != null && _toDate != null)
+                  Text(
+                    '${_toDate!.difference(DateTime(_fromDate!.year, _fromDate!.month, _fromDate!.day)).inDays + 1} days',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                if (_fromDate != null || _toDate != null)
+                  ActionChip(
+                    avatar: const Icon(Icons.clear, size: 16),
+                    label: const Text('Clear Dates', style: TextStyle(fontSize: 12)),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () {
+                      setState(() { _fromDate = null; _toDate = null; });
+                      _applyFilters();
+                    },
+                  ),
+              ],
+            ),
+
+            const SizedBox(height: 6),
+
+            // Footer
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (hasActiveFilters)
+                  TextButton.icon(
+                    icon: const Icon(Icons.clear_all, size: 18),
+                    label: const Text('Reset'),
+                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                    onPressed: () {
+                      setState(() {
+                        _userIdCtrl.clear();
+                        _earningType = null;
+                        _fromDate = null;
+                        _toDate = null;
+                        _nextCursor = null;
+                        _hasMore = true;
+                      });
+                      if (widget.initialUserId != null) {
+                        _userIdCtrl.text = widget.initialUserId!;
+                      }
+                      _fetch(firstLoad: true);
+                    },
+                  ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 34,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.filter_alt, size: 18),
+                    label: const Text('Apply'),
+                    style: ElevatedButton.styleFrom(visualDensity: VisualDensity.compact),
+                    onPressed: _applyFilters,
+                  ),
                 ),
               ],
             ),

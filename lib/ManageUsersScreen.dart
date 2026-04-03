@@ -42,15 +42,16 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   late AppUser appUser;
 
   final List<String> availableLabels = [
-    'SelfQr',
-    'users',
-    'all_users',
-    'all_qr',
-    'manual_transactions',
-    'all_transactions',
-    'edit_transactions',
-    'all_withdrawals',
-    'edit_withdrawals',
+    'view_users',
+    'create_subadmin',
+    'view_transactions',
+    'change_transaction_status',
+    'transaction_image_upload',
+    'edit_withdrawal_accounts',
+    'view_qr_codes',
+    'assign_qr_codes',
+    'toggle_qr_status',
+    'check_withdrawals'
   ];
 
   late AppUser userMeta;
@@ -628,11 +629,17 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   }
 
   void _showAddUserDialog(BuildContext parentContext) {
+    final formKey = GlobalKey<FormState>();
     final emailController = TextEditingController(text: "");
     final passController = TextEditingController(text: "");
     final nameController = TextEditingController(text: "");
-    String? selectedRole =
-        userMeta.role == "subadmin" ? "user" : null; // store chosen role
+    String? selectedRole;
+    if (userMeta.role == "subadmin") {
+      selectedRole = "user";
+    } else if (userMeta.role == "employee") {
+      selectedRole = "subadmin";
+    }
+    String? roleError;
 
     showDialog(
       context: context,
@@ -641,86 +648,138 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           (_) => StatefulBuilder(
             builder: (context, setState) {
               return AlertDialog(
-                title: const Text("Add New User"),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      obscureText: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Name',
-                        hintText: 'Min 3 characters',
-                      ),
-                    ),
-                    TextField(
-                      controller: emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        hintText: 'e.g. user@example.com',
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    TextField(
-                      controller: passController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                        hintText: 'Min 6 characters',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                title: const Text("Create New User"),
+                content: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextFormField(
+                          controller: nameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Name',
+                            hintText: 'Min 3 characters',
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().length < 3) {
+                              return 'Name must be at least 3 characters';
+                            }
+                            return null;
+                          },
+                        ),
+                        TextFormField(
+                          controller: emailController,
+                          decoration: const InputDecoration(
+                            labelText: 'Email',
+                            hintText: 'e.g. user@example.com',
+                          ),
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Email is required';
+                            }
+                            final emailRegex = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w{2,}$');
+                            if (!emailRegex.hasMatch(value.trim())) {
+                              return 'Enter a valid email address';
+                            }
+                            return null;
+                          },
+                        ),
+                        TextFormField(
+                          controller: passController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Password',
+                            hintText: 'Min 6 characters',
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().length < 6) {
+                              return 'Password must be at least 6 characters';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
 
-                    // --- Role selection ---
-                    const Text(
-                      "Select Role",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    if (userMeta.role == "admin") ...[
-                      RadioListTile<String>(
-                        title: const Text("Sub-Admin"),
-                        value: "subadmin",
-                        groupValue: selectedRole,
-                        onChanged: (value) {
-                          setState(() {
-                            selectedRole = value;
-                          });
-                        },
-                      ),
-                      RadioListTile<String>(
-                        title: const Text("Employee"),
-                        value: "employee",
-                        groupValue: selectedRole,
-                        onChanged: (value) {
-                          setState(() {
-                            selectedRole = value;
-                          });
-                        },
-                      ),
-                    ],
+                        // --- Role selection ---
+                        const Text(
+                          "Select Role",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        if (userMeta.role == "admin") ...[
+                          RadioListTile<String>(
+                            title: const Text("Employee"),
+                            value: "employee",
+                            groupValue: selectedRole,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedRole = value;
+                                roleError = null;
+                              });
+                            },
+                          ),
+                        ],
 
-                    RadioListTile<String>(
-                      title: const Text("User"),
-                      value: "user",
-                      groupValue: selectedRole,
-                      onChanged: (value) {
-                        setState(() {
-                          selectedRole = value;
-                        });
-                      },
+                        if (userMeta.role == "admin" || userMeta.role == "employee") ...[
+                          RadioListTile<String>(
+                            title: const Text("Sub-Admin"),
+                            value: "subadmin",
+                            groupValue: selectedRole,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedRole = value;
+                                roleError = null;
+                              });
+                            },
+                          ),
+                        ],
+
+                        if (userMeta.role == "admin" || userMeta.role == "subadmin") ...[
+                          RadioListTile<String>(
+                            title: const Text("User"),
+                            value: "user",
+                            groupValue: selectedRole,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedRole = value;
+                                roleError = null;
+                              });
+                            },
+                          ),
+                        ],
+
+                        if (roleError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              roleError!,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
                 actions: [
                   TextButton(
                     onPressed:
                         () => Navigator.of(context, rootNavigator: true).pop(),
-                    // closes this dialog
                     child: const Text("Cancel"),
                   ),
                   ElevatedButton(
                     onPressed: () async {
-                      // validate...
+                      final isFormValid = formKey.currentState!.validate();
+                      if (selectedRole == null) {
+                        setState(() {
+                          roleError = 'Please select a role';
+                        });
+                      }
+                      if (!isFormValid || selectedRole == null) return;
+
                       Navigator.of(
                         context,
                         rootNavigator: true,
@@ -908,12 +967,12 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     ),
 
                     const SizedBox(height: 16),
-                    if (userMeta.role == "admin")
+                    if (userMeta.role == "admin" && user.role == "employee")
                       const Text(
                         'Labels:',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                    if (userMeta.role == "admin")
+                    if (userMeta.role == "admin" && user.role == "employee")
                       Wrap(
                         spacing: 8.0,
                         runSpacing: 8.0,
@@ -1248,7 +1307,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           actions:
               !loading
                   ? [
-                    if (userMeta.role != "employee")
+                    if (userMeta.role != "user")
                       IconButton(
                         icon: const Icon(Icons.add),
                         tooltip: "Add User",
@@ -1761,7 +1820,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         userMeta.role == 'subadmin' ||
                         (userMeta.role == 'employee' &&
                             userMeta.labels.contains(
-                              AppConstants.viewAllTransactions,
+                              AppConstants.viewTransactions,
                             )))
                       _iconBtn(
                         Icons.receipt_long,
@@ -1783,7 +1842,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         (userMeta.role == 'admin' ||
                             (userMeta.role == 'employee' &&
                                 userMeta.labels.contains(
-                                  AppConstants.viewAllTransactions,
+                                  AppConstants.viewDashboards,
                                 ))))
                       _iconBtn(
                         Icons.dashboard,
@@ -1807,7 +1866,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                             userMeta.role == 'subadmin' ||
                             (userMeta.role == 'employee' &&
                                 userMeta.labels.contains(
-                                  AppConstants.viewAllTransactions,
+                                  AppConstants.viewDashboards,
                                 ))))
                       _iconBtn(Icons.dashboard, 'View User Dashboard', () {
                         Navigator.push(
@@ -1827,7 +1886,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                             userMeta.role == 'subadmin' ||
                             (userMeta.role == 'employee' &&
                                 userMeta.labels.contains(
-                                  AppConstants.viewAllTransactions,
+                                  AppConstants.editWithdrawalAccounts,
                                 ))))
                       _iconBtn(Icons.account_balance_outlined, 'View Withdrawal Accounts', () {
                         Navigator.push(
@@ -1846,7 +1905,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         (userMeta.role == 'admin' ||
                             (userMeta.role == 'employee' &&
                                 userMeta.labels.contains(
-                                  AppConstants.viewAllTransactions,
+                                  AppConstants.editWithdrawalAccounts,
                                 ))))
                       _iconBtn(Icons.account_balance_outlined, 'View Withdrawal Accounts', () {
                         Navigator.push(

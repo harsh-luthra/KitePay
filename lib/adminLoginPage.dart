@@ -128,6 +128,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         password: password,
       );
 
+      // Clear any stale JWT from a previous session so a fresh one is created
+      await _appwrite.clearJWT();
+
       final user = await _appwrite.account.get();
       final String jwtToken = await _appwrite.getJWT(); // ✅ reuse instance
 
