@@ -149,17 +149,20 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
         return StatefulBuilder(
           builder: (dialogCtx, setState) {
+            final theme = Theme.of(dialogCtx);
             return AlertDialog(
-              title: Text("Select Sub-admin"),
+              icon: Icon(Icons.supervisor_account_rounded, color: theme.colorScheme.primary, size: 36),
+              title: const Text("Select Sub-admin"),
               content: SizedBox(
-                width: 300,
-                height: 350,
+                width: 380,
+                height: 400,
                 child: Column(
                   children: [
                     TextField(
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         labelText: 'Search by name or email',
                         prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
                       ),
                       onChanged: (value) {
                         if (debounce?.isActive ?? false) debounce!.cancel();
@@ -170,7 +173,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         });
                       },
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Expanded(
                       child: FutureBuilder<List<AppUser>>(
                         future: UsersService.listSubAdmins(
@@ -184,27 +187,49 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                           }
                           if (snapshot.hasError) {
                             return Center(
-                              child: Text(
-                                'Failed to load: ${snapshot.error}',
-                                style: const TextStyle(color: Colors.redAccent),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Failed to load: ${snapshot.error}',
+                                    style: const TextStyle(color: Colors.redAccent),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ),
                             );
                           }
                           final subadmins = snapshot.data ?? [];
                           if (subadmins.isEmpty) {
-                            return Center(child: Text('No sub-admins found'));
+                            return const Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.person_off_outlined, size: 40, color: Colors.grey),
+                                  SizedBox(height: 8),
+                                  Text('No sub-admins found', style: TextStyle(color: Colors.grey)),
+                                ],
+                              ),
+                            );
                           }
-                          return ListView.builder(
+                          return ListView.separated(
                             itemCount: subadmins.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
                             itemBuilder: (context, index) {
                               final subadmin = subadmins[index];
                               return ListTile(
-                                leading: Text(
-                                  (index + 1).toString(),
-                                  style: TextStyle(fontSize: 25),
+                                leading: CircleAvatar(
+                                  backgroundColor: theme.colorScheme.primaryContainer,
+                                  child: Text(
+                                    subadmin.name.isNotEmpty ? subadmin.name[0].toUpperCase() : '?',
+                                    style: TextStyle(color: theme.colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
+                                  ),
                                 ),
-                                title: Text(subadmin.name),
-                                subtitle: Text(subadmin.email),
+                                title: Text(subadmin.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                                subtitle: Text(subadmin.email, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 onTap: () async {
                                   // Close the selection dialog using dialog context
                                   Navigator.of(dialogCtx).pop();
@@ -272,13 +297,14 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   ],
                 ),
               ),
+              actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               actions: [
                 TextButton(
                   onPressed: () {
                     debounce?.cancel();
                     Navigator.pop(context);
                   },
-                  child: Text("Cancel"),
+                  child: const Text("Cancel"),
                 ),
               ],
             );
@@ -299,17 +325,20 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
         return StatefulBuilder(
           builder: (dialogCtx, setState) {
+            final theme = Theme.of(dialogCtx);
             return AlertDialog(
-              title: Text("Select Employee"),
+              icon: Icon(Icons.badge_rounded, color: theme.colorScheme.primary, size: 36),
+              title: const Text("Select Employee"),
               content: SizedBox(
-                width: 300,
-                height: 350,
+                width: 380,
+                height: 400,
                 child: Column(
                   children: [
                     TextField(
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         labelText: 'Search by name or email',
                         prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
                       ),
                       onChanged: (value) {
                         if (debounce?.isActive ?? false) debounce!.cancel();
@@ -320,7 +349,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         });
                       },
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Expanded(
                       child: FutureBuilder<List<AppUser>>(
                         future: UsersService.listEmployees(
@@ -334,27 +363,49 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                           }
                           if (snapshot.hasError) {
                             return Center(
-                              child: Text(
-                                'Failed to load: ${snapshot.error}',
-                                style: const TextStyle(color: Colors.redAccent),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Failed to load: ${snapshot.error}',
+                                    style: const TextStyle(color: Colors.redAccent),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ),
                             );
                           }
                           final employees = snapshot.data ?? [];
                           if (employees.isEmpty) {
-                            return Center(child: Text('No sub-admins found'));
+                            return const Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.person_off_outlined, size: 40, color: Colors.grey),
+                                  SizedBox(height: 8),
+                                  Text('No employees found', style: TextStyle(color: Colors.grey)),
+                                ],
+                              ),
+                            );
                           }
-                          return ListView.builder(
+                          return ListView.separated(
                             itemCount: employees.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
                             itemBuilder: (context, index) {
                               final employee = employees[index];
                               return ListTile(
-                                leading: Text(
-                                  (index + 1).toString(),
-                                  style: TextStyle(fontSize: 25),
+                                leading: CircleAvatar(
+                                  backgroundColor: theme.colorScheme.primaryContainer,
+                                  child: Text(
+                                    employee.name.isNotEmpty ? employee.name[0].toUpperCase() : '?',
+                                    style: TextStyle(color: theme.colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
+                                  ),
                                 ),
-                                title: Text(employee.name),
-                                subtitle: Text(employee.email),
+                                title: Text(employee.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                                subtitle: Text(employee.email, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 onTap: () async {
                                   // Close the selection dialog using dialog context
                                   Navigator.of(dialogCtx).pop();
@@ -422,13 +473,14 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   ],
                 ),
               ),
+              actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               actions: [
                 TextButton(
                   onPressed: () {
                     debounce?.cancel();
                     Navigator.pop(context);
                   },
-                  child: Text("Cancel"),
+                  child: const Text("Cancel"),
                 ),
                 TextButton(
                   onPressed: () {
@@ -436,7 +488,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     Navigator.pop(context);
                     unAssignSubAdmin(context, subAdminId, subAdminId);
                   },
-                  child: Text("None"),
+                  style: TextButton.styleFrom(foregroundColor: Colors.orange),
+                  child: const Text("Unassign"),
                 ),
               ],
             );
@@ -457,18 +510,21 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       context: pageContext,
       builder:
           (ctx) => AlertDialog(
+        icon: const Icon(Icons.link_off_rounded, color: Colors.orange, size: 36),
         title: const Text('Un-assign SubAdmin'),
         content: const Text(
           'Are you sure you want to un-assign this SubAdmin from the Employee?',
         ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.orange),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Yes, un-assign'),
+            child: const Text('Yes, Un-assign'),
           ),
         ],
       ),
@@ -523,18 +579,21 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       context: pageContext,
       builder:
           (ctx) => AlertDialog(
+            icon: const Icon(Icons.link_off_rounded, color: Colors.orange, size: 36),
             title: const Text('Un-assign User'),
             content: const Text(
               'Are you sure you want to un-assign this user from the sub-admin?',
             ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
                 child: const Text('Cancel'),
               ),
-              ElevatedButton(
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.orange),
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Yes, un-assign'),
+                child: const Text('Yes, Un-assign'),
               ),
             ],
           ),
@@ -632,6 +691,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     final formKey = GlobalKey<FormState>();
     final emailController = TextEditingController(text: "");
     final passController = TextEditingController(text: "");
+    final confirmPassController = TextEditingController(text: "");
     final nameController = TextEditingController(text: "");
     String? selectedRole;
     if (userMeta.role == "subadmin") {
@@ -640,6 +700,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       selectedRole = "subadmin";
     }
     String? roleError;
+    bool obscurePassword = true;
+    bool obscureConfirm = true;
 
     showDialog(
       context: context,
@@ -647,130 +709,212 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       builder:
           (_) => StatefulBuilder(
             builder: (context, setState) {
+              final theme = Theme.of(context);
+              final passText = passController.text;
+              final hasMinLen = passText.length >= 8;
+              final hasUpper = RegExp(r'[A-Z]').hasMatch(passText);
+              final hasLower = RegExp(r'[a-z]').hasMatch(passText);
+              final hasDigit = RegExp(r'[0-9]').hasMatch(passText);
+              final strengthCount = [hasMinLen, hasUpper, hasLower, hasDigit].where((e) => e).length;
+
               return AlertDialog(
+                icon: Icon(Icons.person_add_alt_1_rounded, color: theme.colorScheme.primary, size: 36),
                 title: const Text("Create New User"),
-                content: Form(
-                  key: formKey,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TextFormField(
-                          controller: nameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Name',
-                            hintText: 'Min 3 characters',
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().length < 3) {
-                              return 'Name must be at least 3 characters';
-                            }
-                            return null;
-                          },
-                        ),
-                        TextFormField(
-                          controller: emailController,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            hintText: 'e.g. user@example.com',
-                          ),
-                          keyboardType: TextInputType.emailAddress,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Email is required';
-                            }
-                            final emailRegex = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w{2,}$');
-                            if (!emailRegex.hasMatch(value.trim())) {
-                              return 'Enter a valid email address';
-                            }
-                            return null;
-                          },
-                        ),
-                        TextFormField(
-                          controller: passController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Password',
-                            hintText: 'Min 6 characters',
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().length < 6) {
-                              return 'Password must be at least 6 characters';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // --- Role selection ---
-                        const Text(
-                          "Select Role",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        if (userMeta.role == "admin") ...[
-                          RadioListTile<String>(
-                            title: const Text("Employee"),
-                            value: "employee",
-                            groupValue: selectedRole,
-                            onChanged: (value) {
-                              setState(() {
-                                selectedRole = value;
-                                roleError = null;
-                              });
+                content: SizedBox(
+                  width: 400,
+                  child: Form(
+                    key: formKey,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // --- Account Info Section ---
+                          Text("Account Info", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: theme.colorScheme.primary)),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: nameController,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Name',
+                              hintText: 'Min 3 characters',
+                              prefixIcon: Icon(Icons.person_outline),
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().length < 3) {
+                                return 'Name must be at least 3 characters';
+                              }
+                              return null;
                             },
                           ),
-                        ],
-
-                        if (userMeta.role == "admin" || userMeta.role == "employee") ...[
-                          RadioListTile<String>(
-                            title: const Text("Sub-Admin"),
-                            value: "subadmin",
-                            groupValue: selectedRole,
-                            onChanged: (value) {
-                              setState(() {
-                                selectedRole = value;
-                                roleError = null;
-                              });
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: emailController,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                              hintText: 'e.g. user@example.com',
+                              prefixIcon: Icon(Icons.email_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                            keyboardType: TextInputType.emailAddress,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Email is required';
+                              }
+                              final emailRegex = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w{2,}$');
+                              if (!emailRegex.hasMatch(value.trim())) {
+                                return 'Enter a valid email address';
+                              }
+                              return null;
                             },
                           ),
-                        ],
+                          const SizedBox(height: 20),
 
-                        if (userMeta.role == "admin" || userMeta.role == "subadmin") ...[
-                          RadioListTile<String>(
-                            title: const Text("User"),
-                            value: "user",
-                            groupValue: selectedRole,
-                            onChanged: (value) {
-                              setState(() {
-                                selectedRole = value;
-                                roleError = null;
-                              });
-                            },
-                          ),
-                        ],
-
-                        if (roleError != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              roleError!,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                                fontSize: 12,
+                          // --- Password Section ---
+                          Text("Password", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: theme.colorScheme.primary)),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: passController,
+                            obscureText: obscurePassword,
+                            textInputAction: TextInputAction.next,
+                            onChanged: (_) => setState(() {}),
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              hintText: 'Min 8 characters',
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              border: const OutlineInputBorder(),
+                              suffixIcon: IconButton(
+                                icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility),
+                                onPressed: () => setState(() => obscurePassword = !obscurePassword),
                               ),
                             ),
+                            validator: (v) {
+                              if (v == null || v.isEmpty) return 'Enter a password';
+                              if (v.length < 8) return 'Must be at least 8 characters';
+                              if (!RegExp(r'[A-Z]').hasMatch(v)) return 'Must contain an uppercase letter';
+                              if (!RegExp(r'[a-z]').hasMatch(v)) return 'Must contain a lowercase letter';
+                              if (!RegExp(r'[0-9]').hasMatch(v)) return 'Must contain a number';
+                              return null;
+                            },
                           ),
-                      ],
+                          if (passText.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: strengthCount / 4,
+                                minHeight: 4,
+                                backgroundColor: Colors.grey.shade200,
+                                color: strengthCount <= 1 ? Colors.red : strengthCount == 2 ? Colors.orange : strengthCount == 3 ? Colors.amber : Colors.green,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: [
+                                _passwordRule('8+ chars', hasMinLen),
+                                _passwordRule('A-Z', hasUpper),
+                                _passwordRule('a-z', hasLower),
+                                _passwordRule('0-9', hasDigit),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: confirmPassController,
+                            obscureText: obscureConfirm,
+                            decoration: InputDecoration(
+                              labelText: 'Confirm Password',
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              border: const OutlineInputBorder(),
+                              suffixIcon: IconButton(
+                                icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility),
+                                onPressed: () => setState(() => obscureConfirm = !obscureConfirm),
+                              ),
+                            ),
+                            validator: (v) {
+                              if (v == null || v.isEmpty) return 'Confirm your password';
+                              if (v != passController.text) return 'Passwords do not match';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+
+                          // --- Role Selection Section ---
+                          Text("Role", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: theme.colorScheme.primary)),
+                          const SizedBox(height: 4),
+                          Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: roleError != null ? theme.colorScheme.error : Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (userMeta.role == "admin")
+                                  RadioListTile<String>(
+                                    title: const Text("Employee"),
+                                    value: "employee",
+                                    groupValue: selectedRole,
+                                    dense: true,
+                                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(12))),
+                                    onChanged: (value) {
+                                      setState(() { selectedRole = value; roleError = null; });
+                                    },
+                                  ),
+                                if (userMeta.role == "admin" || userMeta.role == "employee")
+                                  RadioListTile<String>(
+                                    title: const Text("Sub-Admin"),
+                                    value: "subadmin",
+                                    groupValue: selectedRole,
+                                    dense: true,
+                                    onChanged: (value) {
+                                      setState(() { selectedRole = value; roleError = null; });
+                                    },
+                                  ),
+                                if (userMeta.role == "admin" || userMeta.role == "subadmin")
+                                  RadioListTile<String>(
+                                    title: const Text("User"),
+                                    value: "user",
+                                    groupValue: selectedRole,
+                                    dense: true,
+                                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(bottom: Radius.circular(12))),
+                                    onChanged: (value) {
+                                      setState(() { selectedRole = value; roleError = null; });
+                                    },
+                                  ),
+                              ],
+                            ),
+                          ),
+                          if (roleError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6, left: 12),
+                              child: Text(
+                                roleError!,
+                                style: TextStyle(
+                                  color: theme.colorScheme.error,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
+                actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 actions: [
                   TextButton(
                     onPressed:
                         () => Navigator.of(context, rootNavigator: true).pop(),
                     child: const Text("Cancel"),
                   ),
-                  ElevatedButton(
+                  FilledButton.icon(
+                    icon: const Icon(Icons.person_add, size: 18),
+                    label: const Text("Create"),
                     onPressed: () async {
                       final isFormValid = formKey.currentState!.validate();
                       if (selectedRole == null) {
@@ -829,7 +973,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                         }
                       }
                     },
-                    child: const Text("Create"),
                   ),
                 ],
               );
@@ -840,37 +983,137 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
   void _showResetPasswordDialog(BuildContext context, String userId) {
     final passwordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    bool obscureNew = true;
+    bool obscureConfirm = true;
 
     showDialog(
       context: context,
       builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setState) {
+        final theme = Theme.of(dialogContext);
+        final passText = passwordController.text;
+        final hasMinLen = passText.length >= 8;
+        final hasUpper = RegExp(r'[A-Z]').hasMatch(passText);
+        final hasLower = RegExp(r'[a-z]').hasMatch(passText);
+        final hasDigit = RegExp(r'[0-9]').hasMatch(passText);
+        final strengthCount = [hasMinLen, hasUpper, hasLower, hasDigit].where((e) => e).length;
+
         return AlertDialog(
+          icon: Icon(Icons.lock_reset_rounded, color: theme.colorScheme.primary, size: 36),
           title: const Text('Reset Password'),
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'New Password',
-                hintText: 'Enter new password',
+          content: SizedBox(
+            width: 380,
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'This will set a new password for the user. They will need to use the new password on their next login.',
+                              style: TextStyle(fontSize: 12, color: Colors.orange),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: passwordController,
+                      obscureText: obscureNew,
+                      textInputAction: TextInputAction.next,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        labelText: 'New Password',
+                        hintText: 'Min 8 characters',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility),
+                          onPressed: () => setState(() => obscureNew = !obscureNew),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Enter a new password';
+                        if (v.length < 8) return 'Must be at least 8 characters';
+                        if (!RegExp(r'[A-Z]').hasMatch(v)) return 'Must contain an uppercase letter';
+                        if (!RegExp(r'[a-z]').hasMatch(v)) return 'Must contain a lowercase letter';
+                        if (!RegExp(r'[0-9]').hasMatch(v)) return 'Must contain a number';
+                        return null;
+                      },
+                    ),
+                    if (passText.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: strengthCount / 4,
+                          minHeight: 4,
+                          backgroundColor: Colors.grey.shade200,
+                          color: strengthCount <= 1 ? Colors.red : strengthCount == 2 ? Colors.orange : strengthCount == 3 ? Colors.amber : Colors.green,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          _passwordRule('8+ chars', hasMinLen),
+                          _passwordRule('A-Z', hasUpper),
+                          _passwordRule('a-z', hasLower),
+                          _passwordRule('0-9', hasDigit),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: confirmPasswordController,
+                      obscureText: obscureConfirm,
+                      decoration: InputDecoration(
+                        labelText: 'Confirm New Password',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility),
+                          onPressed: () => setState(() => obscureConfirm = !obscureConfirm),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Confirm your new password';
+                        if (v != passwordController.text) return 'Passwords do not match';
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
               ),
-              validator: (value) {
-                if (value == null || value.trim().length < 6) {
-                  return 'Password must be at least 6 characters';
-                }
-                return null;
-              },
             ),
           ),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Cancel'),
             ),
-            ElevatedButton(
-              child: const Text('Reset'),
+            FilledButton.icon(
+              icon: const Icon(Icons.lock_reset, size: 18),
+              label: const Text('Reset Password'),
               onPressed: () async {
                 if (!formKey.currentState!.validate()) return;
 
@@ -913,7 +1156,20 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
             ),
           ],
         );
+          },
+        );
       },
+    );
+  }
+
+  Widget _passwordRule(String label, bool met) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(met ? Icons.check_circle : Icons.circle_outlined, size: 14, color: met ? Colors.green : Colors.grey),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(fontSize: 11, color: met ? Colors.green : Colors.grey)),
+      ],
     );
   }
 
@@ -934,85 +1190,105 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
+            final theme = Theme.of(context);
             return AlertDialog(
+              icon: Icon(Icons.edit_rounded, color: theme.colorScheme.primary, size: 36),
               title: const Text('Edit User'),
-              content: Form(
-                key: formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      controller: nameController,
-                      decoration: const InputDecoration(labelText: 'Name'),
-                      validator: (value) {
-                        if (value == null || value.trim().length < 3) {
-                          return 'Name must be at least 3 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    TextFormField(
-                      controller: emailController,
-                      decoration: const InputDecoration(labelText: 'Email'),
-                      validator: (value) {
-                        if (value == null ||
-                            !RegExp(
-                              r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-                            ).hasMatch(value)) {
-                          return 'Enter a valid email';
-                        }
-                        return null;
-                      },
-                    ),
+              content: SizedBox(
+                width: 400,
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text("Account Info", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: theme.colorScheme.primary)),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: nameController,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            labelText: 'Name',
+                            prefixIcon: Icon(Icons.person_outline),
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().length < 3) {
+                              return 'Name must be at least 3 characters';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: emailController,
+                          textInputAction: TextInputAction.done,
+                          decoration: const InputDecoration(
+                            labelText: 'Email',
+                            prefixIcon: Icon(Icons.email_outlined),
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value == null ||
+                                !RegExp(
+                                  r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                                ).hasMatch(value)) {
+                              return 'Enter a valid email';
+                            }
+                            return null;
+                          },
+                        ),
+                        if (userMeta.role == "admin" && user.role == "employee") ...[
+                          const SizedBox(height: 20),
+                          Text("Permissions", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: theme.colorScheme.primary)),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8.0,
+                            runSpacing: 8.0,
+                            children:
+                                availableLabels.map((label) {
+                                  final normalizedLabel = label.trim();
+                                  final isSelected = tempLabels.contains(
+                                    normalizedLabel,
+                                  );
 
-                    const SizedBox(height: 16),
-                    if (userMeta.role == "admin" && user.role == "employee")
-                      const Text(
-                        'Labels:',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    if (userMeta.role == "admin" && user.role == "employee")
-                      Wrap(
-                        spacing: 8.0,
-                        runSpacing: 8.0,
-                        children:
-                            availableLabels.map((label) {
-                              final normalizedLabel = label.trim();
-                              final isSelected = tempLabels.contains(
-                                normalizedLabel,
-                              );
-
-                              return FilterChip(
-                                label: Text(label),
-                                selected: isSelected,
-                                onSelected: (selected) {
-                                  setState(() {
-                                    if (selected) {
-                                      if (!tempLabels.contains(
-                                        normalizedLabel,
-                                      )) {
-                                        tempLabels.add(normalizedLabel);
-                                      }
-                                    } else {
-                                      tempLabels.remove(normalizedLabel);
-                                    }
-                                  });
-                                },
-                                selectedColor: Theme.of(context).colorScheme.primaryContainer,
-                                checkmarkColor: Theme.of(context).colorScheme.onPrimaryContainer,
-                              );
-                            }).toList(),
-                      ),
-                  ],
+                                  return FilterChip(
+                                    label: Text(label.replaceAll('_', ' '), style: const TextStyle(fontSize: 12)),
+                                    selected: isSelected,
+                                    onSelected: (selected) {
+                                      setState(() {
+                                        if (selected) {
+                                          if (!tempLabels.contains(
+                                            normalizedLabel,
+                                          )) {
+                                            tempLabels.add(normalizedLabel);
+                                          }
+                                        } else {
+                                          tempLabels.remove(normalizedLabel);
+                                        }
+                                      });
+                                    },
+                                    selectedColor: theme.colorScheme.primaryContainer,
+                                    checkmarkColor: theme.colorScheme.onPrimaryContainer,
+                                  );
+                                }).toList(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
+              actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('Cancel'),
                 ),
-                ElevatedButton(
+                FilledButton.icon(
+                  icon: const Icon(Icons.save_rounded, size: 18),
+                  label: const Text('Save'),
                   onPressed: () async {
                     if (!formKey.currentState!.validate()) return;
 
@@ -1081,7 +1357,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                       }
                     }
                   },
-                  child: const Text('Save'),
                 ),
               ],
             );
@@ -1105,44 +1380,80 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     showDialog(
       context: parentContext,
       builder: (context) {
+        final theme = Theme.of(context);
         return AlertDialog(
+          icon: Icon(Icons.percent_rounded, color: theme.colorScheme.primary, size: 36),
           title: const Text('Edit Commission'),
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: commissionController,
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: 'Commission (%)',
-                hintText: 'e.g. 1.2',
+          content: SizedBox(
+            width: 360,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 18, color: theme.colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Allowed range: $minCommission% — $maxCommission%',
+                            style: TextStyle(fontSize: 12, color: theme.colorScheme.primary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: commissionController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Commission (%)',
+                      hintText: 'e.g. 1.2',
+                      prefixIcon: Icon(Icons.percent),
+                      border: OutlineInputBorder(),
+                    ),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}')),
+                    ],
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Enter a commission value';
+                      }
+                      final commission = double.tryParse(value);
+                      if (commission == null) {
+                        return 'Enter a valid number';
+                      }
+                      if (!RegExp(r'^\d+(\.\d{1})?$').hasMatch(value)) {
+                        return 'Only one digit after the decimal allowed';
+                      }
+                      if (commission < minCommission || commission > maxCommission) {
+                        return 'Value must be between $minCommission and $maxCommission';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
               ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}')),
-              ],
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Enter a commission value';
-                }
-                final commission = double.tryParse(value);
-                if (commission == null) {
-                  return 'Enter a valid number';
-                }
-                if (!RegExp(r'^\d+(\.\d{1})?$').hasMatch(value)) {
-                  return 'Only one digit after the decimal allowed';
-                }
-                if (commission < minCommission || commission > maxCommission) {
-                  return 'Value must be between $minCommission and $maxCommission';
-                }
-                return null;
-              },
             ),
           ),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Cancel'),
             ),
-            ElevatedButton(
+            FilledButton.icon(
+              icon: const Icon(Icons.save_rounded, size: 18),
+              label: const Text('Save'),
               onPressed: () async {
                 if (!formKey.currentState!.validate()) return;
                 final newCommission = double.parse(
@@ -1194,7 +1505,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   }
                 }
               },
-              child: const Text('Save'),
             ),
           ],
         );
@@ -1207,14 +1517,48 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       context: context,
       builder:
           (_) => AlertDialog(
-            title: const Text("Confirm Delete"),
-            content: const Text("Are you sure you want to delete this user?"),
+            icon: const Icon(Icons.delete_forever_rounded, color: Colors.red, size: 40),
+            title: const Text("Delete User"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Are you sure you want to delete this user?'),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.person_outline, color: Colors.red.shade400, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.red.shade700)),
+                            Text(email, style: TextStyle(fontSize: 12, color: Colors.red.shade400)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text('This action cannot be undone.', style: TextStyle(fontSize: 12, color: Colors.red.shade400, fontWeight: FontWeight.w500)),
+              ],
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
                 child: const Text("Cancel"),
               ),
-              ElevatedButton(
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
                 onPressed: () => Navigator.pop(context, true),
                 child: const Text("Delete"),
               ),
@@ -2032,18 +2376,51 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: Text(newStatus ? 'Enable User' : 'Disable User'),
-            content: Text(
-              'Are you sure you want to ${newStatus ? 'enable' : 'disable'} this user?',
+            icon: Icon(
+              newStatus ? Icons.toggle_on_rounded : Icons.toggle_off_rounded,
+              color: newStatus ? Colors.green : Colors.red,
+              size: 40,
             ),
+            title: Text(newStatus ? 'Enable User' : 'Disable User'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Are you sure you want to ${newStatus ? 'enable' : 'disable'} this user?',
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: newStatus ? Colors.green.shade50 : Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: newStatus ? Colors.green.shade200 : Colors.red.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.person_outline, size: 20, color: newStatus ? Colors.green : Colors.red),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${user.name} (${user.email})',
+                          style: TextStyle(fontSize: 13, color: newStatus ? Colors.green.shade700 : Colors.red.shade700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
                 child: const Text('Cancel'),
               ),
-              ElevatedButton(
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: newStatus ? Colors.green : Colors.red),
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Yes'),
+                child: Text(newStatus ? 'Enable' : 'Disable'),
               ),
             ],
           ),

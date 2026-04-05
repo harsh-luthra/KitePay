@@ -11,6 +11,7 @@ class Transaction {
   final String? imageUrl;
   final bool deleted;
   final String? editedBy;
+  final DateTime? updatedAt  ;
 
   Transaction({
     required this.id,
@@ -25,6 +26,7 @@ class Transaction {
     this.imageUrl,
     this.deleted = false,
     this.editedBy,
+    this.updatedAt,
   });
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
@@ -41,6 +43,7 @@ class Transaction {
       imageUrl: json['imageUrl'] as String? ?? '',
       deleted: json['deleted'] as bool? ?? false,
       editedBy: json['edited_by'] as String?,
+      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
     );
   }
 

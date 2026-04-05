@@ -66,6 +66,8 @@ class TransactionCard extends StatelessWidget {
                 _statusBadge(context, status),
               if (txn.deleted)
                 _deletedBadge(context),
+              if (txn.deleted && txn.updatedAt != null)
+                _infoRow(context, Icons.update, 'Deleted At', DateFormat('dd MMM yyyy, hh:mm a').format(toIST(txn.updatedAt!))),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -112,6 +114,8 @@ class TransactionCard extends StatelessWidget {
                 _statusBadge(context, status),
               if (txn.deleted)
                 _deletedBadge(context),
+              if (txn.deleted && txn.updatedAt != null)
+                _infoRow(context, Icons.update, 'Deleted At', DateFormat('dd MMM yyyy, hh:mm a').format(toIST(txn.updatedAt!))),
               Row(
                 children: [
                   if((txn.status == 'chargeback' && AppConfig().txnImageSupport))...[

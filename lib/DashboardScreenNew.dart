@@ -171,7 +171,7 @@ class _DashboardScreenNewState extends State<DashboardScreenNew> {
         id: 4,
         label: 'Manage Users',
         icon: Icons.person,
-        visibleFor: (labels) => checkRole('admin') || (checkRole("subadmin") && checkLabel("users") || (checkRole("employee") && checkLabel(AppConstants.viewUsers))  ),
+        visibleFor: (labels) => checkRole('admin') || (checkRole("subadmin") || (checkRole("employee") && checkLabel(AppConstants.viewUsers))  ),
         builder: (_) => ManageUsersScreen(),
       ),
       _MenuItem(
